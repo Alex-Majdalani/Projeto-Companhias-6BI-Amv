@@ -1,10 +1,8 @@
 import React from 'react';
 import { Outlet } from 'react-router-dom';
 
+// AuthLayout apenas renderiza o <Outlet>
+// O visual de fundo está definido dentro de Login.tsx e Cadastro.tsx
 export function AuthLayout() {
-  return (
-    <main style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-      <Outlet />
-    </main>
-  );
+  return <Outlet />;
 }

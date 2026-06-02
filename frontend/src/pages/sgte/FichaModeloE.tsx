@@ -1,12 +1,18 @@
 import React from 'react';
-import styles from '../../styles/style.module.css';
+import styles from '../../styles/pages.module.css';
 
 export function FichaModeloE() {
   return (
-    <div className={styles.conteinercentro}>
-      <div className={styles.titulocentro}>
+    <div>
+      <div className={styles['page-header']}>
+        <p className={styles['page-header__eyebrow']}>Sargenteação</p>
         <h1>Ficha Modelo "E"</h1>
-        <h2>Confeccione sua Ficha.</h2>
+        <p>Confeccione a Ficha Modelo "E" do militar.</p>
+      </div>
+      <div className={styles['empty-page']}>
+        <span className={styles['empty-page__icon']}>📝</span>
+        <h2>Em desenvolvimento</h2>
+        <p>O formulário da Ficha Modelo "E" será implementado em breve.</p>
       </div>
     </div>
   );

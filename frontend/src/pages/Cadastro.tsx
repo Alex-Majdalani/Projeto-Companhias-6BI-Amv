@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import styles from '../styles/cadastro.module.css';
-import armyImg from '../assets/icons8-army-64.png';
+import styles from '../styles/auth.module.css';
+import logoEb from '../assets/ebicon.png';
 
 export function Cadastro() {
   const [usuario, setUsuario] = useState('');
@@ -17,28 +17,30 @@ export function Cadastro() {
       alert('As senhas não coincidem!');
       return;
     }
-    // Lógica de cadastro virá aqui
     console.log({ usuario, senha, companhia, pg });
     navigate('/login');
   };
 
   return (
-    <div className={styles.conteinercentro}>
-      <div className={styles.containercentro__img}>
-        <img src={armyImg} alt="imagem de cadastro" />
-        <h1>Cadastro</h1>
+    <div className={styles['auth-screen']}>
+      <div className={styles['auth-card']}>
+        <div className={styles['auth-logo']}>
+          <img src={logoEb} alt="Brasão EB" />
+          <span className={styles['auth-logo__title']}>Cadastro</span>
+          <span className={styles['auth-logo__sub']}>Preencha os dados para criar sua conta</span>
+        </div>
 
-        <form className={styles.login__form} onSubmit={handleCadastro}>
-          <div className={styles.form__row}>
-            <div>
-              <label htmlFor="icompanhia">Companhia </label>
-              <select 
-                name="Companhia" 
+        <form className={styles['auth-form']} onSubmit={handleCadastro}>
+          <div className={styles['auth-form__row']}>
+            <div className={styles['auth-field']}>
+              <label htmlFor="icompanhia">Companhia</label>
+              <select
+                className={styles['auth-select']}
                 id="icompanhia"
                 value={companhia}
                 onChange={(e) => setCompanhia(e.target.value)}
               >
-                <option value="inicio">--- Companhia ---</option>
+                <option value="inicio">— Cia —</option>
                 <option value="1cia">1ª Cia</option>
                 <option value="2cia">2ª Cia</option>
                 <option value="3cia">3ª Cia</option>
@@ -48,16 +50,16 @@ export function Cadastro() {
                 <option value="ciaprec">Cia Prec Pqdt</option>
               </select>
             </div>
-            
-            <div>
-              <label htmlFor="ipg">P/G </label>
-              <select 
-                name="pg" 
+
+            <div className={styles['auth-field']}>
+              <label htmlFor="ipg">Posto / Grad.</label>
+              <select
+                className={styles['auth-select']}
                 id="ipg"
                 value={pg}
                 onChange={(e) => setPg(e.target.value)}
               >
-                <option value="inicio">--- P/G ---</option>
+                <option value="inicio">— P/G —</option>
                 <option value="cap">Cap</option>
                 <option value="1ten">1º Ten</option>
                 <option value="2ten">2º Ten</option>
@@ -72,54 +74,57 @@ export function Cadastro() {
             </div>
           </div>
 
-          <p>
-            <label htmlFor="iusu">Usuário </label>
-            <input 
-              className={styles.login__label} 
-              type="text" 
-              name="usu" 
+          <div className={styles['auth-field']}>
+            <label htmlFor="iusu">Usuário</label>
+            <input
+              className={styles['auth-input']}
+              type="text"
               id="iusu"
+              placeholder="Seu nome de usuário"
               value={usuario}
               onChange={(e) => setUsuario(e.target.value)}
             />
-          </p>
+          </div>
 
-          <div className={styles.form__row}>
-            <div>
+          <div className={styles['auth-form__row']}>
+            <div className={styles['auth-field']}>
               <label htmlFor="isenha">Senha</label>
-              <input 
-                className={styles.login__label} 
-                type="password" 
-                name="senha" 
+              <input
+                className={styles['auth-input']}
+                type="password"
                 id="isenha"
+                placeholder="••••••••"
                 value={senha}
                 onChange={(e) => setSenha(e.target.value)}
               />
             </div>
-            <div>
-              <label htmlFor="isenha2">Confirme a senha </label>
-              <input 
-                className={styles.login__label} 
-                type="password" 
-                name="senha2" 
+
+            <div className={styles['auth-field']}>
+              <label htmlFor="isenha2">Confirmar</label>
+              <input
+                className={styles['auth-input']}
+                type="password"
                 id="isenha2"
+                placeholder="••••••••"
                 value={senha2}
                 onChange={(e) => setSenha2(e.target.value)}
               />
             </div>
           </div>
 
-          <div className={styles.button__row}>
-            <button className={styles.login} type="submit">Cadastrar</button>
-            <button 
-              className={styles.login} 
-              type="button" 
-              style={{ background: 'transparent', color: '#556b2f', border: '2px solid #556b2f' }}
-              onClick={() => navigate('/login')}
-            >
-              Voltar
-            </button>
-          </div>
+          <div className={styles['auth-divider']} />
+
+          <button className={`${styles['auth-btn']} ${styles['auth-btn--primary']}`} type="submit">
+            Criar conta
+          </button>
+
+          <button
+            className={`${styles['auth-btn']} ${styles['auth-btn--secondary']}`}
+            type="button"
+            onClick={() => navigate('/login')}
+          >
+            Voltar ao login
+          </button>
         </form>
       </div>
     </div>
