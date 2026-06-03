@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Breadcrumb } from '../components/ui/Breadcrumb';
 import { StatCard } from '../components/ui/StatCard';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
@@ -10,6 +11,7 @@ import {
 } from 'lucide-react';
 
 export function Home() {
+  const navigate = useNavigate();
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-end">
@@ -178,7 +180,7 @@ export function Home() {
       <div>
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Acesso Rápido</h2>
         <div className="flex gap-4 overflow-x-auto pb-2">
-          <Button variant="outline" className="bg-white rounded-xl py-6 px-6 shadow-sm border border-gray-200" icon={<UserPlus size={20} className="text-militar-main" />}>
+          <Button onClick={() => navigate('/sgte/cadastro-militares/novo')} variant="outline" className="bg-white rounded-xl py-6 px-6 shadow-sm border border-gray-200" icon={<UserPlus size={20} className="text-militar-main" />}>
              Novo Militar
           </Button>
           <Button variant="outline" className="bg-white rounded-xl py-6 px-6 shadow-sm border border-gray-200" icon={<AlertTriangle size={20} className="text-orange-500" />}>

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Breadcrumb } from '../../components/ui/Breadcrumb';
 import { Button } from '../../components/ui/Button';
 import { Input, Select } from '../../components/ui/Input';
@@ -21,6 +22,7 @@ const militaresMock = [
 
 export function CadastroMilitares() {
   const [activeTab, setActiveTab] = useState('lista');
+  const navigate = useNavigate();
 
   const tabs = [
     { id: 'lista', label: 'Lista de Militares' },
@@ -94,7 +96,7 @@ export function CadastroMilitares() {
           ))}
           
           <div className="ml-auto py-2 flex gap-2">
-            <Button icon={<Plus size={16} />} size="sm">Novo Militar</Button>
+            <Button onClick={() => navigate('/sgte/cadastro-militares/novo')} icon={<Plus size={16} />} size="sm">Novo Militar</Button>
             <Button variant="outline" icon={<MoreHorizontal size={16} />} size="sm">Ações</Button>
           </div>
         </div>
