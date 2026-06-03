@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 interface Column<T> {
   header: string;
@@ -10,9 +10,18 @@ interface DataTableProps<T> {
   columns: Column<T>[];
   data: T[];
   keyExtractor: (row: T) => string | number;
+  renderExpandedRow?: (row: T) => React.ReactNode;
 }
 
-export function DataTable<T>({ columns, data, keyExtractor }: DataTableProps<T>) {
+export function DataTable<T>({ columns, data, keyExtractor, renderExpandedRow }: DataTableProps<T>) {
+  const [expandedRows, setExpandedRows] = useState<Set<string | number>>(new Set());
+
+  const toggleRow = (key: string | number) => {
+    const newSet = new Set(expandedRows);
+    if (newSet.has(key)) newSet.delete(key);
+    else newSet.add(key);
+    setExpandedRows(newSet);
+  };
   return (
     <div className="overflow-x-auto bg-white rounded-xl border border-gray-200 shadow-sm">
       <table className="w-full text-sm text-left">
@@ -29,20 +38,35 @@ export function DataTable<T>({ columns, data, keyExtractor }: DataTableProps<T>)
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
-          {data.map((row, rowIndex) => (
-            <tr key={keyExtractor(row)} className="hover:bg-gray-50 transition-colors">
-              <td className="px-6 py-4">
-                <input type="checkbox" className="rounded border-gray-300 text-militar-main focus:ring-militar-main" />
-              </td>
-              {columns.map((col, colIndex) => (
-                <td key={colIndex} className={`px-6 py-4 text-gray-900 ${col.className || ''}`}>
-                  {typeof col.accessor === 'function'
-                    ? col.accessor(row)
-                    : (row[col.accessor] as React.ReactNode)}
-                </td>
-              ))}
-            </tr>
-          ))}
+          {data.map((row, rowIndex) => {
+            const isExpanded = expandedRows.has(keyExtractor(row));
+            return (
+              <React.Fragment key={keyExtractor(row)}>
+                <tr 
+                  className={`transition-colors ${renderExpandedRow ? 'cursor-pointer hover:bg-gray-50' : 'hover:bg-gray-50'} ${isExpanded ? 'bg-gray-50' : ''}`}
+                  onClick={() => renderExpandedRow && toggleRow(keyExtractor(row))}
+                >
+                  <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                    <input type="checkbox" className="rounded border-gray-300 text-militar-main focus:ring-militar-main" />
+                  </td>
+                  {columns.map((col, colIndex) => (
+                    <td key={colIndex} className={`px-6 py-4 text-gray-900 ${col.className || ''}`}>
+                      {typeof col.accessor === 'function'
+                        ? col.accessor(row)
+                        : (row[col.accessor] as React.ReactNode)}
+                    </td>
+                  ))}
+                </tr>
+                {renderExpandedRow && isExpanded && (
+                  <tr className="bg-gray-50/80 border-b border-gray-100">
+                    <td colSpan={columns.length + 1} className="px-6 py-4">
+                      {renderExpandedRow(row)}
+                    </td>
+                  </tr>
+                )}
+              </React.Fragment>
+            );
+          })}
           {data.length === 0 && (
             <tr>
               <td colSpan={columns.length + 1} className="px-6 py-8 text-center text-gray-500">

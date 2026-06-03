@@ -14,6 +14,10 @@ import { Pernoite } from '../pages/sgte/Pernoite';
 import { ParteAcidente } from '../pages/sgte/ParteAcidente';
 import { FATD } from '../pages/sgte/FATD';
 import { FichaModeloE } from '../pages/sgte/FichaModeloE';
+import { PlanoFerias } from '../pages/sgte/PlanoFerias';
+import { FuncoesCia } from '../pages/sgte/FuncoesCia';
+import { PlanoChamada } from '../pages/sgte/PlanoChamada';
+import { Engajamento } from '../pages/sgte/Engajamento';
 
 // force reload
 export function AppRoutes() {
@@ -39,6 +43,10 @@ export function AppRoutes() {
         <Route path="/sgte/parte-acidente" element={<ParteAcidente />} />
         <Route path="/sgte/fatd" element={<FATD />} />
         <Route path="/sgte/ficha-modelo-e" element={<FichaModeloE />} />
+        <Route path="/sgte/plano-ferias" element={<PlanoFerias />} />
+        <Route path="/sgte/funcoes-cia" element={<FuncoesCia />} />
+        <Route path="/sgte/plano-chamada" element={<PlanoChamada />} />
+        <Route path="/sgte/engajamento" element={<Engajamento />} />
       </Route>
     </Routes>
   );

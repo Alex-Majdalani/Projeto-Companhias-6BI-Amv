@@ -59,7 +59,11 @@ export function NovoMilitar() {
           </Select>
           <Input label="Número" placeholder="Ex: 123" />
           <Input label="Nome de Guerra" placeholder="Ex: Silva" />
-          
+          <Select label="Tipo (Carreira/Temporário)">
+            <option value="temporario">Militar Temporário</option>
+            <option value="carreira">Militar de Carreira</option>
+          </Select>
+
           <Select label="Período Obrigatório">
             <option value="sim">Sim</option>
             <option value="nao">Não</option>
