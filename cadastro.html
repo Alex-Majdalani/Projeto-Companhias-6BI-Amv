@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SisGAdm</title>
+    
+    <link rel="stylesheet" href="./style/cadastro.css">
+<body>
+    
+      <div class="conteinercentro">
+        <div class="containercentro__img">
+          <img src="./img/icons8-army-64.png" alt="imagem de login">
+          <h1>Cadastro</h1>
+
+          <!-------Companhia------------->
+          <form class="login__form" action="cadastro.php" method="post">
+            <label for="icompanhia">Companhia </label>
+            <select name="Companhia" id="icompanhia">
+              <option value="inicio">------Companhia------</option>
+              <option value="1cia">1ª Cia</option>
+              <option value="2cia">2ª Cia</option>
+              <option value="3cia">3ª Cia</option>
+              <option value="ccap">CCAP</option>
+              <option value="ciacmdo">Cia Cmdo</option>
+              <option value="ciacom">Cia Com</option>
+              <option value="ciaprec">Cia Prec Pqdt</option>
+            </select>
+
+            <!-------------P/G--------->
+            <p>
+              <label for="ipg">P/G </label>
+              <select name="pg" id="ipg">
+                <option value="inicio">------P/G------</option>
+                <option value="cap">Cap</option>
+              <option value="1ten">1º Ten</option>
+              <option value="2ten">2º Ten</option>
+              <option value="asp">Asp</option>
+              <option value="sten">ST</option>
+              <option value="1sgt">1º Sgt</option>
+              <option value="2sgt">2º Sgt</option>
+              <option value="3sgt">3º Sgt</option>
+              <option value="cb">Cb</option>
+              <option value="sdep">Sd EP</option>
+              </select>
+              
+            </p>
+            <p>
+              <label for="iusu">Usuário </label>
+              <input class="login__label" type="text" name="usu" id="iusu">
+            </p>
+            <p>
+              <label for="isenha">Senha</label>
+              <input class="login__label" type="password" name="senha" id="isenha">
+            </p>
+            <p>
+              <label for="isenha2">Confirme a senha </label>
+              <input class="login__label" type="password" name="senha" id="isenha2">
+            </p>
+            <p>
+              <input class="login" type="button" value="Cadastrar">
+            </p>
+          </form>
+        </div>
+      </div>
+      
+    
+</body>
+</html>
