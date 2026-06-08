@@ -734,45 +734,70 @@ export function EscalaServico() {
       {/* ══════════ MODAL — Efetivo ══════════ */}
       {showEfetivoModal && (
         <div className={styles['modal-overlay']} onClick={() => setShowEfetivoModal(false)}>
-          <div className={styles.modal} onClick={e => e.stopPropagation()}>
+          <div className={styles.modal} onClick={e => e.stopPropagation()} style={{ maxWidth: '600px' }}>
             <h3><ClipboardList size={18} style={{ display:'inline', marginRight: 8, verticalAlign:'middle' }} />
               Efetivo — {activeTab === 'sgt' ? 'Sgt / Subten' : 'Sd / Cb'}
             </h3>
             
             <div style={{ maxHeight: '400px', overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px', marginTop: '16px' }}>
-              {tab.militares.length === 0 ? (
-                <p style={{ fontSize: '0.8rem', color: '#6b7280', textAlign: 'center', padding: '10px' }}>Nenhum militar no efetivo.</p>
-              ) : (
-                tab.militares.map(m => {
-                  const dataAtual = dateKey(today.getFullYear(), today.getMonth(), today.getDate());
-                  const { folgaPreta, folgaVermelha } = calcularFolgas(m.id, dataAtual);
-                  
+              {(() => {
+                if (tab.militares.length === 0) {
                   return (
-                    <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', borderBottom: '1px solid #f3f4f6' }}>
-                      <div>
-                        <span style={{ fontSize: '0.85rem', color: '#111827', fontWeight: 600 }}>{m.pg} {m.nome}</span>
-                        {m.tipoServico && <span style={{ fontSize: '0.7rem', color: 'var(--color-primary)', marginLeft: 4 }}>({m.tipoServico})</span>}
-                      </div>
-                      
-                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                        <span className={`${styles['status-badge']} ${styles['status-badge--livre']}`} style={{ display: 'flex', gap: '8px', padding: '4px 10px' }}>
-                          <span title="Folga Preta (Segunda a Sexta)" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <span style={{ width: 8, height: 8, background: '#374151', borderRadius: '2px' }}></span> {folgaPreta}
-                          </span>
-                          <span style={{ color: '#d1d5db' }}>|</span>
-                          <span title="Folga Vermelha (Sábado e Domingo)" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <span style={{ width: 8, height: 8, background: '#ef4444', borderRadius: '2px' }}></span> {folgaVermelha}
-                          </span>
-                        </span>
-                        
-                        <button className={`${styles.btn} ${styles['btn--ghost']}`} style={{ padding: '4px' }} onClick={() => removeMilitar(m.id)} title="Remover do efetivo">
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </div>
+                    <p style={{ fontSize: '0.8rem', color: '#6b7280', textAlign: 'center', padding: '10px' }}>Nenhum militar no efetivo.</p>
                   );
-                })
-              )}
+                }
+
+                const dataAtual = dateKey(today.getFullYear(), today.getMonth(), today.getDate());
+                const isTodayWeekend = today.getDay() === 0 || today.getDay() === 6;
+
+                const militaresEfetivo = tab.militares.map(m => {
+                  const status = getStatus(m.id, dataAtual);
+                  const folgas = status === 'livre' ? calcularFolgas(m.id, dataAtual) : { folgaPreta: 0, folgaVermelha: 0 };
+                  
+                  return {
+                    ...m,
+                    status,
+                    folgaPreta: folgas.folgaPreta,
+                    folgaVermelha: folgas.folgaVermelha,
+                    relevantFolga: isTodayWeekend ? folgas.folgaVermelha : folgas.folgaPreta
+                  };
+                }).sort((a, b) => {
+                  if (a.status === 'servico' && b.status !== 'servico') return -1;
+                  if (a.status !== 'servico' && b.status === 'servico') return 1;
+                  if (a.status === 'livre' && b.status === 'livre') {
+                    if (b.relevantFolga !== a.relevantFolga) {
+                      return b.relevantFolga - a.relevantFolga;
+                    }
+                  }
+                  return 0;
+                });
+
+                return militaresEfetivo.map(m => (
+                  <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', borderBottom: '1px solid #f3f4f6' }}>
+                    <div>
+                      <span style={{ fontSize: '0.85rem', color: '#111827', fontWeight: 600 }}>{m.pg} {m.nome}</span>
+                      {m.tipoServico && <span style={{ fontSize: '0.7rem', color: 'var(--color-primary)', marginLeft: 4 }}>({m.tipoServico})</span>}
+                      {m.status === 'servico' && <span style={{ fontSize: '0.7rem', color: '#4ade80', marginLeft: 6, fontWeight: 700 }}>● Serviço Hoje</span>}
+                    </div>
+                    
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <span className={`${styles['status-badge']} ${styles['status-badge--livre']}`} style={{ display: 'flex', gap: '8px', padding: '4px 10px' }}>
+                        <span title="Folga Preta (Segunda a Sexta)" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <span style={{ width: 8, height: 8, background: '#374151', borderRadius: '2px' }}></span> {m.folgaPreta}
+                        </span>
+                        <span style={{ color: '#d1d5db' }}>|</span>
+                        <span title="Folga Vermelha (Sábado e Domingo)" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <span style={{ width: 8, height: 8, background: '#ef4444', borderRadius: '2px' }}></span> {m.folgaVermelha}
+                        </span>
+                      </span>
+                      
+                      <button className={`${styles.btn} ${styles['btn--ghost']}`} style={{ padding: '4px' }} onClick={() => removeMilitar(m.id)} title="Remover do efetivo">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ));
+              })()}
             </div>
 
             <div className={styles['modal-actions']}>
