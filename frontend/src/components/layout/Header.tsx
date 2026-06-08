@@ -5,9 +5,8 @@ import { Search, Bell, Mail, HelpCircle, ChevronDown, User, LogOut } from 'lucid
 export function Header() {
   return (
     <header className="h-20 bg-white border-b border-gray-200 flex items-center justify-between px-8 sticky top-0 z-10">
-      {/* Esquerda: Breadcrumbs (serão implementados por página ou rotas dinâmicas, aqui reservamos espaço ou injetamos dependendo de como for feito) */}
+      {/* Esquerda: Breadcrumbs */}
       <div className="flex-1">
-        {/* Placeholder para Breadcrumbs, se necessário no header. Caso contrário, fica nas páginas. */}
       </div>
 
       {/* Direita: Busca e Ícones */}
@@ -39,7 +38,7 @@ export function Header() {
         {/* Divisor */}
         <div className="w-px h-8 bg-gray-200"></div>
 
-        {/* Perfil (Simplificado no Header) */}
+        {/* Logout */}
         <Link to="/login" className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1.5 rounded-lg transition-colors">
           <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center border border-gray-200 text-gray-500 hover:text-red-500 hover:border-red-200 hover:bg-red-50 transition-colors">
             <LogOut size={16} />
