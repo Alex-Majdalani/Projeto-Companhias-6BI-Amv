@@ -464,98 +464,124 @@ export function EscalaServico() {
               <button className={styles['drawer-close']} onClick={() => setDrawerDay(null)}>✕</button>
             </div>
             <div className={styles['drawer-body']}>
-              {tab.militares.length === 0 && (
-                <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', textAlign: 'center', marginTop: 32 }}>
-                  Nenhum militar na lista ainda. Adicione militares para escalonar.
-                </p>
-              )}
-              {tab.militares.map(m => {
-                const status = getStatus(m.id, drawerDay);
-                const { folgaPreta, folgaVermelha } = status === 'livre' ? calcularFolgas(m.id, drawerDay) : { folgaPreta: 0, folgaVermelha: 0 };
-                const isSelecting = selectingTipoFor?.day === drawerDay && selectingTipoFor?.id === m.id;
-                
-                // Tipo de serviço designado para este dia especificamente
-                const entry = (tab.escala[drawerDay] || []).find(x => x.id === m.id);
-                const tipoAtual = entry?.tipoServico || m.tipoServico;
+              {(() => {
+                if (tab.militares.length === 0) {
+                  return (
+                    <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', textAlign: 'center', marginTop: 32 }}>
+                      Nenhum militar na lista ainda. Adicione militares para escalonar.
+                    </p>
+                  );
+                }
 
-                return (
-                  <div key={m.id} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    <div className={styles['status-row']}>
-                      <div className={styles['status-avatar']}>{initials(m.nome)}</div>
-                      <div className={styles['status-info']}>
-                        <div className={styles['status-name']}>
-                          {m.pg} {m.nome} {tipoAtual && status === 'servico' && <span style={{ fontSize: '0.7rem', color: 'var(--color-primary)', marginLeft: 4 }}>({tipoAtual})</span>}
+                const [y, monthStr, d] = drawerDay!.split('-').map(Number);
+                const targetDate = new Date(y, monthStr - 1, d);
+                const isTargetWeekend = targetDate.getDay() === 0 || targetDate.getDay() === 6;
+
+                const militaresSorted = tab.militares.map(m => {
+                  const status = getStatus(m.id, drawerDay!);
+                  const folgas = status === 'livre' ? calcularFolgas(m.id, drawerDay!) : { folgaPreta: 0, folgaVermelha: 0 };
+                  return { 
+                    ...m, 
+                    status, 
+                    folgaPreta: folgas.folgaPreta, 
+                    folgaVermelha: folgas.folgaVermelha,
+                    relevantFolga: isTargetWeekend ? folgas.folgaVermelha : folgas.folgaPreta
+                  };
+                }).sort((a, b) => {
+                  if (a.status === 'servico' && b.status !== 'servico') return -1;
+                  if (a.status !== 'servico' && b.status === 'servico') return 1;
+                  if (a.status === 'livre' && b.status === 'livre') {
+                    if (b.relevantFolga !== a.relevantFolga) {
+                      return b.relevantFolga - a.relevantFolga;
+                    }
+                  }
+                  return 0;
+                });
+
+                return militaresSorted.map(m => {
+                  const isSelecting = selectingTipoFor?.day === drawerDay && selectingTipoFor?.id === m.id;
+                  const entry = (tab.escala[drawerDay!] || []).find(x => x.id === m.id);
+                  const tipoAtual = entry?.tipoServico || m.tipoServico;
+
+                  return (
+                    <div key={m.id} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      <div className={styles['status-row']}>
+                        <div className={styles['status-avatar']}>{initials(m.nome)}</div>
+                        <div className={styles['status-info']}>
+                          <div className={styles['status-name']}>
+                            {m.pg} {m.nome} {tipoAtual && m.status === 'servico' && <span style={{ fontSize: '0.7rem', color: 'var(--color-primary)', marginLeft: 4 }}>({tipoAtual})</span>}
+                          </div>
+                          <div className={styles['status-pg']}>{m.origem === 'importado' ? 'Importado da Cia' : 'Cadastro manual'}</div>
                         </div>
-                        <div className={styles['status-pg']}>{m.origem === 'importado' ? 'Importado da Cia' : 'Cadastro manual'}</div>
+                        
+                        {!isSelecting && m.status === 'servico' ? (
+                          <span className={`${styles['status-badge']} ${styles['status-badge--servico']}`}>
+                            ● Serviço
+                          </span>
+                        ) : !isSelecting && m.status === 'livre' ? (
+                          <span className={`${styles['status-badge']} ${styles['status-badge--livre']}`} style={{ display: 'flex', gap: '8px', padding: '4px 10px' }}>
+                            <span title="Folgas Preta (Segunda a Sexta)" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <span style={{ width: 8, height: 8, background: '#374151', borderRadius: '2px' }}></span> {m.folgaPreta}
+                            </span>
+                            <span style={{ color: '#d1d5db' }}>|</span>
+                            <span title="Folgas Vermelha (Sábado e Domingo)" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <span style={{ width: 8, height: 8, background: '#ef4444', borderRadius: '2px' }}></span> {m.folgaVermelha}
+                            </span>
+                          </span>
+                        ) : null}
+                        
+                        {!isSelecting && (
+                          <button
+                            className={styles['status-toggle']}
+                            title={m.status === 'servico' ? 'Remover do serviço' : 'Colocar em serviço'}
+                            onClick={() => {
+                              if (m.status === 'servico') {
+                                toggleDayMilitar(drawerDay!, m.id);
+                              } else {
+                                if (activeTab === 'sd' && tiposServico.length > 0) {
+                                  setSelectingTipoFor({ day: drawerDay!, id: m.id });
+                                } else {
+                                  toggleDayMilitar(drawerDay!, m.id);
+                                }
+                              }
+                            }}
+                          >
+                            {m.status === 'servico' ? <X size={14} /> : <Check size={14} />}
+                          </button>
+                        )}
                       </div>
                       
-                      {!isSelecting && status === 'servico' ? (
-                        <span className={`${styles['status-badge']} ${styles['status-badge--servico']}`}>
-                          ● Serviço
-                        </span>
-                      ) : !isSelecting && status === 'livre' ? (
-                        <span className={`${styles['status-badge']} ${styles['status-badge--livre']}`} style={{ display: 'flex', gap: '8px', padding: '4px 10px' }}>
-                          <span title="Folgas Preta (Segunda a Sexta)" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <span style={{ width: 8, height: 8, background: '#374151', borderRadius: '2px' }}></span> {folgaPreta}
-                          </span>
-                          <span style={{ color: '#d1d5db' }}>|</span>
-                          <span title="Folgas Vermelha (Sábado e Domingo)" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <span style={{ width: 8, height: 8, background: '#ef4444', borderRadius: '2px' }}></span> {folgaVermelha}
-                          </span>
-                        </span>
-                      ) : null}
-                      
-                      {!isSelecting && (
-                        <button
-                          className={styles['status-toggle']}
-                          title={status === 'servico' ? 'Remover do serviço' : 'Colocar em serviço'}
-                          onClick={() => {
-                            if (status === 'servico') {
-                              toggleDayMilitar(drawerDay, m.id);
-                            } else {
-                              if (activeTab === 'sd' && tiposServico.length > 0) {
-                                setSelectingTipoFor({ day: drawerDay, id: m.id });
-                              } else {
-                                toggleDayMilitar(drawerDay, m.id);
-                              }
-                            }
-                          }}
-                        >
-                          {status === 'servico' ? <X size={14} /> : <Check size={14} />}
-                        </button>
+                      {/* Seção de seleção de serviço */}
+                      {isSelecting && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb', marginLeft: '42px' }}>
+                          <span style={{ fontSize: '0.8rem', color: '#374151', fontWeight: 600 }}>Tipo de Serviço:</span>
+                          <select 
+                            autoFocus
+                            className={styles['modal-select']}
+                            style={{ padding: '4px 8px', fontSize: '0.8rem', flex: 1 }}
+                            onChange={(e) => {
+                              toggleDayMilitar(drawerDay!, m.id, e.target.value);
+                              setSelectingTipoFor(null);
+                            }}
+                            onBlur={() => setSelectingTipoFor(null)}
+                          >
+                            <option value="">Selecione para escalar...</option>
+                            {tiposServico.map(t => <option key={t} value={t}>{t}</option>)}
+                          </select>
+                          <button 
+                            className={`${styles.btn} ${styles['btn--ghost']}`} 
+                            onClick={() => setSelectingTipoFor(null)}
+                            title="Cancelar"
+                            style={{ padding: '4px' }}
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
                       )}
                     </div>
-                    
-                    {/* Seção de seleção de serviço */}
-                    {isSelecting && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb', marginLeft: '42px' }}>
-                        <span style={{ fontSize: '0.8rem', color: '#374151', fontWeight: 600 }}>Tipo de Serviço:</span>
-                        <select 
-                          autoFocus
-                          className={styles['modal-select']}
-                          style={{ padding: '4px 8px', fontSize: '0.8rem', flex: 1 }}
-                          onChange={(e) => {
-                            toggleDayMilitar(drawerDay, m.id, e.target.value);
-                            setSelectingTipoFor(null);
-                          }}
-                          onBlur={() => setSelectingTipoFor(null)}
-                        >
-                          <option value="">Selecione para escalar...</option>
-                          {tiposServico.map(t => <option key={t} value={t}>{t}</option>)}
-                        </select>
-                        <button 
-                          className={`${styles.btn} ${styles['btn--ghost']}`} 
-                          onClick={() => setSelectingTipoFor(null)}
-                          title="Cancelar"
-                          style={{ padding: '4px' }}
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                  );
+                });
+              })()}
             </div>
           </div>
         </div>
