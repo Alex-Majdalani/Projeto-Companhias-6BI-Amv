@@ -11,7 +11,11 @@ import {
   Users,
   Settings,
   ClipboardList,
+  Calendar,
+  FileText
 } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import styles from '../../styles/escala.module.css';
 import pageStyles from '../../styles/pages.module.css';
 
@@ -129,6 +133,7 @@ export function EscalaServico() {
   const [showAddModal,    setShowAddModal]    = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showEfetivoModal, setShowEfetivoModal] = useState(false);
+  const [showPrevisaoModal, setShowPrevisaoModal] = useState(false);
   const [importSelected,  setImportSelected]  = useState<string[]>([]);
   const [selectingTipoFor, setSelectingTipoFor] = useState<{ day: string, id: string } | null>(null);
 
@@ -296,6 +301,66 @@ export function EscalaServico() {
     return new Date(y, m - 1, d);
   }, [drawerDay]);
 
+  // ── Previsão da Semana ──
+  const previsaoSemana = useMemo(() => {
+    let baseDate = new Date(year, month, 1);
+    if (year === today.getFullYear() && month === today.getMonth()) {
+      baseDate = today;
+    }
+    
+    const dayOfWeek = baseDate.getDay();
+    const distToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; 
+    const monday = new Date(baseDate);
+    monday.setDate(monday.getDate() - distToMonday);
+
+    const days: Date[] = [];
+    for (let i = 0; i <= 7; i++) {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      days.push(d);
+    }
+    
+    const previsao = [];
+    for (const d of days) {
+      const dKey = dateKey(d.getFullYear(), d.getMonth(), d.getDate());
+      const escalados = tab.escala[dKey] || [];
+      for (const esc of escalados) {
+        const m = tab.militares.find(x => x.id === esc.id);
+        if (m) {
+          previsao.push({
+            militar: m,
+            dataStr: dKey,
+            diaDoMes: d.getDate(),
+            diaDaSemana: DIAS_SEMANA[d.getDay()],
+            tipoServico: esc.tipoServico || m.tipoServico || 'Geral'
+          });
+        }
+      }
+    }
+    return previsao;
+  }, [year, month, tab]);
+
+  const exportarPrevisaoPDF = () => {
+    const doc = new jsPDF();
+    const abaNome = activeTab === 'sgt' ? 'Sgt / Subten' : 'Sd / Cb';
+    doc.text(`Previsao de Escala de Servico - ${abaNome}`, 14, 15);
+    
+    const tableData = previsaoSemana.map(p => [
+      `${p.militar.pg} ${p.militar.nome}`,
+      `${String(p.diaDoMes).padStart(2, '0')}/${String(parseInt(p.dataStr.split('-')[1])).padStart(2, '0')}`,
+      p.diaDaSemana,
+      p.tipoServico
+    ]);
+
+    autoTable(doc, {
+      startY: 25,
+      head: [['Militar', 'Dia', 'Semana', 'Servico']],
+      body: tableData,
+    });
+
+    doc.save(`previsao_escala_${activeTab}.pdf`);
+  };
+
   const pgOptions = activeTab === 'sgt'
     ? ['Subten', '1º Sgt', '2º Sgt', '3º Sgt']
     : ['Cb', 'Sd EP'];
@@ -335,6 +400,9 @@ export function EscalaServico() {
         </button>
         <button className={`${styles.btn} ${styles['btn--outline']}`} onClick={() => setShowEfetivoModal(true)}>
           <ClipboardList size={15} /> Efetivo
+        </button>
+        <button className={`${styles.btn} ${styles['btn--outline']}`} onClick={() => setShowPrevisaoModal(true)}>
+          <Calendar size={15} /> Previsão
         </button>
         
         {activeTab === 'sd' && (
@@ -683,6 +751,59 @@ export function EscalaServico() {
 
             <div className={styles['modal-actions']}>
               <button className={`${styles.btn} ${styles['btn--outline']}`} onClick={() => setShowEfetivoModal(false)}>
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════ MODAL — Previsão ══════════ */}
+      {showPrevisaoModal && (
+        <div className={styles['modal-overlay']} onClick={() => setShowPrevisaoModal(false)}>
+          <div className={styles.modal} onClick={e => e.stopPropagation()} style={{ maxWidth: '600px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <h3><Calendar size={18} style={{ display:'inline', marginRight: 8, verticalAlign:'middle' }} />
+                Previsão da Semana — {activeTab === 'sgt' ? 'Sgt / Subten' : 'Sd / Cb'}
+              </h3>
+              <button className={`${styles.btn} ${styles['btn--outline']}`} onClick={exportarPrevisaoPDF} title="Exportar para PDF" style={{ color: '#dc2626', borderColor: '#fca5a5' }}>
+                <FileText size={15} /> Exportar PDF
+              </button>
+            </div>
+            
+            <div style={{ maxHeight: '400px', overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px', marginTop: '16px' }}>
+              {previsaoSemana.length === 0 ? (
+                <p style={{ fontSize: '0.8rem', color: '#6b7280', textAlign: 'center', padding: '10px' }}>Nenhum militar escalado na janela selecionada.</p>
+              ) : (
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid #e5e7eb', textAlign: 'left', color: '#374151' }}>
+                      <th style={{ padding: '8px' }}>Militar</th>
+                      <th style={{ padding: '8px' }}>Dia</th>
+                      <th style={{ padding: '8px' }}>Semana</th>
+                      <th style={{ padding: '8px' }}>Serviço</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {previsaoSemana.map((p, idx) => (
+                      <tr key={idx} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                        <td style={{ padding: '8px', fontWeight: 500, color: '#111827' }}>{p.militar.pg} {p.militar.nome}</td>
+                        <td style={{ padding: '8px' }}>{String(p.diaDoMes).padStart(2, '0')}/{String(parseInt(p.dataStr.split('-')[1])).padStart(2, '0')}</td>
+                        <td style={{ padding: '8px' }}>{p.diaDaSemana}</td>
+                        <td style={{ padding: '8px' }}>
+                          <span className={`${styles['status-badge']} ${styles['status-badge--servico']}`}>
+                            {p.tipoServico}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            <div className={styles['modal-actions']}>
+              <button className={`${styles.btn} ${styles['btn--outline']}`} onClick={() => setShowPrevisaoModal(false)}>
                 Fechar
               </button>
             </div>
