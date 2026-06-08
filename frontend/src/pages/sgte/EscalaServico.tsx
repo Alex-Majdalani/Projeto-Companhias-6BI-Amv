@@ -734,7 +734,7 @@ export function EscalaServico() {
       {/* ══════════ MODAL — Efetivo ══════════ */}
       {showEfetivoModal && (
         <div className={styles['modal-overlay']} onClick={() => setShowEfetivoModal(false)}>
-          <div className={styles.modal} onClick={e => e.stopPropagation()} style={{ maxWidth: '600px' }}>
+          <div className={styles.modal} onClick={e => e.stopPropagation()}>
             <h3><ClipboardList size={18} style={{ display:'inline', marginRight: 8, verticalAlign:'middle' }} />
               Efetivo — {activeTab === 'sgt' ? 'Sgt / Subten' : 'Sd / Cb'}
             </h3>
