@@ -12,7 +12,9 @@ import {
   Settings,
   ClipboardList,
   Calendar,
-  FileText
+  FileText,
+  ToggleLeft,
+  ToggleRight,
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -147,6 +149,35 @@ export function EscalaServico() {
   const [showTiposModal, setShowTiposModal] = useState(false);
   const [novoTipoInput, setNovoTipoInput] = useState('');
 
+  // Dias com tipo de escala alterado manualmente (preta -> vermelha ou vice-versa)
+  // Record<dateKey, 'preta' | 'vermelha'> — only stores overrides
+  const [diasTipoOverride, setDiasTipoOverride] = useState<Record<string, 'preta' | 'vermelha'>>({});
+
+  // Helper: determina se um dia é "Vermelha" (final de semana ou override manual)
+  const isVermelha = (dateStr: string): boolean => {
+    if (diasTipoOverride[dateStr]) return diasTipoOverride[dateStr] === 'vermelha';
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const dow = new Date(y, m - 1, d).getDay();
+    return dow === 0 || dow === 6;
+  };
+
+  const toggleDiaTipo = (dateStr: string) => {
+    setDiasTipoOverride(prev => {
+      const current = isVermelha(dateStr) ? 'vermelha' : 'preta';
+      const [y, m, d] = dateStr.split('-').map(Number);
+      const dow = new Date(y, m - 1, d).getDay();
+      const naturalVermelha = dow === 0 || dow === 6;
+      // Se o toggle resultar no estado natural, remove o override
+      const toggled: 'preta' | 'vermelha' = current === 'vermelha' ? 'preta' : 'vermelha';
+      if ((toggled === 'vermelha') === naturalVermelha) {
+        const next = { ...prev };
+        delete next[dateStr];
+        return next;
+      }
+      return { ...prev, [dateStr]: toggled };
+    });
+  };
+
   // ── Dados da aba ativa ──
   const tab = tabs[activeTab];
   const setTab = (update: (prev: TabState) => TabState) =>
@@ -264,11 +295,11 @@ export function EscalaServico() {
     let limit = 90; // limite de busca retroativa para não travar
 
     while (limit > 0 && (!foundPreta || !foundVermelha)) {
-      const isWeekend = currDate.getDay() === 0 || currDate.getDay() === 6;
       const key = dateKey(currDate.getFullYear(), currDate.getMonth(), currDate.getDate());
       const onDuty = (tab.escala[key] || []).some(x => x.id === id);
+      const isDayVermelha = isVermelha(key);
 
-      if (isWeekend) {
+      if (isDayVermelha) {
         if (!foundVermelha) {
           if (onDuty) foundVermelha = true;
           else folgaVermelha++;
@@ -430,13 +461,25 @@ export function EscalaServico() {
           const escalados = militaresNodia(day);
           const visivel = escalados.slice(0, 3);
           const extra   = escalados.length - 3;
+          const isDayVermelha = isVermelha(key);
+          const hasOverride = diasTipoOverride[key] !== undefined;
           return (
             <div
               key={key}
-              className={`${styles['cal-cell']} ${isToday(day) ? styles['cal-cell--today'] : ''}`}
+              className={`${styles['cal-cell']} ${isToday(day) ? styles['cal-cell--today'] : ''} ${isDayVermelha && hasOverride ? styles['cal-cell--vermelha'] : ''}`}
               onClick={() => setDrawerDay(key)}
             >
-              <div className={styles['cal-day-num']}>{day}</div>
+              <div className={styles['cal-day-num']}>
+                {day}
+                {hasOverride && (
+                  <span
+                    title={isDayVermelha ? 'Escala Vermelha (alterado manualmente)' : 'Escala Preta (alterado manualmente)'}
+                    style={{ marginLeft: 4, fontSize: '0.55rem', verticalAlign: 'middle', color: isDayVermelha ? '#ef4444' : '#374151', fontWeight: 700 }}
+                  >
+                    {isDayVermelha ? '● V' : '● P'}
+                  </span>
+                )}
+              </div>
               <div className={styles['cal-badges']}>
                 {visivel.map(m => (
                   <div key={m.id} className={styles['cal-badge']} title={m.tipoServicoDesignado ? `Serviço: ${m.tipoServicoDesignado}` : ''}>
@@ -461,7 +504,33 @@ export function EscalaServico() {
                 </h2>
                 <p>Aba: <strong>{activeTab === 'sgt' ? 'Sgt / Subten' : 'Sd / Cb'}</strong> — clique no ícone para alternar o serviço</p>
               </div>
-              <button className={styles['drawer-close']} onClick={() => setDrawerDay(null)}>✕</button>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+                {/* Toggle Preta / Vermelha */}
+                {drawerDay && (() => {
+                  const dVermelha = isVermelha(drawerDay);
+                  const hasOvr = diasTipoOverride[drawerDay] !== undefined;
+                  return (
+                    <button
+                      onClick={() => toggleDiaTipo(drawerDay)}
+                      title={dVermelha ? 'Clique para tornar Preta' : 'Clique para tornar Vermelha'}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 6,
+                        padding: '4px 10px', borderRadius: 999, fontSize: '0.72rem',
+                        fontWeight: 700, cursor: 'pointer', border: 'none',
+                        background: dVermelha ? 'rgba(239,68,68,0.12)' : 'rgba(55,65,81,0.10)',
+                        color: dVermelha ? '#ef4444' : '#374151',
+                        boxShadow: hasOvr ? '0 0 0 2px ' + (dVermelha ? '#ef4444' : '#374151') : 'none',
+                        transition: 'all 0.2s',
+                      }}
+                    >
+                      {dVermelha ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
+                      {dVermelha ? 'Escala Vermelha' : 'Escala Preta'}
+                      {hasOvr && <span style={{ fontSize: '0.6rem', marginLeft: 2 }}>(manual)</span>}
+                    </button>
+                  );
+                })()}
+                <button className={styles['drawer-close']} onClick={() => setDrawerDay(null)}>✕</button>
+              </div>
             </div>
             <div className={styles['drawer-body']}>
               {(() => {
@@ -475,7 +544,7 @@ export function EscalaServico() {
 
                 const [y, monthStr, d] = drawerDay!.split('-').map(Number);
                 const targetDate = new Date(y, monthStr - 1, d);
-                const isTargetWeekend = targetDate.getDay() === 0 || targetDate.getDay() === 6;
+                const isTargetWeekend = isVermelha(drawerDay!);
 
                 const militaresSorted = tab.militares.map(m => {
                   const status = getStatus(m.id, drawerDay!);

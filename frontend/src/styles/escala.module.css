@@ -180,6 +180,16 @@
   background: rgba(58,138,62,0.06);
 }
 
+.cal-cell--vermelha {
+  border-color: #fca5a5;
+  background: rgba(239,68,68,0.06);
+}
+
+.cal-cell--vermelha:hover {
+  border-color: #f87171;
+  background: rgba(239,68,68,0.12);
+}
+
 .cal-cell--today .cal-day-num {
   background: var(--color-primary);
   color: #fff;
