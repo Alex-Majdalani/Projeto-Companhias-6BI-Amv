@@ -466,7 +466,7 @@ export function EscalaServico() {
           return (
             <div
               key={key}
-              className={`${styles['cal-cell']} ${isToday(day) ? styles['cal-cell--today'] : ''} ${isDayVermelha && hasOverride ? styles['cal-cell--vermelha'] : ''}`}
+              className={`${styles['cal-cell']} ${isToday(day) ? styles['cal-cell--today'] : ''} ${isDayVermelha ? styles['cal-cell--vermelha'] : ''}`}
               onClick={() => setDrawerDay(key)}
             >
               <div className={styles['cal-day-num']}>
