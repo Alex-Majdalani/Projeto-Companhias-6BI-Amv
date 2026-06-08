@@ -5,16 +5,15 @@ import styles from '../styles/auth.module.css';
 import logoEb from '../assets/ebicon.png';
 
 export function Login() {
-  const [usuario, setUsuario] = useState('');
+  const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
-  const [companhia, setCompanhia] = useState('inicio');
   const { signIn } = React.useContext(AuthContext);
   const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await signIn({ usuario, senha, companhia });
+      await signIn({ usuario: email, senha });
       navigate('/');
     } catch {
       alert('Erro ao fazer login. Verifique suas credenciais.');
@@ -27,38 +26,20 @@ export function Login() {
         <div className={styles['auth-logo']}>
           <img src={logoEb} alt="Brasão EB" />
           <span className={styles['auth-logo__title']}>SisGCia</span>
-          <span className={styles['auth-logo__sub']}>6º Batalhão de Infantaria Motorizado</span>
+          <span className={styles['auth-logo__sub']}>6º Batalhão de Infantaria Aeromóvel</span>
         </div>
 
         <form className={styles['auth-form']} onSubmit={handleLogin}>
           <div className={styles['auth-field']}>
-            <label htmlFor="icompanhia">Companhia</label>
-            <select
-              className={styles['auth-select']}
-              id="icompanhia"
-              value={companhia}
-              onChange={(e) => setCompanhia(e.target.value)}
-            >
-              <option value="inicio">— Selecione —</option>
-              <option value="1cia">1ª Cia</option>
-              <option value="2cia">2ª Cia</option>
-              <option value="3cia">3ª Cia</option>
-              <option value="ccap">CCAP</option>
-              <option value="ciacmdo">Cia Cmdo</option>
-              <option value="ciacom">Cia Com</option>
-              <option value="ciaprec">Cia Prec Pqdt</option>
-            </select>
-          </div>
-
-          <div className={styles['auth-field']}>
-            <label htmlFor="iusu">Usuário</label>
+            <label htmlFor="email">Email</label>
             <input
               className={styles['auth-input']}
-              type="text"
-              id="iusu"
-              placeholder="Seu nome de usuário"
-              value={usuario}
-              onChange={(e) => setUsuario(e.target.value)}
+              type="email"
+              id="email"
+              placeholder="seu.email@exemplo.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
             />
           </div>
 
@@ -71,7 +52,12 @@ export function Login() {
               placeholder="••••••••"
               value={senha}
               onChange={(e) => setSenha(e.target.value)}
+              required
             />
+          </div>
+
+          <div className={styles['auth-links']}>
+            <a href="#" className={styles['auth-link']} onClick={(e) => { e.preventDefault(); alert('Funcionalidade de recuperação de senha em desenvolvimento.'); }}>Esqueci a senha</a>
           </div>
 
           <div className={styles['auth-divider']} />

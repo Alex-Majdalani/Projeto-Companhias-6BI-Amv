@@ -1,5 +1,6 @@
 import React from 'react';
-import { Search, Bell, Mail, HelpCircle, ChevronDown, User } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Search, Bell, Mail, HelpCircle, ChevronDown, User, LogOut } from 'lucide-react';
 
 export function Header() {
   return (
@@ -39,11 +40,11 @@ export function Header() {
         <div className="w-px h-8 bg-gray-200"></div>
 
         {/* Perfil (Simplificado no Header) */}
-        <div className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1.5 rounded-lg transition-colors">
-          <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center border border-gray-200 text-gray-500">
-            <User size={16} />
+        <Link to="/login" className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1.5 rounded-lg transition-colors">
+          <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center border border-gray-200 text-gray-500 hover:text-red-500 hover:border-red-200 hover:bg-red-50 transition-colors">
+            <LogOut size={16} />
           </div>
-        </div>
+        </Link>
       </div>
     </header>
   );

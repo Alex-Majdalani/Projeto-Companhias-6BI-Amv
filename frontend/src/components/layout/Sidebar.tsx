@@ -28,7 +28,8 @@ import {
   Bed,
   Ambulance,
   FileBarChart,
-  BarChart2
+  BarChart2,
+  LogOut
 } from 'lucide-react';
 import logoEb from '../../assets/ebicon.png';
 
@@ -153,7 +154,7 @@ export function Sidebar() {
 
       {/* User Profile */}
       <div className="p-4 mt-auto">
-        <div className="bg-militar-main rounded-xl p-3 flex items-center justify-between cursor-pointer hover:bg-militar-hover transition-colors border border-militar-light/30">
+        <Link to="/login" className="bg-militar-main rounded-xl p-3 flex items-center justify-between cursor-pointer hover:bg-militar-hover transition-colors border border-militar-light/30">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-militar-light flex items-center justify-center border-2 border-white/10 text-white">
                <User size={18} />
@@ -163,8 +164,8 @@ export function Sidebar() {
               <span className="text-[11px] text-gray-300">Administrador</span>
             </div>
           </div>
-          <ChevronDown size={16} className="text-gray-400" />
-        </div>
+          <LogOut size={16} className="text-red-400 hover:text-red-300" />
+        </Link>
       </div>
     </aside>
   );

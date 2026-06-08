@@ -9,6 +9,21 @@
   --font-sans: "Inter", "Poppins", sans-serif;
 }
 
+:root {
+  --color-bg-deep: #0a110d;
+  --color-glass-border: rgba(255, 255, 255, 0.1);
+  --radius-lg: 16px;
+  --radius-sm: 8px;
+  --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --color-primary-dark: #0B3D2E;
+  --color-primary: #1F7A45;
+  --color-accent: #2ecc71;
+  --color-text: #ffffff;
+  --color-text-muted: #9ca3af;
+  --color-glass: rgba(255, 255, 255, 0.05);
+  --transition: all 0.3s ease;
+}
+
 @layer base {
   body {
     @apply bg-background text-gray-800 antialiased;
