@@ -1,34 +1,58 @@
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+@import "tailwindcss";
+
+@theme {
+  --color-militar-dark: #0B3D2E;
+  --color-militar-main: #14532D;
+  --color-militar-light: #1F7A45;
+  --color-militar-hover: #2D8C57;
+  --color-background: #F5F7FA;
+  --font-sans: "Inter", "Poppins", sans-serif;
 }
 
-body {
-  font-family: "Roboto", "Arial", sans-serif;
-  line-height: 1.6;
-  color: #333;
-  background: linear-gradient(135deg, #2c5530 0%, #1a3d1f 100%);
-  background-attachment: fixed;
-  min-height: 100vh;
+:root {
+  --color-bg-deep: #0a110d;
+  --color-glass-border: rgba(255, 255, 255, 0.1);
+  --radius-lg: 16px;
+  --radius-sm: 8px;
+  --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --color-primary-dark: #0B3D2E;
+  --color-primary: #1F7A45;
+  --color-accent: #2ecc71;
+  --color-text: #ffffff;
+  --color-text-muted: #9ca3af;
+  --color-glass: rgba(255, 255, 255, 0.05);
+  --transition: all 0.3s ease;
 }
 
-/* Overlay para melhor legibilidade */
-body::before {
-  content: "";
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: url("/src/assets/fundoCamuflado.png") center/cover no-repeat;
-  opacity: 0.1;
-  z-index: -1;
+@layer base {
+  body {
+    @apply bg-background text-gray-800 antialiased;
+  }
 }
 
-#app {
-  width: 100%;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
+/* Custom Scrollbar Styles */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.5); /* gray-400 */
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(107, 114, 128, 0.8); /* gray-500 */
+}
+
+/* Para o sidebar escuro, uma cor de scrollbar diferenciada se necessário */
+aside ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+}
+aside ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
 }

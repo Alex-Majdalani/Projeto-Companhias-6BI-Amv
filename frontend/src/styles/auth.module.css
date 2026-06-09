@@ -1,0 +1,203 @@
+/* ============================================================
+   AUTH CSS MODULE — Login, Cadastro
+   ============================================================ */
+
+.auth-screen {
+  min-height: 100vh;
+  background:
+    radial-gradient(ellipse 90% 60% at 15% 10%, rgba(58, 138, 62, 0.18) 0%, transparent 55%),
+    radial-gradient(ellipse 70% 50% at 85% 90%, rgba(26, 95, 31, 0.12) 0%, transparent 50%),
+    var(--color-bg-deep);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 420px;
+  background: rgba(18, 35, 21, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--color-glass-border);
+  border-radius: var(--radius-lg);
+  padding: 28px 32px 28px;
+  box-shadow: var(--shadow-card);
+  animation: fadeUp 0.5s ease-out both;
+  position: relative;
+  overflow: hidden;
+}
+
+/* faixa decorativa no topo */
+.auth-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--color-primary-dark), var(--color-accent), var(--color-primary-dark));
+}
+
+.auth-logo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.auth-logo img {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 10px rgba(126, 200, 127, 0.35));
+}
+
+.auth-logo__title {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--color-text);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.auth-logo__sub {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  letter-spacing: 0.5px;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.auth-form__row {
+  display: flex;
+  gap: 10px;
+}
+
+.auth-form__row > * {
+  flex: 1;
+}
+
+.auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.auth-field label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.auth-input,
+.auth-select {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--color-glass-border);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  font-family: 'Inter', sans-serif;
+  color: var(--color-text);
+  transition: var(--transition);
+  width: 100%;
+  outline: none;
+}
+
+.auth-input::placeholder {
+  color: rgba(156, 175, 158, 0.4);
+}
+
+.auth-input:focus,
+.auth-select:focus {
+  border-color: var(--color-primary);
+  background: rgba(58, 138, 62, 0.06);
+  box-shadow: 0 0 0 3px rgba(58, 138, 62, 0.15);
+}
+
+.auth-select {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%237ec87f' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 12px center;
+  background-repeat: no-repeat;
+  background-size: 16px;
+  padding-right: 38px;
+}
+
+.auth-select option {
+  background: #122315;
+  color: var(--color-text);
+}
+
+.auth-btn {
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.auth-btn--primary {
+  background: linear-gradient(135deg, var(--color-primary-dark) 0%, var(--color-primary) 100%);
+  color: white;
+  box-shadow: 0 4px 16px rgba(58, 138, 62, 0.35);
+}
+
+.auth-btn--primary:hover {
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-accent) 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(58, 138, 62, 0.45);
+}
+
+.auth-btn--secondary {
+  background: transparent;
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-glass-border);
+}
+
+.auth-btn--secondary:hover {
+  background: var(--color-glass);
+  color: var(--color-text);
+  border-color: var(--color-primary);
+}
+
+.auth-divider {
+  height: 1px;
+  background: var(--color-glass-border);
+  margin: 4px 0;
+}
+
+.auth-links {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -8px;
+}
+
+.auth-link {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  text-decoration: none;
+  transition: var(--transition);
+}
+
+.auth-link:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
+}

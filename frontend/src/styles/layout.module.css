@@ -1,0 +1,221 @@
+/* ============================================================
+   LAYOUT CSS MODULE — Header, Sidebar, Footer
+   ============================================================ */
+
+/* ── HEADER ── */
+.header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--header-height);
+  background: rgba(13, 31, 16, 0.85);
+  backdrop-filter: blur(16px) saturate(1.8);
+  -webkit-backdrop-filter: blur(16px) saturate(1.8);
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  gap: 16px;
+  z-index: 1000;
+  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.5);
+}
+
+.header__logo {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 8px rgba(126, 200, 127, 0.4));
+  flex-shrink: 0;
+}
+
+.header__brand {
+  display: flex;
+  flex-direction: column;
+}
+
+.header__brand-name {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-accent);
+  letter-spacing: 2px;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.header__brand-sub {
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+  letter-spacing: 0.5px;
+  margin-top: 2px;
+}
+
+.header__divider {
+  flex: 1;
+}
+
+.header__badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--color-glass);
+  border: 1px solid var(--color-glass-border);
+  border-radius: 99px;
+  padding: 6px 14px;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.header__badge-dot {
+  width: 7px;
+  height: 7px;
+  background: var(--color-accent);
+  border-radius: 50%;
+  animation: pulse-glow 2s infinite;
+}
+
+/* ── SIDEBAR ── */
+.sidebar {
+  position: fixed;
+  top: var(--header-height);
+  left: 0;
+  bottom: 0;
+  width: var(--sidebar-width);
+  background: rgba(18, 35, 21, 0.95);
+  border-right: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  padding: 20px 0;
+  z-index: 900;
+  transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.sidebar--collapsed {
+  width: var(--sidebar-collapsed);
+}
+
+.sidebar__section-label {
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 4px 20px 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  opacity: 1;
+  transition: opacity 0.2s;
+}
+
+.sidebar--collapsed .sidebar__section-label {
+  opacity: 0;
+}
+
+.sidebar__link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 20px;
+  color: var(--color-text-muted);
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: var(--transition);
+  border-left: 3px solid transparent;
+  white-space: nowrap;
+  position: relative;
+}
+
+.sidebar__link:hover {
+  background: var(--color-glass);
+  color: var(--color-text);
+  border-left-color: var(--color-primary);
+}
+
+.sidebar__link--active {
+  background: rgba(58, 138, 62, 0.12);
+  color: var(--color-accent);
+  border-left-color: var(--color-accent);
+}
+
+.sidebar__icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sidebar__label {
+  opacity: 1;
+  transition: opacity 0.2s;
+}
+
+.sidebar--collapsed .sidebar__label {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.sidebar__toggle {
+  margin-top: auto;
+  border-top: 1px solid var(--color-border);
+  padding-top: 12px;
+}
+
+.sidebar__toggle button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 20px;
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 0.875rem;
+  width: 100%;
+  transition: var(--transition);
+  white-space: nowrap;
+}
+
+.sidebar__toggle button:hover {
+  color: var(--color-text);
+  background: var(--color-glass);
+}
+
+/* ── PAGE WRAPPER (compensar header + sidebar) ── */
+.page-wrapper {
+  margin-top: var(--header-height);
+  margin-left: var(--sidebar-width);
+  padding: 32px;
+  min-height: calc(100vh - var(--header-height));
+  transition: margin-left 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  flex: 1;
+}
+
+.page-wrapper--collapsed {
+  margin-left: var(--sidebar-collapsed);
+}
+
+/* ── FOOTER ── */
+.footer {
+  margin-left: var(--sidebar-width);
+  padding: 20px 32px;
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  transition: margin-left 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  background: rgba(13, 31, 16, 0.5);
+}
+
+.footer--collapsed {
+  margin-left: var(--sidebar-collapsed);
+}
+
+.footer__left { font-style: italic; }
+.footer__right { letter-spacing: 0.5px; }

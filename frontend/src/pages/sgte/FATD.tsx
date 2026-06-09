@@ -1,12 +1,17 @@
-import React from 'react';
-import styles from '../../styles/style.module.css';
+import styles from '../../styles/pages.module.css';
 
 export function FATD() {
   return (
-    <div className={styles.conteinercentro}>
-      <div className={styles.titulocentro}>
+    <div>
+      <div className={styles['page-header']}>
+        <p className={styles['page-header__eyebrow']}>Sargenteação</p>
         <h1>FATD</h1>
-        <h2>Confeccione seu FATD.</h2>
+        <p>Folha de Alterações de Tropa Diária.</p>
+      </div>
+      <div className={styles['empty-page']}>
+        <span className={styles['empty-page__icon']}>📄</span>
+        <h2>Em desenvolvimento</h2>
+        <p>O formulário de FATD será implementado em breve.</p>
       </div>
     </div>
   );
