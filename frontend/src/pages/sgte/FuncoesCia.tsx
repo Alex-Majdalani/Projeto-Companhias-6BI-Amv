@@ -5,6 +5,7 @@ import { Input, Select } from '../../components/ui/Input';
 import { DataTable } from '../../components/ui/DataTable';
 import { Modal } from '../../components/ui/Modal';
 import { Plus, Search, Edit2, Trash2, Settings } from 'lucide-react';
+import { militaresMock } from './CadastroMilitares';
 
 interface FunctionType {
   id: number;
@@ -206,7 +207,8 @@ export function FuncoesCia() {
             </label>
             <Input 
               required
-              placeholder="Ex: 3º Sgt Nogueira" 
+              list="militares-list"
+              placeholder="Digite para buscar..." 
               value={effective}
               onChange={(e) => setEffective(e.target.value)}
             />
@@ -217,11 +219,18 @@ export function FuncoesCia() {
               Militar Substituto
             </label>
             <Input 
-              placeholder="Ex: Cb Silva (Opcional)" 
+              list="militares-list"
+              placeholder="Digite para buscar (Opcional)" 
               value={substitute}
               onChange={(e) => setSubstitute(e.target.value)}
             />
           </div>
+
+          <datalist id="militares-list">
+            {militaresMock.map(m => (
+              <option key={m.id} value={`${m.posto} ${m.nome}`} />
+            ))}
+          </datalist>
 
           <div className="flex justify-end gap-2 pt-4 mt-2 border-t border-gray-100">
             <Button type="button" variant="outline" onClick={() => setIsAssignmentModalOpen(false)}>
