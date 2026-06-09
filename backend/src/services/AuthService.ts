@@ -50,7 +50,8 @@ export class AuthService {
       const compValue = companhia || user.companhia?.Id || user.companhia?.Companhia || (Array.isArray(user.companhia) ? (user.companhia[0]?.Id || user.companhia[0]?.Companhia) : user.companhia);
 
       const token = jwt.sign({
-        id: user.Id,
+        // Adicionado fallback para obter o ID tanto com 'Id' quanto com 'id'
+        id: user.Id || user.id,
         email: user.email,
         nivel_acesso: user.nivel_acesso,
         companhia: compValue
@@ -71,18 +72,22 @@ export class AuthService {
       const tokenId = tokenRes.data.Id;
 
       // Em seguida, criamos a associação LinkToAnotherRecord (Many-to-One) com a tabela usuarios
+      // Adicionado fallback para user.Id ou user.id para evitar inconsistência de letras maiúsculas/minúsculas
+      const userIdToLink = user.Id || user.id;
       await api.post(`/api/v2/tables/${tokenTableId}/links/ci02k3eu16h6ayt/records/${tokenId}`, {
-        Id: user.Id
+        Id: userIdToLink
       });
 
       // 5. Atualiza o campo ultimo_acesso (DateTime) do usuário no NocoDB com o momento atual
-      // Usamos uma Promise não bloqueante para não atrasar a resposta de login
-      api.patch(`/api/v2/tables/mgjtgm3f60as8gd/records`, {
-        Id: user.Id,
-        ultimo_acesso: new Date().toISOString()
-      }).catch((err: any) => {
+      // Alterado para usar 'await' para garantir que a atualização seja concluída com sucesso no banco de dados antes de retornar
+      try {
+        await api.patch(`/api/v2/tables/mgjtgm3f60as8gd/records`, {
+          Id: userIdToLink,
+          ultimo_acesso: new Date().toISOString()
+        });
+      } catch (err: any) {
         console.warn('Aviso: Não foi possível atualizar ultimo_acesso:', err?.response?.data || err.message);
-      });
+      }
 
       // Retorna ambos os tokens para serem salvos na sessão do cliente
       return { token, refreshToken };
