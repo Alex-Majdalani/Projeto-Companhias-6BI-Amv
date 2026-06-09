@@ -13,6 +13,7 @@ import {
   ClipboardList,
   Calendar,
   FileText,
+  FilePlus2,
   ToggleLeft,
   ToggleRight,
 } from 'lucide-react';
@@ -20,6 +21,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import styles from '../../styles/escala.module.css';
 import pageStyles from '../../styles/pages.module.css';
+import { ModalAditamento } from './ModalAditamento';
 
 // ─────────────── Tipos ───────────────
 interface MilitarEscala {
@@ -39,22 +41,22 @@ interface TabState {
 
 // ─────────────── Dados mock para importação ───────────────
 const MOCK_CIA: MilitarEscala[] = [
-  { id: 'c1', nome: 'Silva',      pg: '1º Sgt',   origem: 'importado' },
-  { id: 'c2', nome: 'Souza',      pg: '2º Sgt',   origem: 'importado' },
-  { id: 'c3', nome: 'Ferreira',   pg: '3º Sgt',   origem: 'importado' },
-  { id: 'c4', nome: 'Almeida',    pg: '1º Sgt',   origem: 'importado' },
-  { id: 'c5', nome: 'Costa',      pg: 'Subten',   origem: 'importado' },
-  { id: 'c6', nome: 'Mendes',     pg: '2º Sgt',   origem: 'importado' },
-  { id: 'c7', nome: 'Oliveira',   pg: '3º Sgt',   origem: 'importado' },
-  { id: 'c8', nome: 'Lima',       pg: 'Cb',        origem: 'importado', tipoServico: 'G1' },
-  { id: 'c9', nome: 'Santos',     pg: 'Sd EP',     origem: 'importado', tipoServico: 'Plantão' },
-  { id: 'c10',nome: 'Rocha',      pg: 'Sd EP',     origem: 'importado', tipoServico: 'Reforço' },
-  { id: 'c11',nome: 'Barbosa',    pg: 'Cb',        origem: 'importado', tipoServico: 'G2' },
-  { id: 'c12',nome: 'Carvalho',   pg: 'Sd EP',     origem: 'importado', tipoServico: 'Cite' },
+  { id: 'c1', nome: 'Silva', pg: '1º Sgt', origem: 'importado' },
+  { id: 'c2', nome: 'Souza', pg: '2º Sgt', origem: 'importado' },
+  { id: 'c3', nome: 'Ferreira', pg: '3º Sgt', origem: 'importado' },
+  { id: 'c4', nome: 'Almeida', pg: '1º Sgt', origem: 'importado' },
+  { id: 'c5', nome: 'Costa', pg: 'Subten', origem: 'importado' },
+  { id: 'c6', nome: 'Mendes', pg: '2º Sgt', origem: 'importado' },
+  { id: 'c7', nome: 'Oliveira', pg: '3º Sgt', origem: 'importado' },
+  { id: 'c8', nome: 'Lima', pg: 'Cb', origem: 'importado', tipoServico: 'G1' },
+  { id: 'c9', nome: 'Santos', pg: 'Sd EP', origem: 'importado', tipoServico: 'Plantão' },
+  { id: 'c10', nome: 'Rocha', pg: 'Sd EP', origem: 'importado', tipoServico: 'Reforço' },
+  { id: 'c11', nome: 'Barbosa', pg: 'Cb', origem: 'importado', tipoServico: 'G2' },
+  { id: 'c12', nome: 'Carvalho', pg: 'Sd EP', origem: 'importado', tipoServico: 'Cite' },
 ];
 
-const SGT_PGS  = ['Subten', '1º Sgt', '2º Sgt', '3º Sgt'];
-const SD_PGS   = ['Cb', 'Sd EP'];
+const SGT_PGS = ['Subten', '1º Sgt', '2º Sgt', '3º Sgt'];
+const SD_PGS = ['Cb', 'Sd EP'];
 
 // ─────────────── Mock pré-escalado para o mês atual ───────────────
 function buildMockEscala(year: number, month: number): { sgt: TabState; sd: TabState } {
@@ -62,18 +64,18 @@ function buildMockEscala(year: number, month: number): { sgt: TabState; sd: TabS
   const key = (d: number) => `${year}-${pad(month + 1)}-${pad(d)}`;
 
   const sgtMilitares: MilitarEscala[] = [
-    { id: 'c1', nome: 'Silva',    pg: '1º Sgt', origem: 'importado' },
-    { id: 'c2', nome: 'Souza',    pg: '2º Sgt', origem: 'importado' },
+    { id: 'c1', nome: 'Silva', pg: '1º Sgt', origem: 'importado' },
+    { id: 'c2', nome: 'Souza', pg: '2º Sgt', origem: 'importado' },
     { id: 'c3', nome: 'Ferreira', pg: '3º Sgt', origem: 'importado' },
-    { id: 'c4', nome: 'Almeida',  pg: '1º Sgt', origem: 'importado' },
-    { id: 'c5', nome: 'Costa',    pg: 'Subten', origem: 'importado' },
+    { id: 'c4', nome: 'Almeida', pg: '1º Sgt', origem: 'importado' },
+    { id: 'c5', nome: 'Costa', pg: 'Subten', origem: 'importado' },
   ];
 
   const sdMilitares: MilitarEscala[] = [
-    { id: 'c8',  nome: 'Lima',     pg: 'Cb',    origem: 'importado', tipoServico: 'G1' },
-    { id: 'c9',  nome: 'Santos',   pg: 'Sd EP', origem: 'importado', tipoServico: 'Plantão' },
-    { id: 'c10', nome: 'Rocha',    pg: 'Sd EP', origem: 'importado', tipoServico: 'Reforço' },
-    { id: 'c11', nome: 'Barbosa',  pg: 'Cb',    origem: 'importado', tipoServico: 'G2' },
+    { id: 'c8', nome: 'Lima', pg: 'Cb', origem: 'importado', tipoServico: 'G1' },
+    { id: 'c9', nome: 'Santos', pg: 'Sd EP', origem: 'importado', tipoServico: 'Plantão' },
+    { id: 'c10', nome: 'Rocha', pg: 'Sd EP', origem: 'importado', tipoServico: 'Reforço' },
+    { id: 'c11', nome: 'Barbosa', pg: 'Cb', origem: 'importado', tipoServico: 'G2' },
     { id: 'c12', nome: 'Carvalho', pg: 'Sd EP', origem: 'importado', tipoServico: 'Cite' },
   ];
 
@@ -99,20 +101,20 @@ function buildMockEscala(year: number, month: number): { sgt: TabState; sd: TabS
 
   return {
     sgt: { militares: sgtMilitares, escala: sgtEscala },
-    sd:  { militares: sdMilitares,  escala: sdEscala  },
+    sd: { militares: sdMilitares, escala: sdEscala },
   };
 }
 
 
 // ─────────────── Helpers ───────────────
 const MESES = [
-  'Janeiro','Fevereiro','Março','Abril','Maio','Junho',
-  'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro',
+  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
 ];
-const DIAS_SEMANA = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+const DIAS_SEMANA = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
 function dateKey(year: number, month: number, day: number) {
-  return `${year}-${String(month + 1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+  return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
 function initials(nome: string) {
@@ -123,7 +125,7 @@ function initials(nome: string) {
 export function EscalaServico() {
   const today = new Date();
   const [activeTab, setActiveTab] = useState<'sgt' | 'sd'>('sgt');
-  const [year, setYear]   = useState(today.getFullYear());
+  const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
 
   const [tabs, setTabs] = useState<{ sgt: TabState; sd: TabState }>(
@@ -132,22 +134,28 @@ export function EscalaServico() {
 
   // Modais / Drawer
   const [drawerDay, setDrawerDay] = useState<string | null>(null);
-  const [showAddModal,    setShowAddModal]    = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showEfetivoModal, setShowEfetivoModal] = useState(false);
   const [showPrevisaoModal, setShowPrevisaoModal] = useState(false);
-  const [importSelected,  setImportSelected]  = useState<string[]>([]);
+  const [showAditamentoModal, setShowAditamentoModal] = useState(false);
+  const [importSelected, setImportSelected] = useState<string[]>([]);
   const [selectingTipoFor, setSelectingTipoFor] = useState<{ day: string, id: string } | null>(null);
 
   // Form novo militar
   const [newNome, setNewNome] = useState('');
-  const [newPg,   setNewPg]   = useState('');
+  const [newPg, setNewPg] = useState('');
   const [newTipo, setNewTipo] = useState('');
 
-  // Gerenciamento de Tipos de Serviço
-  const [tiposServico, setTiposServico] = useState(['G1', 'G2', 'Reforço', 'Plantão', 'Cite', 'Permanência', 'Pte', 'Auxiliar']);
+  // Gerenciamento de Tipos de Serviço (separado por aba)
+  const [tiposServicoSgt, setTiposServicoSgt] = useState(['Cmt Gda', 'Sgt Dia', 'Sgt Nt', 'Adjunto', 'Of Dia', 'Plantão']);
+  const [tiposServicoSd, setTiposServicoSd] = useState(['G1', 'G2', 'Reforço', 'Plantão', 'Cite', 'Permanência', 'Pte', 'Auxiliar']);
   const [showTiposModal, setShowTiposModal] = useState(false);
   const [novoTipoInput, setNovoTipoInput] = useState('');
+
+  // Alias conveniente: tipos da aba ativa
+  const tiposServico = activeTab === 'sgt' ? tiposServicoSgt : tiposServicoSd;
+  const setTiposServico = activeTab === 'sgt' ? setTiposServicoSgt : setTiposServicoSd;
 
   // Dias com tipo de escala alterado manualmente (preta -> vermelha ou vice-versa)
   // Record<dateKey, 'preta' | 'vermelha'> — only stores overrides
@@ -285,7 +293,7 @@ export function EscalaServico() {
   const calcularFolgas = (id: string, targetDay: string) => {
     let folgaPreta = 0;
     let folgaVermelha = 0;
-    
+
     const [y, m, d] = targetDay.split('-').map(Number);
     const currDate = new Date(y, m - 1, d);
     currDate.setDate(currDate.getDate() - 1); // começa a contar do dia anterior
@@ -338,9 +346,9 @@ export function EscalaServico() {
     if (year === today.getFullYear() && month === today.getMonth()) {
       baseDate = today;
     }
-    
+
     const dayOfWeek = baseDate.getDay();
-    const distToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; 
+    const distToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
     const monday = new Date(baseDate);
     monday.setDate(monday.getDate() - distToMonday);
 
@@ -350,7 +358,7 @@ export function EscalaServico() {
       d.setDate(monday.getDate() + i);
       days.push(d);
     }
-    
+
     const previsao = [];
     for (const d of days) {
       const dKey = dateKey(d.getFullYear(), d.getMonth(), d.getDate());
@@ -375,7 +383,7 @@ export function EscalaServico() {
     const doc = new jsPDF();
     const abaNome = activeTab === 'sgt' ? 'Sgt / Subten' : 'Sd / Cb';
     doc.text(`Previsao de Escala de Servico - ${abaNome}`, 14, 15);
-    
+
     const tableData = previsaoSemana.map(p => [
       `${p.militar.pg} ${p.militar.nome}`,
       `${String(p.diaDoMes).padStart(2, '0')}/${String(parseInt(p.dataStr.split('-')[1])).padStart(2, '0')}`,
@@ -395,6 +403,38 @@ export function EscalaServico() {
   const pgOptions = activeTab === 'sgt'
     ? ['Subten', '1º Sgt', '2º Sgt', '3º Sgt']
     : ['Cb', 'Sd EP'];
+
+  // ── Escala Unificada (Sgt + Sd) para o Aditamento ──
+  const escalaUnificada = useMemo(() => {
+    const allDays = new Set([
+      ...Object.keys(tabs.sgt.escala),
+      ...Object.keys(tabs.sd.escala),
+    ]);
+    const result: Record<string, { pg: string; nome: string; tipoServico?: string }[]> = {};
+    for (const day of allDays) {
+      const sgtEntries = (tabs.sgt.escala[day] || []).map(e => {
+        const m = tabs.sgt.militares.find(x => x.id === e.id);
+        if (!m) return null;
+        return { pg: m.pg, nome: m.nome, tipoServico: e.tipoServico || m.tipoServico };
+      }).filter(Boolean) as { pg: string; nome: string; tipoServico?: string }[];
+
+      const sdEntries = (tabs.sd.escala[day] || []).map(e => {
+        const m = tabs.sd.militares.find(x => x.id === e.id);
+        if (!m) return null;
+        return { pg: m.pg, nome: m.nome, tipoServico: e.tipoServico || m.tipoServico };
+      }).filter(Boolean) as { pg: string; nome: string; tipoServico?: string }[];
+
+      result[day] = [...sgtEntries, ...sdEntries];
+    }
+    return result;
+  }, [tabs]);
+
+  // ── Cmts da Cia (mock — será substituído pela API) ──
+  const cmtsCiaMock = [
+    '1º Ten SILVA (Cmt Cia)',
+    '1º Ten SOUZA (Cmt Cia)',
+    '2º Ten FERREIRA (Adj Cia)',
+  ];
 
   return (
     <>
@@ -435,12 +475,17 @@ export function EscalaServico() {
         <button className={`${styles.btn} ${styles['btn--outline']}`} onClick={() => setShowPrevisaoModal(true)}>
           <Calendar size={15} /> Previsão
         </button>
-        
-        {activeTab === 'sd' && (
-          <button className={`${styles.btn} ${styles['btn--outline']}`} onClick={() => setShowTiposModal(true)}>
-            <Settings size={15} /> Tipos de Serviço
-          </button>
-        )}
+
+        <button className={`${styles.btn} ${styles['btn--outline']}`} onClick={() => setShowTiposModal(true)}>
+          <Settings size={15} /> Tipos de Serviço
+        </button>
+        <button
+          className={`${styles.btn} ${styles['btn--primary']}`}
+          style={{ background: 'linear-gradient(135deg, #1e3a8a, #2563eb)', boxShadow: '0 4px 12px rgba(37,99,235,0.35)' }}
+          onClick={() => setShowAditamentoModal(true)}
+        >
+          <FilePlus2 size={15} /> Gerar Aditamento
+        </button>
       </div>
 
       {/* ── Navegação do Calendário ── */}
@@ -460,7 +505,7 @@ export function EscalaServico() {
           const key = dateKey(year, month, day);
           const escalados = militaresNodia(day);
           const visivel = escalados.slice(0, 3);
-          const extra   = escalados.length - 3;
+          const extra = escalados.length - 3;
           const isDayVermelha = isVermelha(key);
           const hasOverride = diasTipoOverride[key] !== undefined;
           return (
@@ -549,10 +594,10 @@ export function EscalaServico() {
                 const militaresSorted = tab.militares.map(m => {
                   const status = getStatus(m.id, drawerDay!);
                   const folgas = status === 'livre' ? calcularFolgas(m.id, drawerDay!) : { folgaPreta: 0, folgaVermelha: 0 };
-                  return { 
-                    ...m, 
-                    status, 
-                    folgaPreta: folgas.folgaPreta, 
+                  return {
+                    ...m,
+                    status,
+                    folgaPreta: folgas.folgaPreta,
                     folgaVermelha: folgas.folgaVermelha,
                     relevantFolga: isTargetWeekend ? folgas.folgaVermelha : folgas.folgaPreta
                   };
@@ -582,7 +627,7 @@ export function EscalaServico() {
                           </div>
                           <div className={styles['status-pg']}>{m.origem === 'importado' ? 'Importado da Cia' : 'Cadastro manual'}</div>
                         </div>
-                        
+
                         {!isSelecting && m.status === 'servico' ? (
                           <span className={`${styles['status-badge']} ${styles['status-badge--servico']}`}>
                             ● Serviço
@@ -598,7 +643,7 @@ export function EscalaServico() {
                             </span>
                           </span>
                         ) : null}
-                        
+
                         {!isSelecting && (
                           <button
                             className={styles['status-toggle']}
@@ -607,7 +652,7 @@ export function EscalaServico() {
                               if (m.status === 'servico') {
                                 toggleDayMilitar(drawerDay!, m.id);
                               } else {
-                                if (activeTab === 'sd' && tiposServico.length > 0) {
+                                if (tiposServico.length > 0) {
                                   setSelectingTipoFor({ day: drawerDay!, id: m.id });
                                 } else {
                                   toggleDayMilitar(drawerDay!, m.id);
@@ -619,12 +664,12 @@ export function EscalaServico() {
                           </button>
                         )}
                       </div>
-                      
+
                       {/* Seção de seleção de serviço */}
                       {isSelecting && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb', marginLeft: '42px' }}>
                           <span style={{ fontSize: '0.8rem', color: '#374151', fontWeight: 600 }}>Tipo de Serviço:</span>
-                          <select 
+                          <select
                             autoFocus
                             className={styles['modal-select']}
                             style={{ padding: '4px 8px', fontSize: '0.8rem', flex: 1 }}
@@ -637,8 +682,8 @@ export function EscalaServico() {
                             <option value="">Selecione para escalar...</option>
                             {tiposServico.map(t => <option key={t} value={t}>{t}</option>)}
                           </select>
-                          <button 
-                            className={`${styles.btn} ${styles['btn--ghost']}`} 
+                          <button
+                            className={`${styles.btn} ${styles['btn--ghost']}`}
                             onClick={() => setSelectingTipoFor(null)}
                             title="Cancelar"
                             style={{ padding: '4px' }}
@@ -660,7 +705,7 @@ export function EscalaServico() {
       {showAddModal && (
         <div className={styles['modal-overlay']} onClick={() => setShowAddModal(false)}>
           <div className={styles.modal} onClick={e => e.stopPropagation()}>
-            <h3><UserPlus size={18} style={{ display:'inline', marginRight: 8, verticalAlign:'middle' }} />
+            <h3><UserPlus size={18} style={{ display: 'inline', marginRight: 8, verticalAlign: 'middle' }} />
               Adicionar Militar
             </h3>
             <div className={styles['modal-field']}>
@@ -684,7 +729,7 @@ export function EscalaServico() {
                 {pgOptions.map(p => <option key={p} value={p}>{p}</option>)}
               </select>
             </div>
-            
+
             {activeTab === 'sd' && (
               <div className={styles['modal-field']}>
                 <label>Tipo de Serviço (Opcional)</label>
@@ -698,7 +743,7 @@ export function EscalaServico() {
                 </select>
               </div>
             )}
-            
+
             <div className={styles['modal-actions']}>
               <button className={`${styles.btn} ${styles['btn--outline']}`} onClick={() => setShowAddModal(false)}>
                 Cancelar
@@ -715,33 +760,33 @@ export function EscalaServico() {
       {showImportModal && (
         <div className={styles['modal-overlay']} onClick={() => setShowImportModal(false)}>
           <div className={styles.modal} onClick={e => e.stopPropagation()}>
-            <h3><Download size={18} style={{ display:'inline', marginRight: 8, verticalAlign:'middle' }} />
+            <h3><Download size={18} style={{ display: 'inline', marginRight: 8, verticalAlign: 'middle' }} />
               Importar da Cia — {activeTab === 'sgt' ? 'Sgt / Subten' : 'Sd / Cb'}
             </h3>
             {mockFiltrado.length === 0
-              ? <p style={{ color:'var(--color-text-muted)', fontSize:'0.85rem' }}>Nenhum militar cadastrado com esse perfil.</p>
+              ? <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>Nenhum militar cadastrado com esse perfil.</p>
               : mockFiltrado.map(m => {
-                  const jaAdicionado = jaImportadosIds.includes(m.id);
-                  return (
-                    <label key={m.id} className={styles['import-item']} style={jaAdicionado ? { opacity: 0.4, cursor:'not-allowed' } : {}}>
-                      <input
-                        type="checkbox"
-                        disabled={jaAdicionado}
-                        checked={importSelected.includes(m.id) || jaAdicionado}
-                        onChange={e => {
-                          setImportSelected(prev =>
-                            e.target.checked ? [...prev, m.id] : prev.filter(x => x !== m.id)
-                          );
-                        }}
-                      />
-                      <span className={styles['import-label']}>{m.nome}</span>
-                      <span className={styles['import-pg']}>
-                        {m.pg} {m.tipoServico ? `(${m.tipoServico})` : ''}
-                        {jaAdicionado ? ' · já adicionado' : ''}
-                      </span>
-                    </label>
-                  );
-                })
+                const jaAdicionado = jaImportadosIds.includes(m.id);
+                return (
+                  <label key={m.id} className={styles['import-item']} style={jaAdicionado ? { opacity: 0.4, cursor: 'not-allowed' } : {}}>
+                    <input
+                      type="checkbox"
+                      disabled={jaAdicionado}
+                      checked={importSelected.includes(m.id) || jaAdicionado}
+                      onChange={e => {
+                        setImportSelected(prev =>
+                          e.target.checked ? [...prev, m.id] : prev.filter(x => x !== m.id)
+                        );
+                      }}
+                    />
+                    <span className={styles['import-label']}>{m.nome}</span>
+                    <span className={styles['import-pg']}>
+                      {m.pg} {m.tipoServico ? `(${m.tipoServico})` : ''}
+                      {jaAdicionado ? ' · já adicionado' : ''}
+                    </span>
+                  </label>
+                );
+              })
             }
             <div className={styles['modal-actions']}>
               <button className={`${styles.btn} ${styles['btn--outline']}`} onClick={() => { setShowImportModal(false); setImportSelected([]); }}>
@@ -759,10 +804,10 @@ export function EscalaServico() {
       {showTiposModal && (
         <div className={styles['modal-overlay']} onClick={() => setShowTiposModal(false)}>
           <div className={styles.modal} onClick={e => e.stopPropagation()}>
-            <h3><Settings size={18} style={{ display:'inline', marginRight: 8, verticalAlign:'middle' }} />
-              Gerenciar Tipos de Serviço
+            <h3><Settings size={18} style={{ display: 'inline', marginRight: 8, verticalAlign: 'middle' }} />
+              Tipos de Serviço — {activeTab === 'sgt' ? 'Sgt / Subten' : 'Sd / Cb'}
             </h3>
-            
+
             <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
               <input
                 className={styles['modal-input']}
@@ -804,10 +849,10 @@ export function EscalaServico() {
       {showEfetivoModal && (
         <div className={styles['modal-overlay']} onClick={() => setShowEfetivoModal(false)}>
           <div className={styles.modal} onClick={e => e.stopPropagation()}>
-            <h3><ClipboardList size={18} style={{ display:'inline', marginRight: 8, verticalAlign:'middle' }} />
+            <h3><ClipboardList size={18} style={{ display: 'inline', marginRight: 8, verticalAlign: 'middle' }} />
               Efetivo — {activeTab === 'sgt' ? 'Sgt / Subten' : 'Sd / Cb'}
             </h3>
-            
+
             <div style={{ maxHeight: '400px', overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px', marginTop: '16px' }}>
               {(() => {
                 if (tab.militares.length === 0) {
@@ -822,7 +867,7 @@ export function EscalaServico() {
                 const militaresEfetivo = tab.militares.map(m => {
                   const status = getStatus(m.id, dataAtual);
                   const folgas = status === 'livre' ? calcularFolgas(m.id, dataAtual) : { folgaPreta: 0, folgaVermelha: 0 };
-                  
+
                   return {
                     ...m,
                     status,
@@ -848,7 +893,7 @@ export function EscalaServico() {
                       {m.tipoServico && <span style={{ fontSize: '0.7rem', color: 'var(--color-primary)', marginLeft: 4 }}>({m.tipoServico})</span>}
                       {m.status === 'servico' && <span style={{ fontSize: '0.7rem', color: '#4ade80', marginLeft: 6, fontWeight: 700 }}>● Serviço Hoje</span>}
                     </div>
-                    
+
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                       <span className={`${styles['status-badge']} ${styles['status-badge--livre']}`} style={{ display: 'flex', gap: '8px', padding: '4px 10px' }}>
                         <span title="Folga Preta (Segunda a Sexta)" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -859,7 +904,7 @@ export function EscalaServico() {
                           <span style={{ width: 8, height: 8, background: '#ef4444', borderRadius: '2px' }}></span> {m.folgaVermelha}
                         </span>
                       </span>
-                      
+
                       <button className={`${styles.btn} ${styles['btn--ghost']}`} style={{ padding: '4px' }} onClick={() => removeMilitar(m.id)} title="Remover do efetivo">
                         <Trash2 size={14} />
                       </button>
@@ -883,14 +928,14 @@ export function EscalaServico() {
         <div className={styles['modal-overlay']} onClick={() => setShowPrevisaoModal(false)}>
           <div className={styles.modal} onClick={e => e.stopPropagation()} style={{ maxWidth: '600px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <h3><Calendar size={18} style={{ display:'inline', marginRight: 8, verticalAlign:'middle' }} />
+              <h3><Calendar size={18} style={{ display: 'inline', marginRight: 8, verticalAlign: 'middle' }} />
                 Previsão da Semana — {activeTab === 'sgt' ? 'Sgt / Subten' : 'Sd / Cb'}
               </h3>
               <button className={`${styles.btn} ${styles['btn--outline']}`} onClick={exportarPrevisaoPDF} title="Exportar para PDF" style={{ color: '#dc2626', borderColor: '#fca5a5' }}>
                 <FileText size={15} /> Exportar PDF
               </button>
             </div>
-            
+
             <div style={{ maxHeight: '400px', overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px', marginTop: '16px' }}>
               {previsaoSemana.length === 0 ? (
                 <p style={{ fontSize: '0.8rem', color: '#6b7280', textAlign: 'center', padding: '10px' }}>Nenhum militar escalado na janela selecionada.</p>
@@ -929,6 +974,15 @@ export function EscalaServico() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ══════════ MODAL — Aditamento ao BI ══════════ */}
+      {showAditamentoModal && (
+        <ModalAditamento
+          onClose={() => setShowAditamentoModal(false)}
+          escalaUnificada={escalaUnificada}
+          cmtsCia={cmtsCiaMock}
+        />
       )}
     </>
   );
