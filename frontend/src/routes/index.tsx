@@ -10,7 +10,6 @@ import { Aditamento } from '../pages/sgte/Aditamento';
 import { CadastroMilitares } from '../pages/sgte/CadastroMilitares';
 import { NovoMilitar } from '../pages/sgte/NovoMilitar';
 import { QuadroOrganizacoes } from '../pages/sgte/QuadroOrganizacoes';
-import { Pernoite } from '../pages/sgte/Pernoite';
 import { ParteAcidente } from '../pages/sgte/ParteAcidente';
 import { FATD } from '../pages/sgte/FATD';
 import { FichaModeloE } from '../pages/sgte/FichaModeloE';
@@ -40,7 +39,6 @@ export function AppRoutes() {
         <Route path="/sgte/cadastro-militares" element={<CadastroMilitares />} />
         <Route path="/sgte/cadastro-militares/novo" element={<NovoMilitar />} />
         <Route path="/sgte/quadro-organizacoes" element={<QuadroOrganizacoes />} />
-        <Route path="/sgte/pernoite" element={<Pernoite />} />
         <Route path="/sgte/parte-acidente" element={<ParteAcidente />} />
         <Route path="/sgte/fatd" element={<FATD />} />
         <Route path="/sgte/ficha-modelo-e" element={<FichaModeloE />} />

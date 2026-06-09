@@ -5,7 +5,7 @@ import styles from '../../styles/pages.module.css';
 const modules = [
   { to: '/sgte/cadastro-militares', label: 'Cadastro de Militares', icon: '👤' },
   { to: '/sgte/aditamento',         label: 'Aditamento',            icon: '📋' },
-  { to: '/sgte/pernoite',           label: 'Pernoite',              icon: '🌙' },
+  { to: '/sgte/quadro-organizacoes',label: 'QO',                    icon: '🏢' },
   { to: '/sgte/parte-acidente',     label: 'Parte de Acidente',     icon: '⚠️' },
   { to: '/sgte/fatd',               label: 'FATD',                  icon: '📄' },
   { to: '/sgte/ficha-modelo-e',     label: 'Ficha Modelo "E"',      icon: '📝' },

@@ -16,12 +16,14 @@ import {
   FilePlus2,
   ToggleLeft,
   ToggleRight,
+  Moon,
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import styles from '../../styles/escala.module.css';
 import pageStyles from '../../styles/pages.module.css';
 import { ModalAditamento } from './ModalAditamento';
+import { ModalPernoite } from './ModalPernoite';
 
 // ─────────────── Tipos ───────────────
 interface MilitarEscala {
@@ -139,6 +141,7 @@ export function EscalaServico() {
   const [showEfetivoModal, setShowEfetivoModal] = useState(false);
   const [showPrevisaoModal, setShowPrevisaoModal] = useState(false);
   const [showAditamentoModal, setShowAditamentoModal] = useState(false);
+  const [showPernoiteModal, setShowPernoiteModal] = useState(false);
   const [importSelected, setImportSelected] = useState<string[]>([]);
   const [selectingTipoFor, setSelectingTipoFor] = useState<{ day: string, id: string } | null>(null);
 
@@ -478,6 +481,13 @@ export function EscalaServico() {
 
         <button className={`${styles.btn} ${styles['btn--outline']}`} onClick={() => setShowTiposModal(true)}>
           <Settings size={15} /> Tipos de Serviço
+        </button>
+        <button
+          className={`${styles.btn} ${styles['btn--primary']}`}
+          style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)', boxShadow: '0 4px 12px rgba(124,58,237,0.35)' }}
+          onClick={() => setShowPernoiteModal(true)}
+        >
+          <Moon size={15} /> Gerar Pernoite
         </button>
         <button
           className={`${styles.btn} ${styles['btn--primary']}`}
@@ -980,6 +990,15 @@ export function EscalaServico() {
       {showAditamentoModal && (
         <ModalAditamento
           onClose={() => setShowAditamentoModal(false)}
+          escalaUnificada={escalaUnificada}
+          cmtsCia={cmtsCiaMock}
+        />
+      )}
+
+      {/* ══════════ MODAL — Documento de Pernoite ══════════ */}
+      {showPernoiteModal && (
+        <ModalPernoite
+          onClose={() => setShowPernoiteModal(false)}
           escalaUnificada={escalaUnificada}
           cmtsCia={cmtsCiaMock}
         />
