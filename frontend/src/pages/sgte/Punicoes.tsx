@@ -341,7 +341,7 @@ export function Punicoes() {
           <span className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
             Status de Publicação
           </span>
-          <span className="text-sm font-semibold">
+          <span className="text-sm font-semibold mb-3 block">
             {row.status === 'Publicado em BI' ? (
               <span className="text-green-700 flex items-center gap-1">
                 <CheckCircle2 size={15} />
@@ -354,6 +354,16 @@ export function Punicoes() {
               </span>
             )}
           </span>
+          
+          <Button 
+            onClick={() => handleOpenEditModal(row)}
+            size="sm"
+            variant={row.status === 'Publicado em BI' ? 'outline' : 'default'}
+            className="w-full flex justify-center items-center gap-1.5 text-xs py-2 mt-1"
+          >
+            <Edit2 size={13} />
+            {row.status === 'Publicado em BI' ? 'Editar Dados da Publicação' : 'Publicar Punição (Lançar BI)'}
+          </Button>
         </div>
       </div>
       
