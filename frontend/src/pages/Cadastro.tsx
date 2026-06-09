@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styles from '../styles/auth.module.css';
 import logoEb from '../assets/ebicon.png';
+import { api } from '../services/api';
 
 export function Cadastro() {
   const [nome, setNome] = useState('');
@@ -10,16 +11,38 @@ export function Cadastro() {
   const [senha2, setSenha2] = useState('');
   const [companhia, setCompanhia] = useState('');
   const [pg, setPg] = useState('');
+
+  const [postos, setPostos] = useState<any[]>([]);
+  const [companhias, setCompanhias] = useState<any[]>([]);
+
   const navigate = useNavigate();
 
-  const handleCadastro = (e: React.FormEvent) => {
+  useEffect(() => {
+    async function fetchMetadata() {
+      try {
+        const response = await api.get('/auth/metadata');
+        setPostos(response.data.postos);
+        setCompanhias(response.data.companhias);
+      } catch (err) {
+        console.error('Erro ao buscar dados do banco:', err);
+      }
+    }
+    fetchMetadata();
+  }, []);
+
+  const handleCadastro = async (e: React.FormEvent) => {
     e.preventDefault();
     if (senha !== senha2) {
       alert('As senhas não coincidem!');
       return;
     }
-    console.log({ nome, email, senha, companhia, pg });
-    navigate('/login');
+    try {
+      await api.post('/auth/register', { nome, email, senha, companhia, pg });
+      alert('Cadastro realizado com sucesso!');
+      navigate('/login');
+    } catch (err: any) {
+      alert('Erro ao realizar cadastro: ' + (err.response?.data?.error || err.message));
+    }
   };
 
   return (
@@ -69,16 +92,9 @@ export function Cadastro() {
                 required
               >
                 <option value="" disabled>— Selecione —</option>
-                <option value="cap">Capitão</option>
-                <option value="1ten">1º Tenente</option>
-                <option value="2ten">2º Tenente</option>
-                <option value="asp">Aspirante</option>
-                <option value="sten">Subtenente</option>
-                <option value="1sgt">1º Sargento</option>
-                <option value="2sgt">2º Sargento</option>
-                <option value="3sgt">3º Sargento</option>
-                <option value="cb">Cabo</option>
-                <option value="sdep">Soldado EP</option>
+                {postos.map((p) => (
+                  <option key={p.id} value={p.id}>{p.nome}</option>
+                ))}
               </select>
             </div>
 
@@ -92,13 +108,9 @@ export function Cadastro() {
                 required
               >
                 <option value="" disabled>— Selecione —</option>
-                <option value="1cia">1ª Cia</option>
-                <option value="2cia">2ª Cia</option>
-                <option value="3cia">3ª Cia</option>
-                <option value="ccap">CCAP</option>
-                <option value="ciacmdo">Cia Cmdo</option>
-                <option value="ciacom">Cia Com</option>
-                <option value="ciaprec">Cia Prec Pqdt</option>
+                {companhias.map((c) => (
+                  <option key={c.id} value={c.id}>{c.nome}</option>
+                ))}
               </select>
             </div>
           </div>

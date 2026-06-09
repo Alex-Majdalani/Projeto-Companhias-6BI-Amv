@@ -1,4 +1,4 @@
-import React from 'react';
+import type { ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -14,7 +14,6 @@ import {
   Stethoscope,
   HeartPulse,
   Settings,
-  ChevronDown,
   User,
   ClipboardList,
   Plane,
@@ -36,7 +35,7 @@ import logoEb from '../../assets/ebicon.png';
 interface NavItem {
   to: string;
   label: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
 }
 
 interface NavGroup {

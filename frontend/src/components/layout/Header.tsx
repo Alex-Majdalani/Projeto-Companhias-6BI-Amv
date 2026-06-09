@@ -1,6 +1,5 @@
-import React from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Bell, Mail, HelpCircle, ChevronDown, User, LogOut } from 'lucide-react';
+import { Search, Bell, Mail, HelpCircle, LogOut } from 'lucide-react';
 
 export function Header() {
   return (

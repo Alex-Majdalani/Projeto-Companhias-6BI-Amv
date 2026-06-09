@@ -1,4 +1,3 @@
-import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Breadcrumb } from '../components/ui/Breadcrumb';
 import { StatCard } from '../components/ui/StatCard';
@@ -7,7 +6,7 @@ import { Button } from '../components/ui/Button';
 import { 
   Users, Scale, HeartPulse, Activity, Target, 
   Calendar, AlertTriangle, AlertOctagon,
-  UserPlus, FileText, Dumbbell, Stethoscope, Cross, GraduationCap
+  UserPlus, Stethoscope, GraduationCap
 } from 'lucide-react';
 
 export function Home() {

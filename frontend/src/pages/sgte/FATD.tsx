@@ -1,4 +1,3 @@
-import React from 'react';
 import styles from '../../styles/pages.module.css';
 
 export function FATD() {
