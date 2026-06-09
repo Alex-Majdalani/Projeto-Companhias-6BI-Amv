@@ -223,18 +223,18 @@ export function PlanoFerias() {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Nome do Militar
             </label>
-            <Select 
+            <Input 
               required
+              list="militares-list"
+              placeholder="Digite para buscar..."
               value={nomeMilitar}
               onChange={(e) => setNomeMilitar(e.target.value)}
-            >
-              <option value="" disabled>Selecione um militar</option>
+            />
+            <datalist id="militares-list">
               {militaresMock.map(m => (
-                <option key={m.id} value={`${m.posto} ${m.nome}`}>
-                  {m.posto} {m.nome}
-                </option>
+                <option key={m.id} value={`${m.posto} ${m.nome}`} />
               ))}
-            </Select>
+            </datalist>
           </div>
           
           <div>
