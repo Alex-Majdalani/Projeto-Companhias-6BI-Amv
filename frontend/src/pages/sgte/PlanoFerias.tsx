@@ -6,6 +6,7 @@ import { DataTable } from '../../components/ui/DataTable';
 import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
 import { Plus, Search, Eye, Edit2, Trash2 } from 'lucide-react';
+import { militaresMock } from './CadastroMilitares';
 
 interface VacationPlan {
   id: number;
@@ -222,12 +223,18 @@ export function PlanoFerias() {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Nome do Militar
             </label>
-            <Input 
+            <Select 
               required
-              placeholder="Ex: 3º Sgt Nogueira" 
               value={nomeMilitar}
               onChange={(e) => setNomeMilitar(e.target.value)}
-            />
+            >
+              <option value="" disabled>Selecione um militar</option>
+              {militaresMock.map(m => (
+                <option key={m.id} value={`${m.posto} ${m.nome}`}>
+                  {m.posto} {m.nome}
+                </option>
+              ))}
+            </Select>
           </div>
           
           <div>

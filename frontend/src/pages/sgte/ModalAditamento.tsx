@@ -51,17 +51,17 @@ interface Props {
 }
 
 const MESES = [
-  'janeiro','fevereiro','março','abril','maio','junho',
-  'julho','agosto','setembro','outubro','novembro','dezembro',
+  'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+  'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro',
 ];
 
 const FEDERAL = 'MINISTÉRIO DA DEFESA';
 const EXERCITO = 'EXÉRCITO BRASILEIRO';
 const REGIMENTO = 'REGIMENTO IPIRANGA';
 const HISTORICO = 'BC PRO DO CE/1842';
-const OM_NOME   = '6º BATALHÃO DE INFANTARIA AEROMÓVEL';
-const OM_SIGLA  = '6º BI AMV';
-const CIA_NOME  = '1ª COMPANHIA DE FUZILEIROS AEROMÓVEL';
+const OM_NOME = '6º BATALHÃO DE INFANTARIA AEROMÓVEL';
+const OM_SIGLA = '6º BI AMV';
+const CIA_NOME = '1ª COMPANHIA DE FUZILEIROS AEROMÓVEL';
 
 function formatDateBR(iso: string): string {
   if (!iso) return '';
@@ -71,7 +71,7 @@ function formatDateBR(iso: string): string {
 
 export function ModalAditamento({ onClose, escalaUnificada, cmtsCia }: Props) {
   const today = new Date();
-  const todayKey = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
   const [form, setForm] = useState<AditamentoForm>({
     numBI: '',
@@ -122,51 +122,20 @@ export function ModalAditamento({ onClose, escalaUnificada, cmtsCia }: Props) {
     const margin = 20;
     let y = 18;
 
-    // ── Cabeçalho hierárquico (padrão documento oficial EB) ──
-    // Linha 1 — Ministério
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.text(FEDERAL, pageW / 2, y, { align: 'center' });
-    y += 4.5;
-
-    // Linha 2 — Exército Brasileiro
+    // ── Cabeçalho ──
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.text(EXERCITO, pageW / 2, y, { align: 'center' });
-    y += 5;
-
-    // Linha 3 — Regimento
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
-    doc.text(REGIMENTO, pageW / 2, y, { align: 'center' });
-    y += 4.5;
-
-    // Linha 4 — Histórico
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7.5);
-    doc.text(`"${HISTORICO}"`, pageW / 2, y, { align: 'center' });
-    y += 4.5;
-
-    // Linha 5 — OM
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
+    doc.setFontSize(11);
+    doc.text('EXÉRCITO BRASILEIRO', pageW / 2, y, { align: 'center' });
+    y += 6;
     doc.text(OM_NOME, pageW / 2, y, { align: 'center' });
-    y += 4.5;
-
-    // Linha 6 — Cia
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8.5);
+    y += 6;
     doc.text(CIA_NOME, pageW / 2, y, { align: 'center' });
-    y += 6;
+    y += 8;
 
-    doc.setLineWidth(0.6);
-    doc.line(margin, y, pageW - margin, y);
-    y += 1;
-    doc.setLineWidth(0.2);
+    doc.setLineWidth(0.5);
     doc.line(margin, y, pageW - margin, y);
     y += 6;
 
-    doc.setFont('helvetica', 'bold');
     doc.setFontSize(12);
     doc.text('ADITAMENTO AO BOLETIM INTERNO', pageW / 2, y, { align: 'center' });
     y += 6;
@@ -175,7 +144,6 @@ export function ModalAditamento({ onClose, escalaUnificada, cmtsCia }: Props) {
     doc.setFontSize(10);
     doc.text(`Nº ${form.numBI || '____'} — ${formatDateBR(form.dataBI) || '____'}`, pageW / 2, y, { align: 'center' });
     y += 5;
-    doc.setLineWidth(0.2);
     doc.line(margin, y, pageW - margin, y);
     y += 8;
 

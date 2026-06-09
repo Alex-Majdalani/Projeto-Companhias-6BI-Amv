@@ -7,7 +7,7 @@ import { DataTable } from '../../components/ui/DataTable';
 import { Badge } from '../../components/ui/Badge';
 import { Plus, Download, Filter, Eye, Edit2, MoreHorizontal, Search } from 'lucide-react';
 
-const militaresMock = [
+export const militaresMock = [
   { id: 1, posto: 'Maj', nome: 'JOÃO CARLOS DA SILVA', identidade: '123456789-0', cpf: '123.456.789-00', quadro: 'QAO', subunidade: '12º BI INF', situacao: 'Ativo', tipo: 'Carreira' },
   { id: 2, posto: 'Cap', nome: 'MARIA EDUARDA SOUZA', identidade: '987654321-1', cpf: '987.654.321-11', quadro: 'QEM', subunidade: '12º BI INF', situacao: 'Ativo', tipo: 'Carreira' },
   { id: 3, posto: '1º Ten', nome: 'PEDRO HENRIQUE ALMEIDA', identidade: '112233445-2', cpf: '112.233.445-22', quadro: 'QAO', subunidade: '12º BI INF', situacao: 'Ativo', tipo: 'Temporário' },

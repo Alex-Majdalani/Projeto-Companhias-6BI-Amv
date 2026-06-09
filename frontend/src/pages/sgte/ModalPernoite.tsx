@@ -17,20 +17,20 @@ import adit from '../../styles/aditamento.module.css';
 import pern from '../../styles/pernoite.module.css';
 
 // ─── Constantes OM ───────────────────────────────────────
-const FEDERAL   = 'MINISTÉRIO DA DEFESA';
-const EXERCITO  = 'EXÉRCITO BRASILEIRO';
+const FEDERAL = 'MINISTÉRIO DA DEFESA';
+const EXERCITO = 'EXÉRCITO BRASILEIRO';
 const REGIMENTO = 'REGIMENTO IPIRANGA';
 const HISTORICO = 'BC PRO DO CE/1842';
-const OM_NOME   = '6º BATALHÃO DE INFANTARIA AEROMÓVEL';
-const OM_SIGLA  = '6º BI AMV';
-const CIA_NOME  = '1ª COMPANHIA DE FUZILEIROS AEROMÓVEL';
+const OM_NOME = '6º BATALHÃO DE INFANTARIA AEROMÓVEL';
+const OM_SIGLA = '6º BI AMV';
+const CIA_NOME = '1ª COMPANHIA DE FUZILEIROS AEROMÓVEL';
 
 const MESES = [
-  'janeiro','fevereiro','março','abril','maio','junho',
-  'julho','agosto','setembro','outubro','novembro','dezembro',
+  'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+  'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro',
 ];
 
-const DIAS_SEMANA = ['domingo','segunda-feira','terça-feira','quarta-feira','quinta-feira','sexta-feira','sábado'];
+const DIAS_SEMANA = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
 
 // ─── Tipos ───────────────────────────────────────────────
 interface MilitarEscalado {
@@ -61,12 +61,12 @@ function formatDateBR(iso: string): string {
   if (!iso) return '';
   const [y, m, d] = iso.split('-').map(Number);
   const dow = new Date(y, m - 1, d).getDay();
-  return `${String(d).padStart(2,'0')} de ${MESES[m - 1]} de ${y} (${DIAS_SEMANA[dow]})`;
+  return `${String(d).padStart(2, '0')} de ${MESES[m - 1]} de ${y} (${DIAS_SEMANA[dow]})`;
 }
 
 function todayKey(): string {
   const t = new Date();
-  return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+  return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
 }
 
 // ─── Componente ──────────────────────────────────────────
@@ -79,6 +79,10 @@ export function ModalPernoite({ onClose, escalaUnificada, cmtsCia }: Props) {
   const [sgtDia, setSgtDia] = useState('');
   const [cmtCia, setCmtCia] = useState(cmtsCia[0] || '');
   const [sgte, setSgte] = useState(MOCK_FUNCOES.sgte);
+
+  // Pernoite: com ou sem alteração
+  const [semAlteracao, setSemAlteracao] = useState(false);
+  const [numLinhas, setNumLinhas] = useState(6);
 
   // Militares punidos (adicionados manualmente)
   const [punidos, setPunidos] = useState<MilitarPunido[]>([]);
@@ -224,7 +228,7 @@ export function ModalPernoite({ onClose, escalaUnificada, cmtsCia }: Props) {
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
-    doc.text('OCORRÊNCIAS DO PERNOITE', margin, y);
+    doc.text('OCORRÊNCIAS DO PERNOITE:   ________ ALTERAÇÃO', margin, y);
     y += 5;
 
     doc.setFont('helvetica', 'normal');
