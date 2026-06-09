@@ -18,6 +18,7 @@ import { FuncoesCia } from '../pages/sgte/FuncoesCia';
 import { PlanoChamada } from '../pages/sgte/PlanoChamada';
 import { Engajamento } from '../pages/sgte/Engajamento';
 import { EscalaServico } from '../pages/sgte/EscalaServico';
+import { Punicoes } from '../pages/sgte/Punicoes';
 
 // force reload
 export function AppRoutes() {
@@ -47,6 +48,7 @@ export function AppRoutes() {
         <Route path="/sgte/plano-chamada" element={<PlanoChamada />} />
         <Route path="/sgte/engajamento" element={<Engajamento />} />
         <Route path="/sgte/escala" element={<EscalaServico />} />
+        <Route path="/sgte/punicoes" element={<Punicoes />} />
       </Route>
     </Routes>
   );

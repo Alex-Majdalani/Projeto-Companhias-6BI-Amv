@@ -8,6 +8,7 @@ const modules = [
   { to: '/sgte/quadro-organizacoes',label: 'QO',                    icon: '🏢' },
   { to: '/sgte/parte-acidente',     label: 'Parte de Acidente',     icon: '⚠️' },
   { to: '/sgte/fatd',               label: 'FATD',                  icon: '📄' },
+  { to: '/sgte/punicoes',           label: 'Punições',              icon: '⚖️' },
   { to: '/sgte/ficha-modelo-e',     label: 'Ficha Modelo "E"',      icon: '📝' },
 ];
 
