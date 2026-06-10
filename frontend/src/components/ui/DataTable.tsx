@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 
 export interface Column<T> {
   header: string;
@@ -15,6 +15,14 @@ interface DataTableProps<T> {
 
 export function DataTable<T>({ columns, data, keyExtractor, renderExpandedRow }: DataTableProps<T>) {
   const [expandedRows, setExpandedRows] = useState<Set<string | number>>(new Set());
+  
+  // ── ESTADO PARA SELEÇÃO DOS ITEMS (CHECKBOXES) ─────────────────────────────
+  // Guarda os IDs (obtidos pelo keyExtractor) dos registros selecionados
+  const [selectedRows, setSelectedRows] = useState<Set<string | number>>(new Set());
+
+  // ── ESTADO PARA CONTROLE DE PAGINAÇÃO ──────────────────────────────────────
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const itemsPerPage = 10; // Limite de 10 registros por página
 
   const toggleRow = (key: string | number) => {
     const newSet = new Set(expandedRows);
@@ -22,13 +30,69 @@ export function DataTable<T>({ columns, data, keyExtractor, renderExpandedRow }:
     else newSet.add(key);
     setExpandedRows(newSet);
   };
+
+  // ── PAGINAÇÃO: CÁLCULOS ────────────────────────────────────────────────────
+  const totalPages = Math.max(1, Math.ceil(data.length / itemsPerPage));
+  
+  // Garante que a página atual não fique fora do limite caso os dados mudem
+  const activePage = Math.min(currentPage, totalPages);
+
+  // Filtra os dados exibidos com base na página atual
+  const paginatedData = useMemo(() => {
+    const startIndex = (activePage - 1) * itemsPerPage;
+    return data.slice(startIndex, startIndex + itemsPerPage);
+  }, [data, activePage]);
+
+  const startIndex = (activePage - 1) * itemsPerPage;
+  const endIndex = Math.min(startIndex + itemsPerPage, data.length);
+
+  // ── CONTROLE DO CHECKBOX DE SELECIONAR TODAS ──────────────────────────────
+  // Verifica se todas as linhas da página ATUAL estão selecionadas
+  const isAllSelected = useMemo(() => {
+    if (paginatedData.length === 0) return false;
+    return paginatedData.every((row) => selectedRows.has(keyExtractor(row)));
+  }, [paginatedData, selectedRows, keyExtractor]);
+
+  // Manipulador para marcar/desmarcar todas as linhas da página atual
+  const handleSelectAllChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newSelected = new Set(selectedRows);
+    if (e.target.checked) {
+      // Adiciona todos os itens da página atual
+      paginatedData.forEach((row) => {
+        newSelected.add(keyExtractor(row));
+      });
+    } else {
+      // Remove todos os itens da página atual
+      paginatedData.forEach((row) => {
+        newSelected.delete(keyExtractor(row));
+      });
+    }
+    setSelectedRows(newSelected);
+  };
+
+  // Manipulador para alternar seleção de uma linha individual
+  const handleRowSelectChange = (key: string | number) => {
+    const newSelected = new Set(selectedRows);
+    if (newSelected.has(key)) {
+      newSelected.delete(key);
+    } else {
+      newSelected.add(key);
+    }
+    setSelectedRows(newSelected);
+  };
+
   return (
     <div className="overflow-x-auto bg-white rounded-xl border border-gray-200 shadow-sm">
       <table className="w-full text-sm text-left">
         <thead className="text-xs text-gray-500 uppercase bg-gray-50 border-b border-gray-200">
           <tr>
             <th className="px-6 py-4 w-12">
-              <input type="checkbox" className="rounded border-gray-300 text-militar-main focus:ring-militar-main" />
+              <input 
+                type="checkbox" 
+                checked={isAllSelected}
+                onChange={handleSelectAllChange}
+                className="rounded border-gray-300 text-militar-main focus:ring-militar-main cursor-pointer" 
+              />
             </th>
             {columns.map((col, idx) => (
               <th key={idx} className={`px-6 py-4 font-semibold ${col.className || ''}`}>
@@ -38,16 +102,24 @@ export function DataTable<T>({ columns, data, keyExtractor, renderExpandedRow }:
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
-          {data.map((row) => {
-            const isExpanded = expandedRows.has(keyExtractor(row));
+          {paginatedData.map((row) => {
+            const rowKey = keyExtractor(row);
+            const isExpanded = expandedRows.has(rowKey);
+            const isChecked = selectedRows.has(rowKey);
+
             return (
-              <React.Fragment key={keyExtractor(row)}>
+              <React.Fragment key={rowKey}>
                 <tr 
                   className={`transition-colors ${renderExpandedRow ? 'cursor-pointer hover:bg-gray-50' : 'hover:bg-gray-50'} ${isExpanded ? 'bg-gray-50' : ''}`}
-                  onClick={() => renderExpandedRow && toggleRow(keyExtractor(row))}
+                  onClick={() => renderExpandedRow && toggleRow(rowKey)}
                 >
                   <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
-                    <input type="checkbox" className="rounded border-gray-300 text-militar-main focus:ring-militar-main" />
+                    <input 
+                      type="checkbox" 
+                      checked={isChecked}
+                      onChange={() => handleRowSelectChange(rowKey)}
+                      className="rounded border-gray-300 text-militar-main focus:ring-militar-main cursor-pointer" 
+                    />
                   </td>
                   {columns.map((col, colIndex) => (
                     <td key={colIndex} className={`px-6 py-4 text-gray-900 ${col.className || ''}`}>
@@ -67,7 +139,7 @@ export function DataTable<T>({ columns, data, keyExtractor, renderExpandedRow }:
               </React.Fragment>
             );
           })}
-          {data.length === 0 && (
+          {paginatedData.length === 0 && (
             <tr>
               <td colSpan={columns.length + 1} className="px-6 py-8 text-center text-gray-500">
                 Nenhum registro encontrado.
@@ -76,24 +148,51 @@ export function DataTable<T>({ columns, data, keyExtractor, renderExpandedRow }:
           )}
         </tbody>
       </table>
-      {/* Paginação simples mockada */}
+      
+      {/* ── PAGINAÇÃO INTELIGENTE ────────────────────────────────────────────── */}
       <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between bg-gray-50">
         <span className="text-sm text-gray-500">
-          Exibindo 1 a {Math.min(10, data.length)} de {data.length} registros
+          Exibindo {data.length > 0 ? startIndex + 1 : 0} a {endIndex} de {data.length} registros
         </span>
         <div className="flex gap-1">
-          <button className="px-3 py-1 border border-gray-200 rounded bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-50 text-sm">
-            Anterior
-          </button>
-          <button className="px-3 py-1 bg-militar-main text-white rounded hover:bg-militar-hover text-sm">
-            1
-          </button>
-          <button className="px-3 py-1 border border-gray-200 rounded bg-white text-gray-600 hover:bg-gray-50 text-sm">
-            2
-          </button>
-          <button className="px-3 py-1 border border-gray-200 rounded bg-white text-gray-600 hover:bg-gray-50 text-sm">
-            Próxima
-          </button>
+          {/* Botão Anterior: só aparece se houver página anterior */}
+          {activePage > 1 && (
+            <button 
+              onClick={() => setCurrentPage(activePage - 1)}
+              className="px-3 py-1 border border-gray-200 rounded bg-white text-gray-600 hover:bg-gray-50 text-sm cursor-pointer"
+            >
+              Anterior
+            </button>
+          )}
+
+          {/* Números das páginas: exibidos de forma dinâmica e coerente */}
+          {Array.from({ length: totalPages }, (_, idx) => {
+            const pageNum = idx + 1;
+            const isCurrent = pageNum === activePage;
+            return (
+              <button
+                key={pageNum}
+                onClick={() => setCurrentPage(pageNum)}
+                className={`px-3 py-1 text-sm rounded cursor-pointer ${
+                  isCurrent 
+                    ? 'bg-militar-main text-white hover:bg-militar-hover font-semibold' 
+                    : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                {pageNum}
+              </button>
+            );
+          })}
+
+          {/* Botão Próximo: só aparece se houver página posterior */}
+          {activePage < totalPages && (
+            <button 
+              onClick={() => setCurrentPage(activePage + 1)}
+              className="px-3 py-1 border border-gray-200 rounded bg-white text-gray-600 hover:bg-gray-50 text-sm cursor-pointer"
+            >
+              Próxima
+            </button>
+          )}
         </div>
       </div>
     </div>

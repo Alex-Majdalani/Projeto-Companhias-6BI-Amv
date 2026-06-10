@@ -2,6 +2,7 @@ import 'dotenv/config'; // Carrega as variáveis de ambiente do arquivo .env no 
 import express from 'express';
 import cors from 'cors';
 import { authRoutes } from './routes/auth.routes';
+import { agendaRoutes } from './routes/agenda.routes'; // Rotas da agenda de atividades
 
 const app = express();
 
@@ -10,6 +11,9 @@ app.use(express.json()); // Configura o parser de JSON para que o express proces
 
 // Define o prefixo '/api' e vincula os endpoints de autenticação
 app.use('/api/auth', authRoutes);
+
+// Define o prefixo '/api/agenda' e vincula os endpoints de agenda de atividades
+app.use('/api/agenda', agendaRoutes);
 
 // Define a porta do servidor, priorizando a variável de ambiente PORT ou caindo na 3333 por padrão
 const PORT = process.env.PORT || 3333;

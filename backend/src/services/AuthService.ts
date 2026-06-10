@@ -79,11 +79,13 @@ export class AuthService {
       });
 
       // 5. Atualiza o campo ultimo_acesso (DateTime) do usuário no NocoDB com o momento atual
-      // Alterado para usar 'await' para garantir que a atualização seja concluída com sucesso no banco de dados antes de retornar
+      // Ajustado formato para 'YYYY-MM-DD HH:mm:ss' para aceitação correta no campo DateTime do NocoDB
       try {
+        const now = new Date();
+        const formattedDate = now.toISOString().replace('T', ' ').substring(0, 19);
         await api.patch(`/api/v2/tables/mgjtgm3f60as8gd/records`, {
           Id: userIdToLink,
-          ultimo_acesso: new Date().toISOString()
+          ultimo_acesso: formattedDate
         });
       } catch (err: any) {
         console.warn('Aviso: Não foi possível atualizar ultimo_acesso:', err?.response?.data || err.message);
@@ -210,9 +212,10 @@ export class AuthService {
       const userId = userResponse.data.Id;
 
       // 4. Cria as associações de relacionamento usando a API de links do NocoDB (Many-to-One)
+      // Ajustado ID do link de relacionamento de posto_graduacao após nova alteração no banco (novo ID: cbbhzep3zzz1kn1)
       if (pg) {
         try {
-          await api.post(`/api/v2/tables/mgjtgm3f60as8gd/links/cehlja3g3hgzcxy/records/${userId}`, {
+          await api.post(`/api/v2/tables/mgjtgm3f60as8gd/links/cbbhzep3zzz1kn1/records/${userId}`, {
             Id: pg
           });
         } catch (linkError: any) {
@@ -237,7 +240,8 @@ export class AuthService {
       };
     } catch (error: any) {
       console.error('Error registering:', error?.response?.data || error.message);
-      throw new Error('Erro ao registrar usuário');
+      // Alterado para propagar a mensagem de erro original específica (ex: 'Usuário já existe')
+      throw new Error(error.message || 'Erro ao registrar usuário');
     }
   }
 

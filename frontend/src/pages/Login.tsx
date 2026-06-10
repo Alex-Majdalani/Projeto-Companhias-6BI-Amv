@@ -7,16 +7,31 @@ import logoEb from '../assets/ebicon.png';
 export function Login() {
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
+  
+  // ── ESTADO DE LOADING PARA EVITAR CLIQUES DUPLOS NO LOGIN ──────────────────
+  const [isLoading, setIsLoading] = useState(false);
+
+  // ── ESTADO PARA EXIBIÇÃO DE MENSAGEM DE ERRO NA TELA ───────────────────────
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
   const { signIn } = React.useContext(AuthContext);
   const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg(null);
+    if (isLoading) return;
+
+    setIsLoading(true);
     try {
       await signIn({ usuario: email, senha });
       navigate('/');
-    } catch {
-      alert('Erro ao fazer login. Verifique suas credenciais.');
+    } catch (err: any) {
+      // Coleta a mensagem de erro específica vinda da resposta da API
+      const apiError = err.response?.data?.error || 'Erro ao fazer login. Verifique suas credenciais.';
+      setErrorMsg(apiError);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -28,6 +43,13 @@ export function Login() {
           <span className={styles['auth-logo__title']}>SisGCia</span>
           <span className={styles['auth-logo__sub']}>6º Batalhão de Infantaria Aeromóvel</span>
         </div>
+
+        {/* Exibe mensagem de erro caso ocorra falha no login */}
+        {errorMsg && (
+          <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg border border-red-200 mb-4 text-center font-medium">
+            {errorMsg}
+          </div>
+        )}
 
         <form className={styles['auth-form']} onSubmit={handleLogin}>
           <div className={styles['auth-field']}>
@@ -62,8 +84,13 @@ export function Login() {
 
           <div className={styles['auth-divider']} />
 
-          <button className={`${styles['auth-btn']} ${styles['auth-btn--primary']}`} type="submit">
-            Entrar
+          {/* Botão de envio desabilitado durante o login para evitar duplicidade */}
+          <button 
+            className={`${styles['auth-btn']} ${styles['auth-btn--primary']}`} 
+            type="submit"
+            disabled={isLoading}
+          >
+            {isLoading ? 'Entrando...' : 'Entrar'}
           </button>
 
           <button
