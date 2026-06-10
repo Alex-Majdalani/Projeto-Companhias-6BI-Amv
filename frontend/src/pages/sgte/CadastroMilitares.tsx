@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Breadcrumb } from '../../components/ui/Breadcrumb';
 import { Button } from '../../components/ui/Button';
@@ -6,23 +6,27 @@ import { Input, Select } from '../../components/ui/Input';
 import { DataTable } from '../../components/ui/DataTable';
 import { Badge } from '../../components/ui/Badge';
 import { Plus, Download, Filter, Eye, Edit2, MoreHorizontal, Search } from 'lucide-react';
-
-const militaresMock = [
-  { id: 1, posto: 'Maj', nome: 'JOÃO CARLOS DA SILVA', identidade: '123456789-0', cpf: '123.456.789-00', quadro: 'QAO', subunidade: '12º BI INF', situacao: 'Ativo', tipo: 'Carreira' },
-  { id: 2, posto: 'Cap', nome: 'MARIA EDUARDA SOUZA', identidade: '987654321-1', cpf: '987.654.321-11', quadro: 'QEM', subunidade: '12º BI INF', situacao: 'Ativo', tipo: 'Carreira' },
-  { id: 3, posto: '1º Ten', nome: 'PEDRO HENRIQUE ALMEIDA', identidade: '112233445-2', cpf: '112.233.445-22', quadro: 'QAO', subunidade: '12º BI INF', situacao: 'Ativo', tipo: 'Temporário' },
-  { id: 4, posto: '2º Sgt', nome: 'LUCAS DE OLIVEIRA COSTA', identidade: '223344556-3', cpf: '223.344.556-33', quadro: 'QESA', subunidade: '12º BI INF', situacao: 'Ativo', tipo: 'Carreira' },
-  { id: 5, posto: 'Cb', nome: 'GABRIEL FERREIRA LIMA', identidade: '334455667-4', cpf: '334.455.667-44', quadro: 'QE', subunidade: '12º BI INF', situacao: 'Ativo', tipo: 'Temporário' },
-  { id: 6, posto: 'Sd', nome: 'MATHEUS ROCHA SANTOS', identidade: '445566778-5', cpf: '445.566.778-55', quadro: 'QE', subunidade: '12º BI INF', situacao: 'Ativo', tipo: 'Temporário' },
-  { id: 7, posto: 'Maj', nome: 'FERNANDA CRISTINA MOURA', identidade: '556677889-6', cpf: '556.677.889-66', quadro: 'QAO', subunidade: '12º BI INF', situacao: 'Licença', tipo: 'Carreira' },
-  { id: 8, posto: '1º Ten', nome: 'RAFAEL AZEVEDO MARTINS', identidade: '667788990-7', cpf: '667.788.990-77', quadro: 'QEM', subunidade: '12º BI INF', situacao: 'Afastado', tipo: 'Temporário' },
-  { id: 9, posto: '2º Sgt', nome: 'THIAGO MENEZES PEREIRA', identidade: '778899001-8', cpf: '778.899.001-88', quadro: 'QESA', subunidade: '12º BI INF', situacao: 'Ativo', tipo: 'Carreira' },
-  { id: 10, posto: 'Cb', nome: 'BRUNO GOMES RIBEIRO', identidade: '889900112-9', cpf: '889.900.112-99', quadro: 'QE', subunidade: '12º BI INF', situacao: 'Ativo', tipo: 'Temporário' },
-];
+import { api } from '../../services/api';
 
 export function CadastroMilitares() {
   const [activeTab, setActiveTab] = useState('lista');
+  const [militares, setMilitares] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    async function loadMilitares() {
+      try {
+        const response = await api.get('/militares');
+        setMilitares(response.data);
+      } catch (error) {
+        console.error('Erro ao buscar militares do NocoDB:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadMilitares();
+  }, []);
 
   const tabs = [
     { id: 'lista', label: 'Lista de Militares' },
@@ -37,24 +41,20 @@ export function CadastroMilitares() {
     {
       header: 'Posto/Grad.',
       accessor: (row: any) => (
-        <div className="flex items-center gap-2 font-medium">
+        <div className="flex items-center gap-2 font-medium uppercase">
           {row.posto}
         </div>
       ),
     },
-    { header: 'Nome', accessor: 'nome' },
-    { header: 'Identidade', accessor: 'identidade' },
-    { header: 'Quadro', accessor: 'quadro' },
-    { header: 'Tipo', accessor: 'tipo' },
+    { header: 'Nome de Guerra', accessor: 'nome' },
+    { header: 'Identidade Mil.', accessor: 'identidade' },
+    { header: 'CPF', accessor: 'cpf' },
     { header: 'Subunidade', accessor: 'subunidade' },
     {
       header: 'Situação',
       accessor: (row: any) => {
-        let variant: any = 'default';
-        if (row.situacao === 'Ativo') variant = 'success';
-        if (row.situacao === 'Licença') variant = 'warning';
-        if (row.situacao === 'Afastado') variant = 'danger';
-        return <Badge variant={variant}>{row.situacao}</Badge>;
+        let variant: any = 'success';
+        return <Badge variant={variant}>{row.situacao || 'Ativo'}</Badge>;
       },
     },
     {
@@ -129,20 +129,22 @@ export function CadastroMilitares() {
           </div>
 
           <div className="flex justify-between items-center mb-4">
-             <span className="text-sm text-gray-600">Total de <strong className="text-gray-900">1.248</strong> militares encontrados</span>
+             <span className="text-sm text-gray-600">Total de <strong className="text-gray-900">{militares.length}</strong> militares encontrados</span>
              <Button variant="outline" size="sm" icon={<Download size={16} />}>Exportar</Button>
           </div>
 
           {/* Table */}
-          <DataTable 
-            columns={columns}
-            data={militaresMock}
-            keyExtractor={(row) => row.id}
-          />
+          {loading ? (
+            <div className="text-center py-8 text-gray-500">Carregando militares do NocoDB...</div>
+          ) : (
+            <DataTable 
+              columns={columns}
+              data={militares}
+              keyExtractor={(row) => row.id}
+            />
+          )}
         </div>
       </div>
     </div>
   );
 }
-
-
