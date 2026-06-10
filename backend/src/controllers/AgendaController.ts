@@ -33,6 +33,24 @@ export class AgendaController {
   }
 
   /**
+   * POST /api/agenda/tipos
+   * Cria um novo tipo de atividade.
+   */
+  static async createTipo(req: Request, res: Response): Promise<void> {
+    try {
+      const { tipos } = req.body;
+      if (!tipos) {
+        res.status(400).json({ error: 'O nome do tipo é obrigatório.' });
+        return;
+      }
+      const novoTipo = await AgendaService.createTipo(tipos);
+      res.status(201).json(novoTipo);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || 'Erro interno ao criar tipo.' });
+    }
+  }
+
+  /**
    * POST /api/agenda/atividades
    * Cria uma nova atividade e a vincula ao tipo informado.
    * Body esperado: { titulo_atividade, data, descricao?, tipoId }
@@ -61,13 +79,53 @@ export class AgendaController {
   }
 
   /**
-   * DELETE /api/agenda/atividades/:id
-   * Remove uma atividade pelo ID.
+   * PUT/PATCH /api/agenda/atividades/:id
+   * Atualiza uma atividade pelo ID.
+   */
+  static async updateAtividade(req: Request, res: Response): Promise<void> {
+    try {
+      const id = Number(req.params.id);
+      const { titulo_atividade, data, descricao, tipoId } = req.body;
+
+      if (isNaN(id)) {
+        res.status(400).json({ error: 'ID inválido.' });
+        return;
+      }
+
+      const atividadeAtualizada = await AgendaService.updateAtividade(id, {
+        titulo_atividade,
+        data,
+        descricao,
+        tipoId: tipoId ? Number(tipoId) : undefined
+      });
+
+      res.status(200).json(atividadeAtualizada);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || 'Erro interno ao atualizar atividade.' });
+    }
+  }
+
+  /**
+   * DELETE /api/agenda/atividades/:id ou DELETE /api/agenda/atividades (com body: { ids: number[] })
+   * Remove uma ou mais atividades pelo ID.
    */
   static async deleteAtividade(req: Request, res: Response): Promise<void> {
     try {
-      const id = Number(req.params.id);
+      // 1. Verifica se foi passado uma lista de IDs no body para exclusão em lote
+      const { ids } = req.body;
+      if (ids && Array.isArray(ids)) {
+        const numericIds = ids.map(Number).filter((id) => !isNaN(id));
+        if (numericIds.length === 0) {
+          res.status(400).json({ error: 'Nenhum ID válido fornecido para exclusão em lote.' });
+          return;
+        }
+        await AgendaService.deleteAtividade(numericIds);
+        res.status(204).send();
+        return;
+      }
 
+      // 2. Fallback para exclusão individual de ID fornecido na URL
+      const id = Number(req.params.id);
       if (isNaN(id)) {
         res.status(400).json({ error: 'ID inválido.' });
         return;

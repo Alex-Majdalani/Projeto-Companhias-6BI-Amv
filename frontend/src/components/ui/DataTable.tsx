@@ -11,14 +11,33 @@ interface DataTableProps<T> {
   data: T[];
   keyExtractor: (row: T) => string | number;
   renderExpandedRow?: (row: T) => React.ReactNode;
+  // Propriedades opcionais para controlar checkboxes de seleção externamente
+  selectedRows?: Set<string | number>;
+  onSelectedRowsChange?: (selected: Set<string | number>) => void;
 }
 
-export function DataTable<T>({ columns, data, keyExtractor, renderExpandedRow }: DataTableProps<T>) {
+export function DataTable<T>({ 
+  columns, 
+  data, 
+  keyExtractor, 
+  renderExpandedRow,
+  selectedRows: externalSelectedRows,
+  onSelectedRowsChange
+}: DataTableProps<T>) {
   const [expandedRows, setExpandedRows] = useState<Set<string | number>>(new Set());
   
-  // ── ESTADO PARA SELEÇÃO DOS ITEMS (CHECKBOXES) ─────────────────────────────
-  // Guarda os IDs (obtidos pelo keyExtractor) dos registros selecionados
-  const [selectedRows, setSelectedRows] = useState<Set<string | number>>(new Set());
+  // ── ESTADO INTERNO DE SELEÇÃO (USADO APENAS CASO NÃO FOR CONTROLADO) ──────
+  const [internalSelectedRows, setInternalSelectedRows] = useState<Set<string | number>>(new Set());
+
+  // Define se usa os dados externos ou o estado interno
+  const selectedRows = externalSelectedRows ?? internalSelectedRows;
+  const updateSelectedRows = (newSet: Set<string | number>) => {
+    if (onSelectedRowsChange) {
+      onSelectedRowsChange(newSet);
+    } else {
+      setInternalSelectedRows(newSet);
+    }
+  };
 
   // ── ESTADO PARA CONTROLE DE PAGINAÇÃO ──────────────────────────────────────
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -67,7 +86,7 @@ export function DataTable<T>({ columns, data, keyExtractor, renderExpandedRow }:
         newSelected.delete(keyExtractor(row));
       });
     }
-    setSelectedRows(newSelected);
+    updateSelectedRows(newSelected);
   };
 
   // Manipulador para alternar seleção de uma linha individual
@@ -78,7 +97,7 @@ export function DataTable<T>({ columns, data, keyExtractor, renderExpandedRow }:
     } else {
       newSelected.add(key);
     }
-    setSelectedRows(newSelected);
+    updateSelectedRows(newSelected);
   };
 
   return (

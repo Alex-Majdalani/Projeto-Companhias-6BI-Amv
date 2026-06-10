@@ -50,7 +50,7 @@ export function Cadastro() {
     setIsLoading(true);
     try {
       await api.post('/auth/register', { nome, email, senha, companhia, pg });
-      alert('Cadastro realizado com sucesso!');
+      // Cadastro realizado com sucesso — redireciona para login
       navigate('/login');
     } catch (err: any) {
       // Coleta a mensagem de erro específica vinda da resposta da API

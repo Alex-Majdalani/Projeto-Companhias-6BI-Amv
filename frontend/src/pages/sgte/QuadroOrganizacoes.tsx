@@ -90,6 +90,32 @@ export function QuadroOrganizacoes() {
   // ── ESTADO PARA O DETALHE DA ATIVIDADE SELECIONADA NO CALENDÁRIO ─────────
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
 
+  // ── ESTADO PARA CONTROLE DE EDIÇÃO DE ATIVIDADE EXISTENTE ─────────────────
+  const [editingActivityId, setEditingActivityId] = useState<number | null>(null);
+
+  // ── ESTADO DE SELEÇÃO DE CHECKBOXES DO DATATABLE PARA AÇÕES EM LOTE ───────
+  const [parentSelectedRows, setParentSelectedRows] = useState<Set<string | number>>(new Set());
+
+  // ── MODAL DE CONFIRMAÇÃO DE EXCLUSÃO (substitui o confirm() nativo bloqueado) ─
+  const [deleteTarget, setDeleteTarget] = useState<number | number[] | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // ── MODAL DE NOVO TIPO (substitui o prompt() nativo bloqueado) ────────────
+  const [isNovoTipoOpen, setIsNovoTipoOpen] = useState(false);
+  const [novoTipoNome, setNovoTipoNome] = useState('');
+  const [novoTipoSaving, setNovoTipoSaving] = useState(false);
+  const [novoTipoError, setNovoTipoError] = useState<string | null>(null);
+
+  // ── MENSAGEM DE ERRO PARA OPERAÇÃO DE EXCLUSÃO ───────────────────────
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // ── MENSAGEM DE ERRO DE VALIDAÇÃO DO FORMULÁRIO DE NOVA ATIVIDADE ────
+  // Separada do errorMsg global para não interferir com erros de rede
+  const [formValidationError, setFormValidationError] = useState<string | null>(null);
+
+  // ── FILTRO DA LISTA: todas | pendentes (futuras) | realizadas (passadas) ───
+  const [listFilter, setListFilter] = useState<'all' | 'pending' | 'done'>('all');
+
   // ─────────────────────────────────────────────────────────────────────────
   // Carregamento inicial: busca atividades e tipos em paralelo
   // ─────────────────────────────────────────────────────────────────────────
@@ -147,32 +173,64 @@ export function QuadroOrganizacoes() {
     );
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Cadastrar nova atividade — POST para o backend
+  // Cadastrar ou Editar atividade — POST/PUT para o backend
   // ─────────────────────────────────────────────────────────────────────────
   const handleAddActivity = async () => {
-    if (!newTitle || !newDate || !newTipoId) return;
+    // Valida campos obrigatórios antes de enviar ao backend
+    if (!newTitle.trim()) {
+      setFormValidationError('Preencha o título da atividade.');
+      return;
+    }
+    if (!newDate) {
+      setFormValidationError('Selecione a data da atividade.');
+      return;
+    }
+    if (!newTipoId) {
+      setFormValidationError('Selecione o tipo de atividade.');
+      return;
+    }
 
+    // Limpa erros de validação antes de prosseguir
+    setFormValidationError(null);
     setIsSaving(true);
     setErrorMsg(null);
     try {
-      const response = await api.post('/agenda/atividades', {
-        titulo_atividade: newTitle,
-        data: newDate,         // Formato 'YYYY-MM-DD'
-        descricao: newDesc,
-        tipoId: Number(newTipoId),
-      });
+      if (editingActivityId !== null) {
+        // Modo Edição: faz requisição PUT
+        const response = await api.put(`/agenda/atividades/${editingActivityId}`, {
+          titulo_atividade: newTitle,
+          data: newDate,
+          descricao: newDesc,
+          tipoId: Number(newTipoId),
+        });
 
-      // Adiciona a atividade retornada pelo backend à lista local
-      setActivities((prev) => [...prev, normalizeAtividade(response.data)]);
+        const updatedNormalized = normalizeAtividade(response.data);
+        setActivities((prev) =>
+          prev.map((a) => (a.id === editingActivityId ? updatedNormalized : a))
+        );
+      } else {
+        // Modo Criação: faz requisição POST
+        const response = await api.post('/agenda/atividades', {
+          titulo_atividade: newTitle,
+          data: newDate,         // Formato 'YYYY-MM-DD'
+          descricao: newDesc,
+          tipoId: Number(newTipoId),
+        });
 
-      // Fecha o modal e limpa o formulário
+        // Adiciona a atividade retornada pelo backend à lista local
+        setActivities((prev) => [...prev, normalizeAtividade(response.data)]);
+      }
+
+      // Limpa o formulário, erros de validação e fecha o modal
       setNewTitle('');
       setNewDate('');
       setNewTipoId(tipos.length > 0 ? String(tipos[0].Id) : '');
       setNewDesc('');
+      setEditingActivityId(null);
+      setFormValidationError(null);
       setIsModalOpen(false);
     } catch (err: any) {
-      console.error('[QuadroOrganizacoes] Erro ao criar atividade:', err);
+      console.error('[QuadroOrganizacoes] Erro ao salvar atividade:', err);
       setErrorMsg('Não foi possível salvar a atividade. Tente novamente.');
     } finally {
       setIsSaving(false);
@@ -180,19 +238,101 @@ export function QuadroOrganizacoes() {
   };
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Excluir atividade — DELETE para o backend
+  // Novo Tipo: abre o modal interno (sem usar prompt() nativo)
   // ─────────────────────────────────────────────────────────────────────────
-  const handleDeleteActivity = async (id: number) => {
-    if (!confirm('Tem certeza que deseja excluir esta atividade?')) return;
+  const handleAddTipo = () => {
+    setNovoTipoNome('');
+    setIsNovoTipoOpen(true);
+  };
 
+  /** Confirma a criação do novo tipo via modal */
+  const handleConfirmNovoTipo = async () => {
+    // Valida se o nome foi preenchido antes de enviar
+    if (!novoTipoNome.trim()) {
+      setNovoTipoError('Informe o nome do novo tipo de atividade.');
+      return;
+    }
+    setNovoTipoSaving(true);
+    setNovoTipoError(null);
     try {
-      await api.delete(`/agenda/atividades/${id}`);
-      // Remove da lista local sem recarregar tudo
-      setActivities((prev) => prev.filter((a) => a.id !== id));
+      const res = await api.post('/agenda/tipos', { tipos: novoTipoNome.trim() });
+      const newTipo = res.data;
+      setTipos((prev) => {
+        const novosTipos = [...prev, newTipo];
+        // Atualiza a cor deste novo tipo na paleta dinâmica
+        colorMapById[newTipo.Id] = COLOR_PALETTE[(novosTipos.length - 1) % COLOR_PALETTE.length];
+        return novosTipos;
+      });
+      setIsNovoTipoOpen(false);
+    } catch (err: any) {
+      console.error('[QuadroOrganizacoes] Erro ao criar tipo:', err);
+      // Exibe mensagem de erro dentro do modal de novo tipo
+      const msg = err.response?.data?.error || 'Não foi possível criar o tipo. Tente novamente.';
+      setNovoTipoError(msg);
+    } finally {
+      setNovoTipoSaving(false);
+    }
+  };
+
+  /** Abre o formulário em modo de edição, preenchendo todos os campos */
+  const handleOpenEditModal = (act: Activity) => {
+    // Converte a data do Date local para formato YYYY-MM-DD aceito pelo input tipo date
+    const yyyy = act.date.getFullYear();
+    const mm = String(act.date.getMonth() + 1).padStart(2, '0');
+    const dd = String(act.date.getDate()).padStart(2, '0');
+    setNewTitle(act.title);
+    setNewDate(`${yyyy}-${mm}-${dd}`);
+    setNewTipoId(String(act.tipoId));
+    setNewDesc(act.description || '');
+    setEditingActivityId(act.id);
+    setIsModalOpen(true);
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Excluir atividade — abre modal de confirmação (sem usar confirm() nativo)
+  // ─────────────────────────────────────────────────────────────────────────
+  const handleDeleteActivity = (idOrIds: number | number[]) => {
+    // Armazena o alvo e abre o modal de confirmação
+    setDeleteTarget(idOrIds);
+  };
+
+  /** Executa a exclusão após confirmação no modal */
+  const handleConfirmDelete = async () => {
+    if (deleteTarget === null) return;
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      const ids = Array.isArray(deleteTarget) ? deleteTarget : [deleteTarget];
+      // Sempre envia como array de objetos conforme NocoDB V2 exige
+      await api.delete('/agenda/atividades', { data: { ids } });
+
+      if (Array.isArray(deleteTarget)) {
+        setActivities((prev) => prev.filter((a) => !(deleteTarget as number[]).includes(a.id)));
+        setParentSelectedRows(new Set());
+      } else {
+        setActivities((prev) => prev.filter((a) => a.id !== deleteTarget));
+        const newSelected = new Set(parentSelectedRows);
+        newSelected.delete(deleteTarget);
+        setParentSelectedRows(newSelected);
+        // Fecha também o modal de detalhes do calendário, se estiver aberto
+        if (selectedActivity?.id === deleteTarget) setSelectedActivity(null);
+      }
+      setDeleteTarget(null); // Fecha o modal de confirmação só em caso de sucesso
     } catch (err: any) {
       console.error('[QuadroOrganizacoes] Erro ao excluir atividade:', err);
-      alert('Não foi possível excluir a atividade.');
+      // Exibe mensagem de erro dentro do modal de confirmação
+      const msg = err.response?.data?.error || 'Não foi possível excluir a(s) atividade(s). Tente novamente.';
+      setDeleteError(msg);
+    } finally {
+      setIsDeleting(false);
     }
+  };
+
+  /** Prepara a exclusão de todas as atividades marcadas nos checkboxes */
+  const handleDeleteSelectedActivities = () => {
+    if (parentSelectedRows.size === 0) return;
+    const selectedIds = Array.from(parentSelectedRows).map(Number);
+    handleDeleteActivity(selectedIds);
   };
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -287,6 +427,18 @@ export function QuadroOrganizacoes() {
   // Renderização da Lista
   // ─────────────────────────────────────────────────────────────────────────
   const renderList = () => {
+    // Data de hoje (sem horário) para comparar com as atividades
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Aplica o filtro selecionado
+    const filteredActivities = [...activities]
+      .sort((a, b) => a.date.getTime() - b.date.getTime())
+      .filter((a) => {
+        if (listFilter === 'pending') return a.date >= today; // Atividades pendentes: hoje ou futuro
+        if (listFilter === 'done')    return a.date < today;  // Atividades realizadas: antes de hoje
+        return true; // 'all': todas
+      });
     const columns: Column<Activity>[] = [
       {
         header: 'Data',
@@ -315,13 +467,24 @@ export function QuadroOrganizacoes() {
       {
         header: 'Ações',
         accessor: (row) => (
-          <button
-            title="Excluir atividade"
-            onClick={() => handleDeleteActivity(row.id)}
-            className="text-gray-400 hover:text-red-600 transition-colors p-1 rounded"
-          >
-            <Trash2 size={16} />
-          </button>
+          <div className="flex gap-2">
+            {/* Botão para Editar a atividade correspondente */}
+            <button
+              title="Alterar atividade"
+              onClick={() => handleOpenEditModal(row)}
+              className="text-gray-400 hover:text-militar-main transition-colors p-1 rounded cursor-pointer"
+            >
+              {/* Ícone de edição simples corrigido sem atributo inválido size */}
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+            </button>
+            <button
+              title="Excluir atividade"
+              onClick={() => handleDeleteActivity(row.id)}
+              className="text-gray-400 hover:text-red-600 transition-colors p-1 rounded cursor-pointer"
+            >
+              <Trash2 size={16} />
+            </button>
+          </div>
         ),
       },
     ];
@@ -329,11 +492,75 @@ export function QuadroOrganizacoes() {
     return (
       <Card>
         <CardContent className="p-0">
+          {/* ─ Barra de filtro de status ─────────────────────────────────── */}
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 bg-gray-50/50">
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider mr-1">Filtrar:</span>
+            {([
+              { key: 'all',     label: 'Todas',      count: activities.length },
+              { key: 'pending', label: 'Pendentes',  count: activities.filter(a => { const t = new Date(); t.setHours(0,0,0,0); return a.date >= t; }).length },
+              { key: 'done',    label: 'Realizadas', count: activities.filter(a => { const t = new Date(); t.setHours(0,0,0,0); return a.date < t;  }).length },
+            ] as const).map(({ key, label, count }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setListFilter(key)}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                  listFilter === key
+                    // Comentário de organização: Cores ativas personalizadas por tipo de filtro conforme solicitado:
+                    // Todas (all)       → Preto
+                    // Pendentes (pending) → Vermelho
+                    // Realizadas (done)   → Verde
+                    ? key === 'done'
+                      ? 'bg-green-600 text-white shadow-sm'
+                      : key === 'pending'
+                      ? 'bg-red-600 text-white shadow-sm'
+                      : 'bg-black text-white shadow-sm'
+                    : 'text-gray-500 hover:bg-gray-200'
+                }`}
+              >
+                {label}
+                <span className={`inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-bold ${
+                  listFilter === key ? 'bg-white/25 text-white' : 'bg-gray-200 text-gray-600'
+                }`}>
+                  {count}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {/* Exibe o botão de exclusão em lote apenas quando houver registros selecionados */}
+          {parentSelectedRows.size > 0 && (
+            <div className="flex justify-between items-center px-4 py-2.5 bg-red-50/50 border-b border-gray-200">
+              <span className="text-sm font-semibold text-red-700">
+                {parentSelectedRows.size} atividade(s) selecionada(s)
+              </span>
+              <button
+                type="button"
+                onClick={handleDeleteSelectedActivities}
+                className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Trash2 size={14} />
+                Excluir Selecionadas
+              </button>
+            </div>
+          )}
+
           <DataTable
             columns={columns}
-            data={[...activities].sort((a, b) => a.date.getTime() - b.date.getTime())}
+            data={filteredActivities}
             keyExtractor={(row) => row.id}
+            selectedRows={parentSelectedRows}
+            onSelectedRowsChange={setParentSelectedRows}
           />
+
+          {/* Mensagem quando não há atividades no filtro atual */}
+          {filteredActivities.length === 0 && (
+            <div className="text-center py-10 text-gray-400 text-sm">
+              {listFilter === 'pending' && 'Nenhuma atividade pendente.'}
+              {listFilter === 'done'    && 'Nenhuma atividade realizada ainda.'}
+              {listFilter === 'all'     && 'Nenhuma atividade cadastrada.'}
+            </div>
+          )}
         </CardContent>
       </Card>
     );
@@ -381,8 +608,27 @@ export function QuadroOrganizacoes() {
               Lista
             </button>
           </div>
-          {/* Botão para abrir o modal de nova atividade */}
-          <Button icon={<Plus size={16} />} onClick={() => setIsModalOpen(true)}>
+          {/* Botão para criar um novo tipo de atividade */}
+          <Button 
+            variant="outline"
+            icon={<Plus size={16} />} 
+            onClick={handleAddTipo}
+            disabled={isLoading}
+          >
+            Novo Tipo
+          </Button>
+          {/* Botão para abrir o modal de nova atividade limpando estados de edição */}
+          <Button 
+            icon={<Plus size={16} />} 
+            onClick={() => {
+              setNewTitle('');
+              setNewDate('');
+              setNewTipoId(tipos.length > 0 ? String(tipos[0].Id) : '');
+              setNewDesc('');
+              setEditingActivityId(null);
+              setIsModalOpen(true);
+            }}
+          >
             Nova Atividade
           </Button>
         </div>
@@ -413,7 +659,7 @@ export function QuadroOrganizacoes() {
           setIsModalOpen(false);
           setErrorMsg(null);
         }}
-        title="Cadastrar Nova Atividade"
+        title={editingActivityId !== null ? "Alterar Atividade" : "Cadastrar Nova Atividade"}
       >
         <div className="space-y-4">
           {/* Campo: título */}
@@ -441,7 +687,8 @@ export function QuadroOrganizacoes() {
             >
               {tipos.map((t) => (
                 <option key={t.Id} value={t.Id}>
-                  {t.tipos.charAt(0).toUpperCase() + t.tipos.slice(1)}
+                  {/* Comentário de organização: Adicionado tratamento seguro com fallback ('') caso t.tipos seja indefinido ou nulo, prevenindo quebras na renderização */}
+                  {((t.tipos || '').charAt(0).toUpperCase() + (t.tipos || '').slice(1))}
                 </option>
               ))}
             </Select>
@@ -455,18 +702,26 @@ export function QuadroOrganizacoes() {
             onChange={(e) => setNewDesc(e.target.value)}
           />
 
-          {/* Mensagem de erro inline do modal */}
+          {/* Mensagem de erro de validação do formulário (campos obrigatórios) */}
+          {formValidationError && (
+            <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-xs font-medium">
+              <span className="text-red-500">⚠️</span>
+              {formValidationError}
+            </div>
+          )}
+
+          {/* Mensagem de erro de rede/servidor ao salvar */}
           {errorMsg && (
             <p className="text-red-600 text-xs">{errorMsg}</p>
           )}
 
           {/* Ações do modal */}
           <div className="flex justify-end gap-2 pt-4">
-            <Button variant="outline" onClick={() => setIsModalOpen(false)} disabled={isSaving}>
+            <Button variant="outline" onClick={() => { setIsModalOpen(false); setFormValidationError(null); }} disabled={isSaving}>
               Cancelar
             </Button>
-            <Button onClick={handleAddActivity} disabled={isSaving || !newTitle || !newDate || !newTipoId}>
-              {isSaving ? 'Salvando...' : 'Salvar Atividade'}
+            <Button onClick={handleAddActivity} disabled={isSaving}>
+              {isSaving ? 'Salvando...' : (editingActivityId !== null ? 'Salvar Alterações' : 'Salvar Atividade')}
             </Button>
           </div>
         </div>
@@ -521,30 +776,121 @@ export function QuadroOrganizacoes() {
               </p>
             </div>
 
-            {/* Ações do Modal de Detalhes: Fechar (OK) e Excluir com lixeira */}
+            {/* Ações do Modal de Detalhes: Excluir, Alterar e Fechar */}
             <div className="flex justify-between items-center pt-5 border-t border-gray-100">
+              {/* Botao excluir — abre modal de confirmação */}
               <button
                 title="Excluir atividade"
-                onClick={async () => {
+                onClick={() => {
                   const idToDelete = selectedActivity.id;
-                  setSelectedActivity(null); // Fecha o modal antes
-                  await handleDeleteActivity(idToDelete);
+                  setSelectedActivity(null); // Fecha o modal de detalhes antes
+                  handleDeleteActivity(idToDelete); // Abre o modal de confirmação
                 }}
                 className="text-red-600 hover:text-red-700 hover:bg-red-50 transition-all px-3 py-2 rounded-lg flex items-center gap-2 text-sm font-semibold border border-transparent hover:border-red-100 cursor-pointer"
               >
                 <Trash2 size={16} />
-                Excluir Registro
+                Excluir
               </button>
-              
-              <Button 
-                onClick={() => setSelectedActivity(null)}
-                className="px-6 py-2 bg-militar-main hover:bg-militar-hover text-white font-semibold rounded-lg shadow-sm transition-all"
-              >
-                Entendido
-              </Button>
+
+              <div className="flex items-center gap-2">
+                {/* Botão alterar — abre o modal de edição preenchido */}
+                <button
+                  title="Alterar atividade"
+                  onClick={() => {
+                    const actToEdit = selectedActivity;
+                    setSelectedActivity(null); // Fecha o card de detalhes
+                    handleOpenEditModal(actToEdit); // Abre o modal de edição
+                  }}
+                  className="px-3 py-2 rounded-lg flex items-center gap-2 text-sm font-semibold border border-militar-main/30 text-militar-main hover:bg-militar-main/5 transition-all cursor-pointer"
+                >
+                  {/* Ícone de lápis (edição) */}
+                  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  Alterar
+                </button>
+
+                <Button
+                  onClick={() => setSelectedActivity(null)}
+                  className="px-6 py-2 bg-militar-main hover:bg-militar-hover text-white font-semibold rounded-lg shadow-sm transition-all"
+                >
+                  Fechar
+                </Button>
+              </div>
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* ── MODAL DE CONFIRMAÇÃO DE EXCLUSÃO ──────────────────────────────────── */}
+      <Modal
+        isOpen={deleteTarget !== null}
+        onClose={() => !isDeleting && setDeleteTarget(null)}
+        title="Confirmar Exclusão"
+      >
+        <div className="space-y-4">
+          <div className="flex items-start gap-3 p-4 bg-red-50 rounded-xl border border-red-100">
+            <Trash2 size={20} className="text-red-600 mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-red-800 font-medium">
+              {Array.isArray(deleteTarget)
+                ? `Tem certeza que deseja excluir as ${deleteTarget.length} atividade(s) selecionada(s)? Esta ação não pode ser desfeita.`
+                : 'Tem certeza que deseja excluir esta atividade? Esta ação não pode ser desfeita.'}
+            </p>
+          </div>
+
+          {/* Mensagem de erro caso a exclusão falhe */}
+          {deleteError && (
+            <div className="text-xs text-red-700 bg-red-50 border border-red-200 px-3 py-2 rounded-lg">
+              ⚠️ {deleteError}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => { setDeleteTarget(null); setDeleteError(null); }} disabled={isDeleting}>
+              Cancelar
+            </Button>
+            <button
+              onClick={handleConfirmDelete}
+              disabled={isDeleting}
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors cursor-pointer"
+            >
+              <Trash2 size={14} />
+              {isDeleting ? 'Excluindo...' : 'Sim, Excluir'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ── MODAL DE CRIAÇÃO DE NOVO TIPO ─────────────────────────────────────── */}
+      <Modal
+        isOpen={isNovoTipoOpen}
+        onClose={() => !novoTipoSaving && setIsNovoTipoOpen(false)}
+        title="Novo Tipo de Atividade"
+      >
+        <div className="space-y-4">
+          <Input
+            label="Nome do Tipo"
+            placeholder="Ex: Instrução, Exercício, Reunião..."
+            value={novoTipoNome}
+            onChange={(e) => setNovoTipoNome(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleConfirmNovoTipo()}
+            autoFocus
+          />
+
+          {/* Mensagem de erro caso a criação do tipo falhe */}
+          {novoTipoError && (
+            <div className="text-xs text-red-700 bg-red-50 border border-red-200 px-3 py-2 rounded-lg">
+              ⚠️ {novoTipoError}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => { setIsNovoTipoOpen(false); setNovoTipoError(null); }} disabled={novoTipoSaving}>
+              Cancelar
+            </Button>
+            <Button onClick={handleConfirmNovoTipo} disabled={novoTipoSaving || !novoTipoNome.trim()}>
+              {novoTipoSaving ? 'Salvando...' : 'Criar Tipo'}
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );
