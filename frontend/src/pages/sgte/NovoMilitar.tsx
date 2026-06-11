@@ -1,12 +1,46 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Breadcrumb } from '../../components/ui/Breadcrumb';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Input, Select } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
-import { Save, X } from 'lucide-react';
+import { Save, X, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { api } from '../../services/api';
 
 export function NovoMilitar() {
   const navigate = useNavigate();
+  const [fotoUrl, setFotoUrl] = useState<string>('');
+  const [uploading, setUploading] = useState<boolean>(false);
+  const [uploadError, setUploadError] = useState<string>('');
+
+  const handleFotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    setUploadError('');
+    setFotoUrl('');
+
+    const formData = new FormData();
+    formData.append('foto', file);
+
+    try {
+      const response = await api.post('/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      if (response.data?.url) {
+        setFotoUrl(response.data.url);
+      }
+    } catch (err: any) {
+      console.error('Erro ao fazer upload da foto:', err);
+      setUploadError(err.response?.data?.error || 'Erro ao enviar foto para o servidor.');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   return (
     <div className="space-y-6 pb-12">
@@ -71,6 +105,49 @@ export function NovoMilitar() {
           
           <Input label="Data de Praça" type="date" />
           <Input label="Turma de Formação" placeholder="Ex: 2021" />
+          <div className="space-y-2">
+            <div className="flex gap-3 items-end">
+              <div className="flex-1">
+                <Input 
+                  label="Foto do Militar" 
+                  type="file" 
+                  accept="image/*"
+                  onChange={handleFotoChange}
+                  className="cursor-pointer file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
+                />
+              </div>
+              {fotoUrl && (
+                <div className="w-10 h-10 rounded-full overflow-hidden border border-gray-300 shadow-inner flex-shrink-0 bg-gray-50 flex items-center justify-center">
+                  <img src={fotoUrl} alt="Preview" className="w-full h-full object-cover" />
+                </div>
+              )}
+            </div>
+            
+            <p className="text-[11px] text-gray-500 leading-tight">
+              <strong>Nota:</strong> A foto deve ser tirada sem cobertura, de gandola com o fundo branco.
+            </p>
+
+            {uploading && (
+              <div className="flex items-center gap-1.5 text-xs text-blue-600 animate-pulse font-medium">
+                <Loader2 size={13} className="animate-spin" />
+                <span>Enviando imagem para o MinIO (S3)...</span>
+              </div>
+            )}
+
+            {fotoUrl && (
+              <div className="flex items-center gap-1.5 text-xs text-green-600 font-semibold">
+                <CheckCircle2 size={13} />
+                <span>Foto carregada e salva com sucesso no S3!</span>
+              </div>
+            )}
+
+            {uploadError && (
+              <div className="flex items-center gap-1.5 text-xs text-red-600 font-medium">
+                <AlertCircle size={13} />
+                <span>Erro: {uploadError}</span>
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
 
