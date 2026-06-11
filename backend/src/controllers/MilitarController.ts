@@ -9,6 +9,7 @@ const TBL_ENDERECO = 'mw8mh2g0x0rxbk1';
 const TBL_CONTATO = 'm2xy5pm7hw68n2f';
 const TBL_MILITAR = 'm5bfeui27vdb3rx';
 const TBL_REDES_SOCIAIS = 'mw1va9kecnl1c16';
+const TBL_ESPECIALIDADES_MILITAR = 'mbfumyosimeqpa6';
 
 // Helper para chamadas fetch no NocoDB
 async function nocoRequest(path: string, options: RequestInit = {}) {
@@ -150,7 +151,8 @@ export class MilitarController {
         quadro: m.posto_graduacao || '',
         subunidade: m.companhia?.Companhia || '',
         situacao: 'Ativo',
-        tipo: m.tipo_vinculo || 'Militar Temporário'
+        tipo: m.tipo_vinculo || 'Militar Temporário',
+        cursosProfissionais: m.especialidades_militar?.cursos_gerais || ''
       }));
 
       return res.status(200).json(formatados);
@@ -216,8 +218,7 @@ export class MilitarController {
         cabelos: toTitleCase(body.cabelos || 'Preto'),
         religiao: body.religiao || '',
         escolaridade: mapEscolaridade(body.escolaridade),
-        cnh_categoria: cnhCategorias,
-        cursos_profissionais: body.cursosProfissionais || ''
+        cnh_categoria: cnhCategorias
       };
 
       console.log('Salvando dados_civil...');
@@ -273,6 +274,17 @@ export class MilitarController {
         body: JSON.stringify(redesSociaisBody)
       });
 
+      // 3.7. Criar especialidades_militar
+      const especialidadesMilitarBody = {
+        cursos_gerais: body.cursosProfissionais || ''
+      };
+
+      console.log('Salvando especialidades_militar...');
+      const especialidadesMilitar = await nocoRequest(`/tables/${TBL_ESPECIALIDADES_MILITAR}/records`, {
+        method: 'POST',
+        body: JSON.stringify(especialidadesMilitarBody)
+      });
+
       // 4. Criar militar no NocoDB vinculando tudo
       const militarBody = {
         nome_guerra: toTitleCase(body.nomeGuerra || ''),
@@ -285,6 +297,7 @@ export class MilitarController {
         endereco: endereco.Id,
         formas_contato: contato.Id,
         redes_sociai: redesSociais.Id,
+        especialidades_militar: especialidadesMilitar.Id,
         posto_graduacao: mapPostoGraduacao(body.postoGraduacao || 'sdep'),
         companhia: companhiaId,
         tipo_vinculo: tipoVinculo,

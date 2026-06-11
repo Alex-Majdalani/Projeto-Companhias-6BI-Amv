@@ -105,7 +105,7 @@ export function NovoMilitar() {
     numero: '',
     nomeGuerra: '',
     tipoMilitar: 'Militar Temporário',
-    periodoObrigatorio: 'sim',
+    periodoObrigatorio: '',
     secaoCompanhia: '',
     dataPraca: '',
     turmaFormacao: '',
@@ -116,15 +116,15 @@ export function NovoMilitar() {
     cpf: '',
     idtCivil: '',
     altura: '',
-    tipoSanguineo: 'A',
-    fatorRh: '+',
-    cutis: 'Branca',
-    olhos: 'Castanhos',
-    cabelos: 'Preto',
+    tipoSanguineo: '',
+    fatorRh: '',
+    cutis: '',
+    olhos: '',
+    cabelos: '',
     religiao: '',
     nomePai: '',
     nomeMae: '',
-    escolaridade: 'fundamental_inc',
+    escolaridade: '',
     cnhCategoria: [] as string[],
     cursosProfissionais: '',
     cep: '',
@@ -283,6 +283,61 @@ export function NovoMilitar() {
     setLoading(true);
     setError('');
 
+    // Dicionário de campos obrigatórios com nomes legíveis
+    const requiredFields: Record<string, string> = {
+      postoGraduacao: 'Posto/Graduação (P/G)',
+      nomeGuerra: 'Nome de Guerra',
+      tipoMilitar: 'Tipo',
+      periodoObrigatorio: 'Período Obrigatório',
+      secaoCompanhia: 'Companhia',
+      pelotao: 'Pelotão',
+      dataPraca: 'Data de Praça',
+      turmaFormacao: 'Turma de Formação',
+      nomeCompleto: 'Nome Completo',
+      dataNascimento: 'Data de Nascimento',
+      cpf: 'CPF',
+      altura: 'Altura',
+      tipoSanguineo: 'Tipo Sanguíneo (TS)',
+      fatorRh: 'Fator RH',
+      cutis: 'Cútis',
+      olhos: 'Olhos',
+      cabelos: 'Cabelos',
+      religiao: 'Religião',
+      nomePai: 'Nome do Pai',
+      nomeMae: 'Nome da Mãe',
+      escolaridade: 'Escolaridade',
+      cnhCategoria: 'CNH Categorias',
+      resideCom: 'Reside com',
+      cep: 'CEP',
+      rua: 'Rua / Logradouro',
+      numeroResidencial: 'Número do Endereço',
+      bairro: 'Bairro',
+      cidade: 'Cidade',
+      uf: 'Estado (UF)',
+      telefoneCelular: 'Telefone de Contato',
+      telefoneEmergencia: 'Telefone de Emergência',
+      nomeEmergencia: 'Nome para Emergência',
+      grauParentesco: 'Grau de Parentesco'
+    };
+
+    const missing: string[] = [];
+    Object.entries(requiredFields).forEach(([key, label]) => {
+      const val = (formData as any)[key];
+      if (Array.isArray(val)) {
+        if (val.length === 0) {
+          missing.push(label);
+        }
+      } else if (!val || String(val).trim() === '') {
+        missing.push(label);
+      }
+    });
+
+    if (missing.length > 0) {
+      setError(`Preenchimento obrigatório: os seguintes campos estão em branco ou incompletos: ${missing.join(', ')}.`);
+      setLoading(false);
+      return;
+    }
+
     // Validação de Envio para Altura (Impede envio de inteiros como "1" ou "2")
     if (formData.altura) {
       const hasComma = formData.altura.includes(',');
@@ -312,12 +367,6 @@ export function NovoMilitar() {
     }
     if (formData.cep && formData.cep.length > 0 && formData.cep.length !== 9) {
       setError('CEP inválido. Deve possuir 8 dígitos.');
-      setLoading(false);
-      return;
-    }
-
-    if (!formData.turmaFormacao) {
-      setError('Por favor, selecione a Turma de Formação no seletor de ano.');
       setLoading(false);
       return;
     }
@@ -394,7 +443,7 @@ export function NovoMilitar() {
   const years = Array.from({ length: currentYear - 1980 + 1 }, (_, i) => 1980 + i).reverse();
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 pb-12">
+    <form onSubmit={handleSubmit} noValidate className="space-y-6 pb-12">
       <div className="flex justify-between items-end">
         <div>
           <Breadcrumb
@@ -486,7 +535,9 @@ export function NovoMilitar() {
             name="periodoObrigatorio"
             value={formData.periodoObrigatorio}
             onChange={handleChange}
+            required
           >
+            <option value="" disabled>Selecione...</option>
             <option value="sim">Sim</option>
             <option value="nao">Não</option>
           </Select>
@@ -652,7 +703,9 @@ export function NovoMilitar() {
               name="tipoSanguineo"
               value={formData.tipoSanguineo}
               onChange={handleChange}
+              required
             >
+              <option value="" disabled>Selecione...</option>
               <option value="A">A</option>
               <option value="B">B</option>
               <option value="AB">AB</option>
@@ -663,7 +716,9 @@ export function NovoMilitar() {
               name="fatorRh"
               value={formData.fatorRh}
               onChange={handleChange}
+              required
             >
+              <option value="" disabled>Selecione...</option>
               <option value="+">Positivo (+)</option>
               <option value="-">Negativo (-)</option>
             </Select>
@@ -672,7 +727,9 @@ export function NovoMilitar() {
               name="cutis"
               value={formData.cutis}
               onChange={handleChange}
+              required
             >
+              <option value="" disabled>Selecione...</option>
               <option value="Branca">Branca</option>
               <option value="Parda">Parda</option>
               <option value="Preta">Preta</option>
@@ -687,7 +744,9 @@ export function NovoMilitar() {
               name="olhos"
               value={formData.olhos}
               onChange={handleChange}
+              required
             >
+              <option value="" disabled>Selecione...</option>
               <option value="Castanhos">Castanhos</option>
               <option value="Pretos">Pretos</option>
               <option value="Verdes">Verdes</option>
@@ -699,7 +758,9 @@ export function NovoMilitar() {
               name="cabelos"
               value={formData.cabelos}
               onChange={handleChange}
+              required
             >
+              <option value="" disabled>Selecione...</option>
               <option value="Preto">Preto</option>
               <option value="Castanho">Castanho</option>
               <option value="Loiro">Loiro</option>
@@ -741,7 +802,9 @@ export function NovoMilitar() {
               name="escolaridade"
               value={formData.escolaridade}
               onChange={handleChange}
+              required
             >
+              <option value="" disabled>Selecione...</option>
               <option value="fundamental_inc">Fundamental Incompleto</option>
               <option value="fundamental_com">Fundamental Completo</option>
               <option value="medio_inc">Médio Incompleto</option>
