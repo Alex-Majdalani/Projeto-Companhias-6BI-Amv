@@ -108,7 +108,6 @@ export function AppRoutes() {
           <Route path="/sgte/punicoes" element={<Punicoes />} />
         </Route>
       </Route>
-      </Route>
 
       {/* Rota padrão para caminhos não encontrados → redireciona para Home */}
       <Route path="*" element={<Navigate to="/" replace />} />
