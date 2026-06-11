@@ -1,14 +1,22 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Breadcrumb } from '../../components/ui/Breadcrumb';
-import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
+import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input, Select } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
 import { Calendar as CalendarIcon, List as ListIcon, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
-import { DataTable } from '../../components/ui/DataTable';
+import { DataTable, type Column } from '../../components/ui/DataTable';
+
+interface Activity {
+  id: number;
+  title: string;
+  date: Date;
+  type: string;
+  description: string;
+}
 
 // Mock data for activities
-const initialActivities = [
+const initialActivities: Activity[] = [
   { id: 1, title: 'TFM Centralizado', date: new Date(new Date().getFullYear(), new Date().getMonth(), 5), type: 'rotina', description: 'Treinamento Físico Militar com todo o batalhão.' },
   { id: 2, title: 'Formatura Geral', date: new Date(new Date().getFullYear(), new Date().getMonth(), 10), type: 'solenidade', description: 'Formatura de entrega de braçais.' },
   { id: 3, title: 'Inspeção de Armamento', date: new Date(new Date().getFullYear(), new Date().getMonth(), 15), type: 'inspecao', description: 'Inspeção inopinada de armamento leve da Cia.' },
@@ -145,12 +153,12 @@ export function QuadroOrganizacoes() {
   };
 
   const renderList = () => {
-    const columns = [
-      { header: 'Data', accessor: (row: any) => row.date.toLocaleDateString('pt-BR') },
+    const columns: Column<Activity>[] = [
+      { header: 'Data', accessor: (row) => row.date.toLocaleDateString('pt-BR') },
       { header: 'Atividade', accessor: 'title' },
       { 
         header: 'Tipo', 
-        accessor: (row: any) => {
+        accessor: (row) => {
           const dotColors: Record<string, string> = {
             rotina: 'bg-blue-500',
             solenidade: 'bg-purple-500',

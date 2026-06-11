@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-interface Column<T> {
+export interface Column<T> {
   header: string;
   accessor: keyof T | ((row: T) => React.ReactNode);
   className?: string;
@@ -38,7 +38,7 @@ export function DataTable<T>({ columns, data, keyExtractor, renderExpandedRow }:
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
-          {data.map((row, rowIndex) => {
+          {data.map((row) => {
             const isExpanded = expandedRows.has(keyExtractor(row));
             return (
               <React.Fragment key={keyExtractor(row)}>

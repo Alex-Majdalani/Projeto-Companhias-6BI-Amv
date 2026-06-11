@@ -1,4 +1,3 @@
-import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Breadcrumb } from '../../components/ui/Breadcrumb';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
@@ -16,7 +15,7 @@ export function NovoMilitar() {
           <Breadcrumb
             items={[
               { label: 'Gestão de Pessoas' },
-              { label: 'Cadastro de Militares', href: '/sgte/cadastro-militares' },
+              { label: 'Cadastro de Militares', to: '/sgte/cadastro-militares' },
               { label: 'Novo Militar' }
             ]}
           />
