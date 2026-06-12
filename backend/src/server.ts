@@ -4,6 +4,8 @@ import cors from 'cors';
 import { authRoutes } from './routes/auth.routes';
 import { uploadRoutes } from './routes/upload.routes';
 import { militarRoutes } from './routes/militar.routes';
+import { agendaRoutes } from './routes/agenda.routes';
+import { feriasRoutes } from './routes/ferias.routes';
 
 const app = express();
 
@@ -16,6 +18,12 @@ app.use('/api/militares', militarRoutes);
 
 // Vincula o endpoint de upload para o MinIO
 app.use('/api/upload', uploadRoutes);
+
+// Define o prefixo '/api/agenda' e vincula os endpoints de agenda de atividades
+app.use('/api/agenda', agendaRoutes);
+
+// Define o prefixo '/api/ferias' e vincula as rotas para o módulo de plano/período de férias
+app.use('/api/ferias', feriasRoutes);
 
 // Define a porta do servidor, priorizando a variável de ambiente PORT ou caindo na 3333 por padrão
 const PORT = process.env.PORT || 3333;

@@ -1,5 +1,6 @@
-import type { ReactNode } from 'react';
+import React, { type ReactNode, useContext } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { AuthContext } from '../../contexts/AuthContext';
 import {
   LayoutDashboard,
   Users,
@@ -104,6 +105,9 @@ const navGroups: NavGroup[] = [
 
 export function Sidebar() {
   const location = useLocation();
+  
+  // Consome os dados do usuário autenticado e a função signOut do contexto
+  const { user, signOut } = useContext(AuthContext);
 
   return (
     <aside className="w-64 bg-militar-dark text-white flex flex-col h-screen fixed left-0 top-0 overflow-y-auto overflow-x-hidden z-20">
@@ -153,18 +157,30 @@ export function Sidebar() {
 
       {/* User Profile */}
       <div className="p-4 mt-auto">
-        <Link to="/login" className="bg-militar-main rounded-xl p-3 flex items-center justify-between cursor-pointer hover:bg-militar-hover transition-colors border border-militar-light/30">
+        <div className="bg-militar-main rounded-xl p-3 flex items-center justify-between border border-militar-light/30">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-militar-light flex items-center justify-center border-2 border-white/10 text-white">
                <User size={18} />
             </div>
-            <div className="flex flex-col">
-              <span className="text-sm font-semibold text-white leading-tight">Maj QAO R/1 Silva</span>
-              <span className="text-[11px] text-gray-300">Administrador</span>
+            <div className="flex flex-col max-w-[110px]">
+              {/* Exibe o e-mail ou nome real do usuário conectado de forma dinâmica */}
+              <span className="text-xs font-semibold text-white leading-tight truncate" title={user?.email || 'Militar'}>
+                {user?.email ? user.email.split('@')[0] : 'Militar'}
+              </span>
+              <span className="text-[10px] text-gray-300 uppercase tracking-wider mt-0.5">
+                {user?.nivel_acesso || 'Operador'}
+              </span>
             </div>
           </div>
-          <LogOut size={16} className="text-red-400 hover:text-red-300" />
-        </Link>
+          {/* Botão de Logout associado à função de deslogar no banco */}
+          <button 
+            onClick={signOut}
+            title="Sair do Sistema"
+            className="p-1 rounded hover:bg-militar-light text-red-400 hover:text-red-300 transition-colors cursor-pointer"
+          >
+            <LogOut size={16} />
+          </button>
+        </div>
       </div>
     </aside>
   );

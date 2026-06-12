@@ -15,6 +15,12 @@ export function Cadastro() {
   const [postos, setPostos] = useState<any[]>([]);
   const [companhias, setCompanhias] = useState<any[]>([]);
 
+  // ── ESTADO DE LOADING PARA EVITAR CLIQUES DUPLOS E DADOS DUPLICADOS ─────────
+  const [isLoading, setIsLoading] = useState(false);
+
+  // ── ESTADO PARA EXIBIÇÃO DE MENSAGEM DE ERRO NA TELA ───────────────────────
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -32,16 +38,26 @@ export function Cadastro() {
 
   const handleCadastro = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg(null);
     if (senha !== senha2) {
-      alert('As senhas não coincidem!');
+      setErrorMsg('As senhas não coincidem!');
       return;
     }
+    
+    // Evita múltiplas submissões se já estiver carregando
+    if (isLoading) return;
+
+    setIsLoading(true);
     try {
       await api.post('/auth/register', { nome, email, senha, companhia, pg });
-      alert('Cadastro realizado com sucesso!');
+      // Cadastro realizado com sucesso — redireciona para login
       navigate('/login');
     } catch (err: any) {
-      alert('Erro ao realizar cadastro: ' + (err.response?.data?.error || err.message));
+      // Coleta a mensagem de erro específica vinda da resposta da API
+      const apiError = err.response?.data?.error || err.message;
+      setErrorMsg(apiError);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -53,6 +69,13 @@ export function Cadastro() {
           <span className={styles['auth-logo__title']}>Crie sua Conta</span>
           <span className={styles['auth-logo__sub']}>Preencha seus dados institucionais abaixo</span>
         </div>
+
+        {/* Exibe mensagem de erro caso ocorra falha no cadastro */}
+        {errorMsg && (
+          <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg border border-red-200 mb-4 text-center font-medium">
+            {errorMsg}
+          </div>
+        )}
 
         <form className={styles['auth-form']} onSubmit={handleCadastro}>
           <div className={styles['auth-field']}>
@@ -147,8 +170,13 @@ export function Cadastro() {
 
           <div className={styles['auth-divider']} style={{ margin: '12px 0' }} />
 
-          <button className={`${styles['auth-btn']} ${styles['auth-btn--primary']}`} type="submit">
-            Finalizar Cadastro
+          {/* Botão de envio desabilitado durante o carregamento para evitar duplicidade */}
+          <button 
+            className={`${styles['auth-btn']} ${styles['auth-btn--primary']}`} 
+            type="submit"
+            disabled={isLoading}
+          >
+            {isLoading ? 'Cadastrando...' : 'Finalizar Cadastro'}
           </button>
 
           <button
