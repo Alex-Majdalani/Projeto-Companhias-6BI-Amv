@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import { authRoutes } from './routes/auth.routes';
 import { uploadRoutes } from './routes/upload.routes';
+import { militarRoutes } from './routes/militar.routes';
 
 const app = express();
 
@@ -11,6 +12,7 @@ app.use(express.json()); // Configura o parser de JSON para que o express proces
 
 // Define o prefixo '/api' e vincula os endpoints de autenticação
 app.use('/api/auth', authRoutes);
+app.use('/api/militares', militarRoutes);
 
 // Vincula o endpoint de upload para o MinIO
 app.use('/api/upload', uploadRoutes);
