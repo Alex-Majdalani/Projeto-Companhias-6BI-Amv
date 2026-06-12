@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Breadcrumb } from '../../components/ui/Breadcrumb';
 import { Button } from '../../components/ui/Button';
 import { Input, Select } from '../../components/ui/Input';
@@ -6,6 +6,18 @@ import { DataTable } from '../../components/ui/DataTable';
 import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
 import { Plus, Search, Eye, Edit2, Trash2 } from 'lucide-react';
+import { api } from '../../services/api'; // Comentário de organização: Importa a instância configurada do axios para a comunicação com a API
+
+// Comentário de organização: Função utilitária para converter a data do input date (YYYY-MM-DD)
+// para o formato estático amigável de string do projeto (ex: "10 mai 26")
+function formatToMockDate(dateStr: string): string {
+  if (!dateStr) return '';
+  const [year, month, day] = dateStr.split('-');
+  const months = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+  const monthAbbr = months[parseInt(month) - 1];
+  const shortYear = year.substring(2); // ex: '2026' -> '26'
+  return `${parseInt(day)} ${monthAbbr} ${shortYear}`;
+}
 
 interface VacationPlan {
   id: number;
@@ -49,10 +61,13 @@ const initialMockData: VacationPlan[] = [
 
 export function PlanoFerias() {
   const [plans, setPlans] = useState<VacationPlan[]>(initialMockData);
-  const [periods, setPeriods] = useState<VacationPeriod[]>(initialPeriodsMock);
+  const [periods, setPeriods] = useState<VacationPeriod[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Comentário de organização: Estado para exibição de mensagens de erro para o usuário
+  const [periodError, setPeriodError] = useState<string | null>(null);
 
   // Form State - Novo Plano
   const [nomeMilitar, setNomeMilitar] = useState('');
@@ -65,6 +80,27 @@ export function PlanoFerias() {
   const [newPeriodNome, setNewPeriodNome] = useState('');
   const [newPeriodInicio, setNewPeriodInicio] = useState('');
   const [newPeriodFim, setNewPeriodFim] = useState('');
+
+  // Comentário de organização: Busca a lista de períodos de férias cadastrados no banco de dados
+  const fetchPeriodos = useCallback(async () => {
+    try {
+      const res = await api.get('/ferias/periodos');
+      const mapped = res.data.map((p: any) => ({
+        id: p.Id,
+        nome: p.Nome_Periodo,
+        dataInicio: p.data_inicio,
+        dataFim: p.data_fim
+      }));
+      setPeriods(mapped);
+    } catch (err: any) {
+      console.error('Erro ao buscar periodos:', err);
+      setPeriodError('Não foi possível carregar os períodos de férias do banco.');
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchPeriodos();
+  }, [fetchPeriodos]);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,23 +129,52 @@ export function PlanoFerias() {
     }
   };
 
-  const handleSavePeriod = (e: React.FormEvent) => {
+  // Comentário de organização: Envia o cadastro do novo período ao backend
+  const handleSavePeriod = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newPeriod: VacationPeriod = {
-      id: periods.length > 0 ? Math.max(...periods.map((p) => p.id)) + 1 : 1,
-      nome: newPeriodNome,
-      dataInicio: newPeriodInicio,
-      dataFim: newPeriodFim,
-    };
-    setPeriods([...periods, newPeriod]);
-    setNewPeriodNome('');
-    setNewPeriodInicio('');
-    setNewPeriodFim('');
+
+    // Validação robusta de campos vazios antes do envio conforme solicitado
+    if (!newPeriodNome.trim() || !newPeriodInicio || !newPeriodFim) {
+      setPeriodError('Por favor, preencha todos os campos do período.');
+      return;
+    }
+
+    try {
+      setPeriodError(null);
+      
+      // Converte as datas selecionadas para o formato textual solicitado (ex: "10 mai 26")
+      const formattedInicio = formatToMockDate(newPeriodInicio);
+      const formattedFim = formatToMockDate(newPeriodFim);
+
+      await api.post('/ferias/periodos', {
+        Nome_Periodo: newPeriodNome.trim(),
+        data_inicio: formattedInicio,
+        data_fim: formattedFim
+      });
+
+      // Limpa os inputs e recarrega a listagem
+      setNewPeriodNome('');
+      setNewPeriodInicio('');
+      setNewPeriodFim('');
+      fetchPeriodos();
+    } catch (err: any) {
+      console.error(err);
+      const msg = err.response?.data?.error || 'Erro ao salvar o período de férias no banco.';
+      setPeriodError(msg);
+    }
   };
 
-  const handleDeletePeriod = (id: number) => {
+  // Comentário de organização: Remove um período de férias no banco de dados e atualiza a UI
+  const handleDeletePeriod = async (id: number) => {
     if (window.confirm('Tem certeza que deseja excluir este período?')) {
-      setPeriods(periods.filter(p => p.id !== id));
+      try {
+        setPeriodError(null);
+        await api.delete(`/ferias/periodos/${id}`);
+        fetchPeriodos();
+      } catch (err: any) {
+        console.error(err);
+        setPeriodError('Não foi possível excluir o período de férias.');
+      }
     }
   };
 
@@ -317,11 +382,13 @@ export function PlanoFerias() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Data Início</label>
-                  <Input required placeholder="Ex: 10 mai 26" value={newPeriodInicio} onChange={e => setNewPeriodInicio(e.target.value)} />
+                  {/* Comentário de organização: Alterado para tipo date e associado ao datepicker nativo do HTML5 */}
+                  <Input type="date" required value={newPeriodInicio} onChange={e => setNewPeriodInicio(e.target.value)} />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Data Fim</label>
-                  <Input required placeholder="Ex: 09 jun 26" value={newPeriodFim} onChange={e => setNewPeriodFim(e.target.value)} />
+                  {/* Comentário de organização: Alterado para tipo date e associado ao datepicker nativo do HTML5 */}
+                  <Input type="date" required value={newPeriodFim} onChange={e => setNewPeriodFim(e.target.value)} />
                 </div>
               </div>
             </div>
@@ -329,6 +396,13 @@ export function PlanoFerias() {
               <Button type="submit" size="sm" icon={<Plus size={16} />}>Adicionar</Button>
             </div>
           </form>
+
+          {/* Comentário de organização: Mensagem de erro exibida ao usuário em caso de campos vazios ou falha de rede */}
+          {periodError && (
+            <div className="text-xs font-medium text-red-700 bg-red-50 border border-red-200 px-3 py-2 rounded-lg">
+              ⚠️ {periodError}
+            </div>
+          )}
 
           {/* Listar Períodos Existentes */}
           <div>
