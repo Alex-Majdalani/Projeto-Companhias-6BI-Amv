@@ -475,7 +475,6 @@ export function NovoMilitar() {
   // Gerar opções de anos para Turma de Formação
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: currentYear - 1980 + 1 }, (_, i) => 1980 + i).reverse();
->>>>>>> cadastro_torres
 
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-6 pb-12">
