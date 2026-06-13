@@ -146,6 +146,8 @@ export class MilitarController {
         id: m.Id,
         posto: m.posto_graduacao || 'SD EP',
         nome: m.dados_civil?.nome_completo || m.nome_guerra || 'Sem Nome',
+        nome_completo: m.dados_civil?.nome_completo || '',
+        nome_guerra: m.nome_guerra || '',
         identidade: m.idt_militar || '',
         cpf: m.dados_civil?.cpf || '',
         quadro: m.posto_graduacao || '',

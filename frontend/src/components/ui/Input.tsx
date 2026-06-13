@@ -35,12 +35,17 @@ export function Select({ label, className = '', children, ...props }: SelectProp
   return (
     <div className="flex flex-col gap-1.5 w-full">
       {label && <label className="text-sm font-semibold text-gray-700">{label}</label>}
-      <select
-        className={`w-full bg-white border border-gray-300 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-militar-light focus:border-transparent transition-all appearance-none ${className}`}
-      {...props}
-    >
-        {children}
-      </select>
+      <div className="relative">
+        <select
+          className={`w-full bg-white border border-gray-300 rounded-lg py-2 pl-3 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-militar-light focus:border-transparent transition-all appearance-none ${className}`}
+          {...props}
+        >
+          {children}
+        </select>
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 text-xs">
+          ▼
+        </div>
+      </div>
     </div>
   );
 }

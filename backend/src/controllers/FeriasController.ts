@@ -57,4 +57,95 @@ export class FeriasController {
       res.status(500).json({ error: error.message || 'Erro interno ao excluir período de férias.' });
     }
   }
+
+  /**
+   * GET /api/ferias/planos
+   * Retorna todos os planos de férias.
+   */
+  static async getPlanos(req: Request, res: Response): Promise<void> {
+    try {
+      const planos = await FeriasService.getPlanos();
+      res.json(planos);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || 'Erro interno ao buscar planos de férias.' });
+    }
+  }
+
+  /**
+   * POST /api/ferias/planos
+   * Cria um novo plano de férias.
+   */
+  static async createPlano(req: Request, res: Response): Promise<void> {
+    try {
+      const { militarId, periodoIds, parcelas, status, obs, anoReferencia } = req.body;
+      if (!militarId || !Array.isArray(periodoIds) || !parcelas) {
+        res.status(400).json({ error: 'Os campos militarId, periodoIds (array) e parcelas são obrigatórios.' });
+        return;
+      }
+
+      const novoPlano = await FeriasService.createPlano(
+        Number(militarId),
+        periodoIds.map(Number),
+        Number(parcelas),
+        String(status || 'Pendente'),
+        String(obs || ''),
+        Number(anoReferencia || new Date().getFullYear())
+      );
+      res.status(201).json(novoPlano);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || 'Erro interno ao criar plano de férias.' });
+    }
+  }
+
+  /**
+   * PUT /api/ferias/planos/:id
+   * Atualiza um plano de férias existente.
+   */
+  static async updatePlano(req: Request, res: Response): Promise<void> {
+    try {
+      const id = Number(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: 'ID do plano inválido.' });
+        return;
+      }
+
+      const { militarId, periodoIds, parcelas, status, obs, anoReferencia } = req.body;
+      if (!militarId || !Array.isArray(periodoIds) || !parcelas) {
+        res.status(400).json({ error: 'Os campos militarId, periodoIds (array) e parcelas são obrigatórios.' });
+        return;
+      }
+
+      const planoAtualizado = await FeriasService.updatePlano(
+        id,
+        Number(militarId),
+        periodoIds.map(Number),
+        Number(parcelas),
+        String(status || 'Pendente'),
+        String(obs || ''),
+        Number(anoReferencia || new Date().getFullYear())
+      );
+      res.status(200).json(planoAtualizado);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || 'Erro interno ao atualizar plano de férias.' });
+    }
+  }
+
+  /**
+   * DELETE /api/ferias/planos/:id
+   * Exclui um plano de férias.
+   */
+  static async deletePlano(req: Request, res: Response): Promise<void> {
+    try {
+      const id = Number(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: 'ID do plano inválido.' });
+        return;
+      }
+
+      await FeriasService.deletePlano(id);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || 'Erro interno ao excluir plano de férias.' });
+    }
+  }
 }

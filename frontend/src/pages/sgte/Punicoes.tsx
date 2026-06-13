@@ -358,7 +358,7 @@ export function Punicoes() {
           <Button 
             onClick={() => handleOpenEditModal(row)}
             size="sm"
-            variant={row.status === 'Publicado em BI' ? 'outline' : 'default'}
+            variant={row.status === 'Publicado em BI' ? 'outline' : 'primary'}
             className="w-full flex justify-center items-center gap-1.5 text-xs py-2 mt-1"
           >
             <Edit2 size={13} />
