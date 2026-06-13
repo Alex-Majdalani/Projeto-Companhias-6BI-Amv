@@ -1,4 +1,6 @@
 import React, { useState, useMemo } from 'react';
+import { ChevronRight } from 'lucide-react';
+
 
 export interface Column<T> {
   header: string;
@@ -25,6 +27,7 @@ export function DataTable<T>({
   onSelectedRowsChange
 }: DataTableProps<T>) {
   const [expandedRows, setExpandedRows] = useState<Set<string | number>>(new Set());
+  const [animatingRows, setAnimatingRows] = useState<Set<string | number>>(new Set());
   
   // ── ESTADO INTERNO DE SELEÇÃO (USADO APENAS CASO NÃO FOR CONTROLADO) ──────
   const [internalSelectedRows, setInternalSelectedRows] = useState<Set<string | number>>(new Set());
@@ -44,10 +47,25 @@ export function DataTable<T>({
   const itemsPerPage = 10; // Limite de 10 registros por página
 
   const toggleRow = (key: string | number) => {
-    const newSet = new Set(expandedRows);
-    if (newSet.has(key)) newSet.delete(key);
-    else newSet.add(key);
-    setExpandedRows(newSet);
+    const newExpanded = new Set(expandedRows);
+    const newAnimating = new Set(animatingRows);
+    if (newExpanded.has(key)) {
+      newAnimating.add(key);
+      newExpanded.delete(key);
+      setExpandedRows(newExpanded);
+      setAnimatingRows(newAnimating);
+      
+      setTimeout(() => {
+        setAnimatingRows((prev) => {
+          const next = new Set(prev);
+          next.delete(key);
+          return next;
+        });
+      }, 250);
+    } else {
+      newExpanded.add(key);
+      setExpandedRows(newExpanded);
+    }
   };
 
   // ── PAGINAÇÃO: CÁLCULOS ────────────────────────────────────────────────────
@@ -102,17 +120,55 @@ export function DataTable<T>({
 
   return (
     <div className="overflow-x-auto bg-white rounded-xl border border-gray-200 shadow-sm">
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes slideDown {
+          from {
+            opacity: 0;
+            transform: translateY(-8px);
+            max-height: 0;
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+            max-height: 1000px;
+          }
+        }
+        @keyframes slideUp {
+          from {
+            opacity: 1;
+            transform: translateY(0);
+            max-height: 1000px;
+          }
+          to {
+            opacity: 0;
+            transform: translateY(-8px);
+            max-height: 0;
+          }
+        }
+        .animate-slide-down {
+          animation: slideDown 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+          overflow: hidden;
+        }
+        .animate-slide-up {
+          animation: slideUp 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+          overflow: hidden;
+        }
+      `}} />
       <table className="w-full text-sm text-left">
         <thead className="text-xs text-gray-500 uppercase bg-gray-50 border-b border-gray-200">
           <tr>
-            <th className="px-6 py-4 w-12">
-              <input 
-                type="checkbox" 
-                checked={isAllSelected}
-                onChange={handleSelectAllChange}
-                className="rounded border-gray-300 text-militar-main focus:ring-militar-main cursor-pointer" 
-              />
-            </th>
+            {renderExpandedRow ? (
+              <th className="px-6 py-4 w-12" />
+            ) : (
+              <th className="px-6 py-4 w-12">
+                <input 
+                  type="checkbox" 
+                  checked={isAllSelected}
+                  onChange={handleSelectAllChange}
+                  className="rounded border-gray-300 text-militar-main focus:ring-militar-main cursor-pointer" 
+                />
+              </th>
+            )}
             {columns.map((col, idx) => (
               <th key={idx} className={`px-6 py-4 font-semibold ${col.className || ''}`}>
                 {col.header}
@@ -132,14 +188,23 @@ export function DataTable<T>({
                   className={`transition-colors ${renderExpandedRow ? 'cursor-pointer hover:bg-gray-50' : 'hover:bg-gray-50'} ${isExpanded ? 'bg-gray-50' : ''}`}
                   onClick={() => renderExpandedRow && toggleRow(rowKey)}
                 >
-                  <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
-                    <input 
-                      type="checkbox" 
-                      checked={isChecked}
-                      onChange={() => handleRowSelectChange(rowKey)}
-                      className="rounded border-gray-300 text-militar-main focus:ring-militar-main cursor-pointer" 
-                    />
-                  </td>
+                  {renderExpandedRow ? (
+                    <td className="px-6 py-4 w-12 text-center">
+                      <ChevronRight 
+                        size={16} 
+                        className={`text-gray-400 transition-transform duration-200 inline-block ${isExpanded ? 'rotate-90 text-militar-main' : ''}`}
+                      />
+                    </td>
+                  ) : (
+                    <td className="px-6 py-4 w-12" onClick={(e) => e.stopPropagation()}>
+                      <input 
+                        type="checkbox" 
+                        checked={isChecked}
+                        onChange={() => handleRowSelectChange(rowKey)}
+                        className="rounded border-gray-300 text-militar-main focus:ring-militar-main cursor-pointer" 
+                      />
+                    </td>
+                  )}
                   {columns.map((col, colIndex) => (
                     <td key={colIndex} className={`px-6 py-4 text-gray-900 ${col.className || ''}`}>
                       {typeof col.accessor === 'function'
@@ -148,10 +213,12 @@ export function DataTable<T>({
                     </td>
                   ))}
                 </tr>
-                {renderExpandedRow && isExpanded && (
+                 {renderExpandedRow && (isExpanded || animatingRows.has(rowKey)) && (
                   <tr className="bg-gray-50/80 border-b border-gray-100">
-                    <td colSpan={columns.length + 1} className="px-6 py-4">
-                      {renderExpandedRow(row)}
+                    <td colSpan={columns.length + 1} className="px-6 py-4 overflow-hidden">
+                      <div className={isExpanded ? 'animate-slide-down' : 'animate-slide-up'}>
+                        {renderExpandedRow(row)}
+                      </div>
                     </td>
                   </tr>
                 )}

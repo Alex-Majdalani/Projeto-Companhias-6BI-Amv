@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Breadcrumb } from '../../components/ui/Breadcrumb';
 import { Button } from '../../components/ui/Button';
-import { Input, Select } from '../../components/ui/Input';
+import { Input } from '../../components/ui/Input';
 import { DataTable } from '../../components/ui/DataTable';
 import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
@@ -94,6 +94,21 @@ export function PlanoFerias() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('Todos');
+  const [showFiltersCard, setShowFiltersCard] = useState(false);
+  const [pgFilter, setPgFilter] = useState('Todos');
+  const [yearFilter, setYearFilter] = useState('Todos');
+  const [parcelasFilter, setParcelasFilter] = useState('Todos');
+  const [periodFilter, setPeriodFilter] = useState('Todos');
+  const [sortOption, setSortOption] = useState<string>('pg-asc');
+
+  // Estados de rolagem/exibição para estilo 1 de seleção nos filtros e ordenação
+  const [showPgFilterScroll, setShowPgFilterScroll] = useState(false);
+  const [showStatusFilterScroll, setShowStatusFilterScroll] = useState(false);
+  const [showYearFilterScroll, setShowYearFilterScroll] = useState(false);
+  const [showParcelasFilterScroll, setShowParcelasFilterScroll] = useState(false);
+  const [showPeriodFilterScroll, setShowPeriodFilterScroll] = useState(false);
+  const [showSortOptionScroll, setShowSortOptionScroll] = useState(false);
   
   // Comentário de organização: Estado para exibição de mensagens de erro para o usuário
   const [periodError, setPeriodError] = useState<string | null>(null);
@@ -123,6 +138,14 @@ export function PlanoFerias() {
     if (except !== 'parcelas') setShowParcelasScroll(false);
     if (except !== 'period' || index === undefined) setShowPeriodScrollIndex(null);
     if (except !== 'militar') setShowMilitarSuggestions(false);
+
+    // Filtros
+    if (except !== 'pgFilter') setShowPgFilterScroll(false);
+    if (except !== 'statusFilter') setShowStatusFilterScroll(false);
+    if (except !== 'yearFilter') setShowYearFilterScroll(false);
+    if (except !== 'parcelasFilter') setShowParcelasFilterScroll(false);
+    if (except !== 'periodFilter') setShowPeriodFilterScroll(false);
+    if (except !== 'sortOption') setShowSortOptionScroll(false);
   }, []);
 
   // Form State - Novo Período
@@ -176,6 +199,27 @@ export function PlanoFerias() {
       const idxB = PG_ORDER.indexOf(b);
       return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
     });
+
+  // Opções de P/G filtradas para exibição no filtro (apenas postos/graduações que possuem plano cadastrado)
+  const pgOptionsFilter = React.useMemo(() => {
+    const pgs = new Set<string>();
+    plans.forEach(p => {
+      const mil = militares.find(m => m.id === p.militarId);
+      if (mil && mil.posto) {
+        pgs.add(mil.posto);
+      }
+    });
+    return Array.from(pgs).sort((a, b) => {
+      const idxA = PG_ORDER.indexOf(a);
+      const idxB = PG_ORDER.indexOf(b);
+      return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
+    });
+  }, [plans, militares]);
+
+  // Opções de Períodos existentes no banco de dados para exibição no filtro
+  const periodsFilterOptions = React.useMemo(() => {
+    return periods;
+  }, [periods]);
 
   // Lista filtrada de militares com base no P/G selecionado
   const filteredMilitaresForSelect = selectedPG
@@ -393,9 +437,252 @@ export function PlanoFerias() {
     }
   };
 
-  const filteredPlans = plans.filter(p => 
-    p.nomeMilitar.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const sortOptionsList = React.useMemo(() => [
+    { val: 'pg-asc', label: 'P/G (Hierarquia)' },
+    { val: 'nome-asc', label: 'Nome (A-Z)' },
+    { val: 'nome-desc', label: 'Nome (Z-A)' },
+    { val: 'ano-desc', label: 'Ano Ref. (Recente)' },
+    { val: 'ano-asc', label: 'Ano Ref. (Antigo)' },
+    { val: 'periodo-asc', label: 'Data Período (Próximo)' },
+    { val: 'status-asc', label: 'Status (A-Z)' }
+  ], []);
+
+  // Extrai dinamicamente todos os status únicos presentes na lista vinda do banco
+  const uniqueStatuses = React.useMemo(() => {
+    const statuses = new Set<string>();
+    plans.forEach(p => {
+      if (p.status) statuses.add(p.status);
+    });
+    return ['Todos', ...Array.from(statuses)];
+  }, [plans]);
+
+  // Extrai dinamicamente todos os anos de referência presentes na lista vinda do banco
+  const uniqueYears = React.useMemo(() => {
+    const years = new Set<string>();
+    plans.forEach(p => {
+      if (p.anoReferencia) years.add(String(p.anoReferencia));
+    });
+    return ['Todos', ...Array.from(years).sort((a, b) => Number(b) - Number(a))];
+  }, [plans]);
+
+  const filteredPlans = plans.filter(p => {
+    // Primeiro filtra por status se selecionado
+    if (statusFilter !== 'Todos' && p.status !== statusFilter) {
+      return false;
+    }
+
+    // Filtro por P/G (Posto/Graduação)
+    if (pgFilter !== 'Todos') {
+      const mil = militares.find(m => m.id === p.militarId);
+      if (!mil || mil.posto !== pgFilter) return false;
+    }
+
+    // Filtro por Ano de Referência
+    if (yearFilter !== 'Todos' && String(p.anoReferencia) !== yearFilter) {
+      return false;
+    }
+
+    // Filtro por Quantidade de Parcelas
+    if (parcelasFilter !== 'Todos' && String(p.parcelas) !== parcelasFilter) {
+      return false;
+    }
+
+    // Filtro por Período
+    if (periodFilter !== 'Todos' && (!p.periodoIdList || !p.periodoIdList.includes(Number(periodFilter)))) {
+      return false;
+    }
+
+    if (!searchTerm.trim()) return true;
+
+    const term = normalizeText(searchTerm);
+
+    // Busca o militar correspondente no estado local
+    const mil = militares.find(m => m.id === p.militarId);
+
+    // Verifica o nomeMilitar do plano (nome de guerra associado)
+    if (normalizeText(p.nomeMilitar).includes(term)) return true;
+
+    // Se encontrou o militar, pesquisa pelos seus outros campos detalhados
+    if (mil) {
+      if (mil.nome && normalizeText(mil.nome).includes(term)) return true;
+      if (mil.nome_completo && normalizeText(mil.nome_completo).includes(term)) return true;
+      if (mil.nome_guerra && normalizeText(mil.nome_guerra).includes(term)) return true;
+      if (mil.posto && normalizeText(mil.posto).includes(term)) return true;
+      
+      const combined = normalizeText(`${mil.posto} ${mil.nome}`);
+      if (combined.includes(term)) return true;
+    }
+
+    return false;
+  });
+
+  const handleClearFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('Todos');
+    setPgFilter('Todos');
+    setYearFilter('Todos');
+    setParcelasFilter('Todos');
+    setPeriodFilter('Todos');
+  };
+
+  const activeFiltersCount = 
+    (statusFilter !== 'Todos' ? 1 : 0) +
+    (pgFilter !== 'Todos' ? 1 : 0) +
+    (yearFilter !== 'Todos' ? 1 : 0) +
+    (parcelasFilter !== 'Todos' ? 1 : 0) +
+    (periodFilter !== 'Todos' ? 1 : 0);
+
+  // Ordena os planos de férias de acordo com a opção selecionada
+  const sortedPlans = React.useMemo(() => {
+    const plansCopy = [...filteredPlans];
+    
+    plansCopy.sort((a, b) => {
+      const milA = militares.find(m => m.id === a.militarId);
+      const milB = militares.find(m => m.id === b.militarId);
+      
+      switch (sortOption) {
+        case 'pg-asc': {
+          const idxA = milA ? PG_ORDER.indexOf(milA.posto) : 999;
+          const idxB = milB ? PG_ORDER.indexOf(milB.posto) : 999;
+          return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
+        }
+        case 'nome-asc': {
+          const nameA = milA?.nome || a.nomeMilitar;
+          const nameB = milB?.nome || b.nomeMilitar;
+          return nameA.localeCompare(nameB);
+        }
+        case 'nome-desc': {
+          const nameA = milA?.nome || a.nomeMilitar;
+          const nameB = milB?.nome || b.nomeMilitar;
+          return nameB.localeCompare(nameA);
+        }
+        case 'ano-desc': {
+          return (b.anoReferencia || 0) - (a.anoReferencia || 0);
+        }
+        case 'ano-asc': {
+          return (a.anoReferencia || 0) - (b.anoReferencia || 0);
+        }
+        case 'periodo-asc': {
+          const getEarliestDate = (row: VacationPlan) => {
+            if (!row.periodoIdList || row.periodoIdList.length === 0) return Infinity;
+            const dates = row.periodoIdList
+              .map(id => periods.find(p => p.id === id))
+              .filter((p): p is VacationPeriod => !!p)
+              .map(p => new Date(p.dataInicio).getTime());
+            return dates.length > 0 ? Math.min(...dates) : Infinity;
+          };
+          return getEarliestDate(a) - getEarliestDate(b);
+        }
+        case 'status-asc': {
+          return a.status.localeCompare(b.status);
+        }
+        default:
+          return 0;
+      }
+    });
+
+    return plansCopy;
+  }, [filteredPlans, sortOption, militares, periods]);
+
+  // Função para retornar o período inteligente conforme regra de negócio:
+  // Mostra o mais próximo que ainda não acabou. Se todos já aconteceram, mostra o último ocorrido.
+  const getDisplayPeriod = (row: VacationPlan): string => {
+    if (!row.periodoIdList || row.periodoIdList.length === 0) {
+      return 'Sem período';
+    }
+
+    const planPeriods = row.periodoIdList
+      .map(id => periods.find(p => p.id === id))
+      .filter((p): p is VacationPeriod => !!p);
+
+    if (planPeriods.length === 0) {
+      return 'Sem período';
+    }
+
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+
+    // Filtra períodos futuros ou em andamento (dataFim >= hoje)
+    const upcomingPeriods = planPeriods.filter(p => {
+      const dataFim = new Date(p.dataFim);
+      dataFim.setHours(23, 59, 59, 999);
+      return dataFim >= hoje;
+    });
+
+    if (upcomingPeriods.length > 0) {
+      // Ordena de forma crescente pela dataInicio (mais próximo do presente)
+      upcomingPeriods.sort((a, b) => new Date(a.dataInicio).getTime() - new Date(b.dataInicio).getTime());
+      const closest = upcomingPeriods[0];
+      return `${closest.nome} (${formatToMockDate(closest.dataInicio)} a ${formatToMockDate(closest.dataFim)})`;
+    }
+
+    // Se todos já passaram, ordena de forma decrescente e pega o mais recente no passado
+    planPeriods.sort((a, b) => new Date(b.dataInicio).getTime() - new Date(a.dataInicio).getTime());
+    const last = planPeriods[0];
+    return `${last.nome} (${formatToMockDate(last.dataInicio)} a ${formatToMockDate(last.dataFim)})`;
+  };
+
+  // Renderizador para a linha expandida de detalhes adicionais das parcelas e observação (estética premium)
+  const renderExpandedRow = (row: VacationPlan) => {
+    const planPeriods = (row.periodoIdList || [])
+      .map(id => periods.find(p => p.id === id))
+      .filter((p): p is VacationPeriod => !!p);
+
+    return (
+      <div className="p-4 bg-gray-50/60 rounded-xl border border-gray-200 space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Detalhamento dos Períodos</h4>
+            {planPeriods.length === 0 ? (
+              <span className="text-sm text-gray-500">Nenhum período vinculado</span>
+            ) : (
+              <div className="space-y-2">
+                {planPeriods.map((p, idx) => (
+                  <div key={p.id} className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <span className="flex items-center justify-center w-6 h-6 rounded-full bg-militar-light/10 text-militar-main font-bold text-xs">
+                        {idx + 1}
+                      </span>
+                      <div>
+                        <span className="block text-sm font-semibold text-gray-800">{p.nome}</span>
+                        <span className="block text-xs text-gray-500 font-medium">
+                          {formatToMockDate(p.dataInicio)} até {formatToMockDate(p.dataFim)}
+                        </span>
+                      </div>
+                    </div>
+                    <span className="text-xs font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+                      {row.parcelas === 1 ? '30 dias' : row.parcelas === 2 ? '15 dias' : '10 dias'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="space-y-4">
+            <div>
+              <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Informações Adicionais</h4>
+              <div className="p-3 bg-white border border-gray-200 rounded-lg shadow-sm space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-700 font-medium">Quantidade de Parcelas:</span>
+                  <strong className="text-gray-900">{row.parcelas} {row.parcelas === 1 ? 'parcela' : 'parcelas'}</strong>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-700 font-medium">Ano de Referência:</span>
+                  <strong className="text-gray-900">{row.anoReferencia || '-'}</strong>
+                </div>
+              </div>
+            </div>
+            <div>
+              <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Observações (Obs)</h4>
+              <div className="p-3 bg-white border border-gray-200 rounded-lg shadow-sm min-h-[60px]">
+                <p className="text-sm text-gray-700 whitespace-pre-line">{row.obs || 'Nenhuma observação cadastrada.'}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   const columns: any[] = [
     { 
@@ -408,26 +695,27 @@ export function PlanoFerias() {
         return row.nomeMilitar;
       }
     },
-    { header: 'Período', accessor: 'periodo' },
-    { header: 'Dias', accessor: 'dias' },
-    {
-      header: 'Status',
-      accessor: (row: VacationPlan) => {
-        let variant: any = 'default';
-        if (row.status === 'Ok' || row.status.includes('ok') || row.status === 'OK' || row.status.includes('OK')) variant = 'success';
-        if (row.status === 'Pendente') variant = 'warning';
-        return <Badge variant={variant}>{row.status}</Badge>;
-      },
+    { 
+      header: 'Período', 
+      accessor: (row: VacationPlan) => getDisplayPeriod(row)
     },
     {
       header: 'Ano Ref.',
       accessor: (row: VacationPlan) => row.anoReferencia || '-'
     },
-    { header: 'Obs', accessor: 'obs' },
+    {
+      header: 'Status',
+      accessor: (row: VacationPlan) => {
+        let variant: any = 'default';
+        if (row.status === 'Ok' || row.status.includes('ok') || row.status === 'OK' || row.status.includes('OK') || row.status.includes('Parcela OK')) variant = 'success';
+        if (row.status === 'Pendente') variant = 'warning';
+        return <Badge variant={variant}>{row.status}</Badge>;
+      },
+    },
     {
       header: 'Ações',
       accessor: (row: VacationPlan) => (
-        <div className="flex gap-2 text-gray-400">
+        <div className="flex gap-2 text-gray-400" onClick={(e) => e.stopPropagation()}>
           <button 
             onClick={() => handleEdit(row)}
             className="p-1 hover:text-militar-main transition-colors border border-gray-200 rounded"
@@ -447,48 +735,411 @@ export function PlanoFerias() {
 
   return (
     <div className="space-y-6">
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+        .animate-filters {
+          animation: fadeIn 0.12s ease-in-out forwards;
+          overflow: visible;
+        }
+        .hover-scale {
+          transition: opacity 0.15s ease;
+        }
+        .hover-scale:hover {
+          opacity: 0.9;
+        }
+        .hover-scale:active {
+          opacity: 0.8;
+        }
+        .interactive-select {
+          transition: all 0.15s ease;
+        }
+        .interactive-select:hover {
+          border-color: #1F7A45;
+        }
+      `}} />
       <div className="flex justify-between items-start">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Plano de Férias</h1>
           <Breadcrumb items={[{ label: 'Gestão de Pessoas' }, { label: 'Plano de Férias' }]} />
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => setIsConfigModalOpen(true)} variant="outline" icon={<Edit2 size={16} />}>
+          <Button onClick={() => setIsConfigModalOpen(true)} variant="outline" icon={<Edit2 size={16} />} className="hover-scale">
             Configurar Períodos
           </Button>
           <Button onClick={() => {
             resetForm();
             setIsModalOpen(true);
-          }} icon={<Plus size={16} />}>
+          }} icon={<Plus size={16} />} className="hover-scale">
             Novo Plano
           </Button>
         </div>
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden p-6">
-        {/* Filters */}
-        <div className="flex flex-wrap items-end gap-4 mb-6">
-          <div className="flex-1 min-w-[200px]">
-            <label className="block text-xs font-semibold text-gray-600 mb-1">Buscar Militar</label>
+        {/* Main Search Bar */}
+        <div className="flex gap-4 items-center mb-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             <Input 
-              placeholder="Digite o nome..." 
+              placeholder="Buscar militar por nome, posto ou nome de guerra..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
             />
           </div>
-          <div className="w-48">
-            <label className="block text-xs font-semibold text-gray-600 mb-1">Status</label>
-            <Select>
-              <option>Todos</option>
-              <option>Pendente</option>
-              <option>Ok</option>
-            </Select>
+          <div className="w-72 flex items-center gap-2 relative">
+            <label className="text-xs font-semibold text-gray-500 whitespace-nowrap">Ordenar por:</label>
+            <div className="relative flex-1">
+              <Input
+                readOnly
+                value={sortOptionsList.find(o => o.val === sortOption)?.label || ''}
+                onClick={() => {
+                  const nextState = !showSortOptionScroll;
+                  closeAllSelectsExcept(nextState ? 'sortOption' : undefined);
+                  setShowSortOptionScroll(nextState);
+                }}
+                onFocus={() => {
+                  closeAllSelectsExcept('sortOption');
+                  setShowSortOptionScroll(true);
+                }}
+                className="cursor-pointer pr-8 py-1.5 text-sm interactive-select"
+              />
+              <div className={`absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 text-[10px] transition-transform duration-200 ${showSortOptionScroll ? 'rotate-180' : ''}`}>
+                ▼
+              </div>
+            </div>
+            {showSortOptionScroll && (
+              <>
+                <div className="fixed inset-0 z-[900]" onClick={() => setShowSortOptionScroll(false)} />
+                <div className="absolute top-[100%] right-0 z-[1000] w-full mt-1 max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
+                  {sortOptionsList.map((item) => {
+                    const isSelected = sortOption === item.val;
+                    return (
+                      <div
+                        key={item.val}
+                        onClick={() => {
+                          setSortOption(item.val);
+                          setShowSortOptionScroll(false);
+                        }}
+                        className={`px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm flex justify-between items-center ${
+                          isSelected ? 'bg-militar-light/10 font-semibold text-militar-main' : 'text-gray-700'
+                        }`}
+                      >
+                        <span>{item.label}</span>
+                        {isSelected && <span className="text-militar-main text-xs">✓</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
           </div>
-          
-          <div className="flex gap-2">
-            <Button icon={<Search size={16} />} size="md">Filtrar</Button>
-          </div>
+          <Button 
+            onClick={() => setShowFiltersCard(!showFiltersCard)} 
+            variant={showFiltersCard || activeFiltersCount > 0 ? "primary" : "outline"} 
+            icon={<Search size={16} />}
+            className="hover-scale"
+          >
+            Filtrar {activeFiltersCount > 0 && `(${activeFiltersCount})`}
+          </Button>
+          {activeFiltersCount > 0 && (
+            <Button onClick={handleClearFilters} variant="ghost" size="sm" className="text-gray-500 hover:text-red-500 font-semibold hover-scale">
+              Limpar Filtros
+            </Button>
+          )}
         </div>
+
+        {/* Expandable Filter Card */}
+        {showFiltersCard && (
+          <div className="bg-gray-50 p-5 rounded-xl border border-gray-200 gap-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 mb-6 animate-filters">
+            <div className="relative">
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">P/G (Posto/Graduação)</label>
+              <div className="relative">
+                <Input
+                  readOnly
+                  value={pgFilter}
+                  onClick={() => {
+                    const nextState = !showPgFilterScroll;
+                    closeAllSelectsExcept(nextState ? 'pgFilter' : undefined);
+                    setShowPgFilterScroll(nextState);
+                  }}
+                  onFocus={() => {
+                    closeAllSelectsExcept('pgFilter');
+                    setShowPgFilterScroll(true);
+                  }}
+                  className="cursor-pointer pr-8 text-sm interactive-select"
+                />
+                <div className={`absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 text-[10px] transition-transform duration-200 ${showPgFilterScroll ? 'rotate-180' : ''}`}>
+                  ▼
+                </div>
+              </div>
+              {showPgFilterScroll && (
+                <>
+                  <div className="fixed inset-0 z-[900]" onClick={() => setShowPgFilterScroll(false)} />
+                  <div className="absolute z-[1000] w-full mt-1 max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
+                    <div
+                      onClick={() => {
+                        setPgFilter('Todos');
+                        setShowPgFilterScroll(false);
+                      }}
+                      className={`px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm flex justify-between items-center ${
+                        pgFilter === 'Todos' ? 'bg-militar-light/10 font-semibold text-militar-main' : 'text-gray-700'
+                      }`}
+                    >
+                      <span>Todos</span>
+                      {pgFilter === 'Todos' && <span className="text-militar-main text-xs">✓</span>}
+                    </div>
+                    {pgOptionsFilter.map((pg) => {
+                      const isSelected = pgFilter === pg;
+                      return (
+                        <div
+                          key={pg}
+                          onClick={() => {
+                            setPgFilter(pg);
+                            setShowPgFilterScroll(false);
+                          }}
+                          className={`px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm flex justify-between items-center ${
+                            isSelected ? 'bg-militar-light/10 font-semibold text-militar-main' : 'text-gray-700'
+                          }`}
+                        >
+                          <span>{pg}</span>
+                          {isSelected && <span className="text-militar-main text-xs">✓</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+            
+            <div className="relative">
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Status</label>
+              <div className="relative">
+                <Input
+                  readOnly
+                  value={statusFilter}
+                  onClick={() => {
+                    const nextState = !showStatusFilterScroll;
+                    closeAllSelectsExcept(nextState ? 'statusFilter' : undefined);
+                    setShowStatusFilterScroll(nextState);
+                  }}
+                  onFocus={() => {
+                    closeAllSelectsExcept('statusFilter');
+                    setShowStatusFilterScroll(true);
+                  }}
+                  className="cursor-pointer pr-8 text-sm interactive-select"
+                />
+                <div className={`absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 text-[10px] transition-transform duration-200 ${showStatusFilterScroll ? 'rotate-180' : ''}`}>
+                  ▼
+                </div>
+              </div>
+              {showStatusFilterScroll && (
+                <>
+                  <div className="fixed inset-0 z-[900]" onClick={() => setShowStatusFilterScroll(false)} />
+                  <div className="absolute z-[1000] w-full mt-1 max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
+                    {uniqueStatuses.map((st) => {
+                      const isSelected = statusFilter === st;
+                      return (
+                        <div
+                          key={st}
+                          onClick={() => {
+                            setStatusFilter(st);
+                            setShowStatusFilterScroll(false);
+                          }}
+                          className={`px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm flex justify-between items-center ${
+                            isSelected ? 'bg-militar-light/10 font-semibold text-militar-main' : 'text-gray-700'
+                          }`}
+                        >
+                          <span>{st}</span>
+                          {isSelected && <span className="text-militar-main text-xs">✓</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="relative">
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Ano Referência</label>
+              <div className="relative">
+                <Input
+                  readOnly
+                  value={yearFilter}
+                  onClick={() => {
+                    const nextState = !showYearFilterScroll;
+                    closeAllSelectsExcept(nextState ? 'yearFilter' : undefined);
+                    setShowYearFilterScroll(nextState);
+                  }}
+                  onFocus={() => {
+                    closeAllSelectsExcept('yearFilter');
+                    setShowYearFilterScroll(true);
+                  }}
+                  className="cursor-pointer pr-8 text-sm interactive-select"
+                />
+                <div className={`absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 text-[10px] transition-transform duration-200 ${showYearFilterScroll ? 'rotate-180' : ''}`}>
+                  ▼
+                </div>
+              </div>
+              {showYearFilterScroll && (
+                <>
+                  <div className="fixed inset-0 z-[900]" onClick={() => setShowYearFilterScroll(false)} />
+                  <div className="absolute z-[1000] w-full mt-1 max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
+                    {uniqueYears.map((yr) => {
+                      const isSelected = yearFilter === yr;
+                      return (
+                        <div
+                          key={yr}
+                          onClick={() => {
+                            setYearFilter(yr);
+                            setShowYearFilterScroll(false);
+                          }}
+                          className={`px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm flex justify-between items-center ${
+                            isSelected ? 'bg-militar-light/10 font-semibold text-militar-main' : 'text-gray-700'
+                          }`}
+                        >
+                          <span>{yr}</span>
+                          {isSelected && <span className="text-militar-main text-xs">✓</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="relative">
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Parcelas</label>
+              <div className="relative">
+                <Input
+                  readOnly
+                  value={
+                    parcelasFilter === 'Todos' ? 'Todos' :
+                    parcelasFilter === '1' ? '1 parcela (30 dias)' :
+                    parcelasFilter === '2' ? '2 parcelas (15 dias)' :
+                    '3 parcelas (10 dias)'
+                  }
+                  onClick={() => {
+                    const nextState = !showParcelasFilterScroll;
+                    closeAllSelectsExcept(nextState ? 'parcelasFilter' : undefined);
+                    setShowParcelasFilterScroll(nextState);
+                  }}
+                  onFocus={() => {
+                    closeAllSelectsExcept('parcelasFilter');
+                    setShowParcelasFilterScroll(true);
+                  }}
+                  className="cursor-pointer pr-8 text-sm interactive-select"
+                />
+                <div className={`absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 text-[10px] transition-transform duration-200 ${showParcelasFilterScroll ? 'rotate-180' : ''}`}>
+                  ▼
+                </div>
+              </div>
+              {showParcelasFilterScroll && (
+                <>
+                  <div className="fixed inset-0 z-[900]" onClick={() => setShowParcelasFilterScroll(false)} />
+                  <div className="absolute z-[1000] w-full mt-1 max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
+                    {[
+                      { val: 'Todos', label: 'Todos' },
+                      { val: '1', label: '1 parcela (30 dias)' },
+                      { val: '2', label: '2 parcelas (15 dias)' },
+                      { val: '3', label: '3 parcelas (10 dias)' }
+                    ].map((item) => {
+                      const isSelected = parcelasFilter === item.val;
+                      return (
+                        <div
+                          key={item.val}
+                          onClick={() => {
+                            setParcelasFilter(item.val);
+                            setShowParcelasFilterScroll(false);
+                          }}
+                          className={`px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm flex justify-between items-center ${
+                            isSelected ? 'bg-militar-light/10 font-semibold text-militar-main' : 'text-gray-700'
+                          }`}
+                        >
+                          <span>{item.label}</span>
+                          {isSelected && <span className="text-militar-main text-xs">✓</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="relative">
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Período de Férias</label>
+              <div className="relative">
+                <Input
+                  readOnly
+                  value={
+                    periodFilter === 'Todos' ? 'Todos' :
+                    (() => {
+                      const found = periodsFilterOptions.find(p => String(p.id) === periodFilter);
+                      return found ? `${found.nome} (${formatToMockDate(found.dataInicio)})` : 'Todos';
+                    })()
+                  }
+                  onClick={() => {
+                    const nextState = !showPeriodFilterScroll;
+                    closeAllSelectsExcept(nextState ? 'periodFilter' : undefined);
+                    setShowPeriodFilterScroll(nextState);
+                  }}
+                  onFocus={() => {
+                    closeAllSelectsExcept('periodFilter');
+                    setShowPeriodFilterScroll(true);
+                  }}
+                  className="cursor-pointer pr-8 text-sm interactive-select"
+                />
+                <div className={`absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 text-[10px] transition-transform duration-200 ${showPeriodFilterScroll ? 'rotate-180' : ''}`}>
+                  ▼
+                </div>
+              </div>
+              {showPeriodFilterScroll && (
+                <>
+                  <div className="fixed inset-0 z-[900]" onClick={() => setShowPeriodFilterScroll(false)} />
+                  <div className="absolute z-[1000] w-full mt-1 max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
+                    <div
+                      onClick={() => {
+                        setPeriodFilter('Todos');
+                        setShowPeriodFilterScroll(false);
+                      }}
+                      className={`px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm flex justify-between items-center ${
+                        periodFilter === 'Todos' ? 'bg-militar-light/10 font-semibold text-militar-main' : 'text-gray-700'
+                      }`}
+                    >
+                      <span>Todos</span>
+                      {periodFilter === 'Todos' && <span className="text-militar-main text-xs">✓</span>}
+                    </div>
+                    {periodsFilterOptions.map((p) => {
+                      const isSelected = periodFilter === String(p.id);
+                      return (
+                        <div
+                          key={p.id}
+                          onClick={() => {
+                            setPeriodFilter(String(p.id));
+                            setShowPeriodFilterScroll(false);
+                          }}
+                          className={`px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm flex justify-between items-center ${
+                            isSelected ? 'bg-militar-light/10 font-semibold text-militar-main' : 'text-gray-700'
+                          }`}
+                        >
+                          <span>{p.nome} ({formatToMockDate(p.dataInicio)})</span>
+                          {isSelected && <span className="text-militar-main text-xs">✓</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="flex justify-between items-center mb-4">
            <span className="text-sm text-gray-600">Total de <strong className="text-gray-900">{filteredPlans.length}</strong> planos encontrados</span>
@@ -497,8 +1148,9 @@ export function PlanoFerias() {
         {/* Table */}
         <DataTable 
           columns={columns}
-          data={filteredPlans}
+          data={sortedPlans}
           keyExtractor={(row) => row.id}
+          renderExpandedRow={renderExpandedRow}
         />
       </div>
 
@@ -506,6 +1158,7 @@ export function PlanoFerias() {
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
         title={editingPlanId ? "Editar Plano de Férias" : "Cadastrar Plano de Férias"}
+        size="lg"
       >
         <form onSubmit={handleSave} className="space-y-4">
           <div className="grid grid-cols-3 gap-4">
@@ -526,9 +1179,9 @@ export function PlanoFerias() {
                     closeAllSelectsExcept('pg');
                     setShowPGScroll(true);
                   }}
-                  className="cursor-pointer pr-10"
+                  className="cursor-pointer pr-10 interactive-select"
                 />
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 text-xs">
+                <div className={`absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 text-xs transition-transform duration-200 ${showPGScroll ? 'rotate-180' : ''}`}>
                   ▼
                 </div>
               </div>
@@ -624,7 +1277,7 @@ export function PlanoFerias() {
           
           <div className="relative">
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Quantidade de Parcelas
+              Parcelas
             </label>
             <div className="relative">
               <Input
@@ -639,9 +1292,9 @@ export function PlanoFerias() {
                   closeAllSelectsExcept('parcelas');
                   setShowParcelasScroll(true);
                 }}
-                className="cursor-pointer pr-10"
+                className="cursor-pointer pr-10 interactive-select"
               />
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 text-xs">
+              <div className={`absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 text-xs transition-transform duration-200 ${showParcelasScroll ? 'rotate-180' : ''}`}>
                 ▼
               </div>
             </div>
@@ -679,6 +1332,7 @@ export function PlanoFerias() {
           <div className="space-y-4">
             {parcelaPeriodos.map((pId, index) => {
               const diasPorParcela = numParcelas === 1 ? 30 : numParcelas === 2 ? 15 : 10;
+              const suffix = index === 0 ? '1ª' : index === 1 ? '2ª' : '3ª';
               
               // Filtra os períodos impedindo selecionar o mesmo em inputs diferentes
               const availablePeriods = periods.filter(p => {
@@ -689,7 +1343,7 @@ export function PlanoFerias() {
                 <div key={index} className="grid grid-cols-4 gap-4 items-end">
                   <div className="col-span-3 relative">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Selecione o Período (Parcela {index + 1})
+                      Período {suffix} Parcela
                     </label>
                     <div className="relative">
                       <Input
@@ -707,10 +1361,10 @@ export function PlanoFerias() {
                           closeAllSelectsExcept('period', index);
                           setShowPeriodScrollIndex(index);
                         }}
-                        className="cursor-pointer pr-10"
+                        className="cursor-pointer pr-10 interactive-select"
                         required
                       />
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 text-xs">
+                      <div className={`absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 text-xs transition-transform duration-200 ${showPeriodScrollIndex === index ? 'rotate-180' : ''}`}>
                         ▼
                       </div>
                     </div>
@@ -773,10 +1427,10 @@ export function PlanoFerias() {
                     closeAllSelectsExcept('year');
                     setShowYearScroll(true);
                   }}
-                  className="pr-10"
+                  className="pr-10 interactive-select"
                   required
                 />
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 text-xs">
+                <div className={`absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 text-xs transition-transform duration-200 ${showYearScroll ? 'rotate-180' : ''}`}>
                   ▼
                 </div>
               </div>
@@ -835,9 +1489,9 @@ export function PlanoFerias() {
                     closeAllSelectsExcept('status');
                     setShowStatusScroll(true);
                   }}
-                  className="cursor-pointer pr-10"
+                  className="cursor-pointer pr-10 interactive-select"
                 />
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 text-xs">
+                <div className={`absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 text-xs transition-transform duration-200 ${showStatusScroll ? 'rotate-180' : ''}`}>
                   ▼
                 </div>
               </div>
@@ -912,6 +1566,7 @@ export function PlanoFerias() {
         isOpen={isConfigModalOpen} 
         onClose={() => setIsConfigModalOpen(false)} 
         title="Configurar Períodos de Férias"
+        size="lg"
       >
         <div className="space-y-6">
           {/* Alerta de Erro no Topo da Tela/Modal */}
@@ -955,7 +1610,7 @@ export function PlanoFerias() {
               </div>
             </div>
             <div className="flex justify-end">
-              <Button type="submit" size="sm" icon={<Plus size={16} />}>Adicionar</Button>
+              <Button type="submit" size="sm" icon={<Plus size={16} />} className="hover-scale">Adicionar</Button>
             </div>
           </form>
 
