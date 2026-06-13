@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Breadcrumb } from '../../components/ui/Breadcrumb';
 import { Button } from '../../components/ui/Button';
 import { Input, Select } from '../../components/ui/Input';
 import { DataTable } from '../../components/ui/DataTable';
 import { Modal } from '../../components/ui/Modal';
-import { Plus, Search, Edit2, Trash2, Settings } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Settings, Check, X } from 'lucide-react';
 import { militaresMock } from './CadastroMilitares';
+import { api } from '../../services/api';
 
 interface FunctionType {
   id: number;
@@ -19,14 +20,6 @@ interface FunctionAssignment {
   substitute: string;
 }
 
-const initialFunctionTypes: FunctionType[] = [
-  { id: 1, name: 'Of TFM' },
-  { id: 2, name: 'Sgt TFM' },
-  { id: 3, name: 'Furriel' },
-  { id: 4, name: 'Armeiro' },
-  { id: 5, name: 'Cmt Gd' },
-];
-
 const initialAssignments: FunctionAssignment[] = [
   { id: 1, functionName: 'Of TFM', effective: '1º Ten Rafael', substitute: '2º Ten Marcos' },
   { id: 2, functionName: 'Sgt TFM', effective: '3º Sgt Nogueira', substitute: 'Cb Lucas' },
@@ -34,7 +27,7 @@ const initialAssignments: FunctionAssignment[] = [
 
 export function FuncoesCia() {
   // States
-  const [functionTypes, setFunctionTypes] = useState<FunctionType[]>(initialFunctionTypes);
+  const [functionTypes, setFunctionTypes] = useState<FunctionType[]>([]);
   const [assignments, setAssignments] = useState<FunctionAssignment[]>(initialAssignments);
   
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
@@ -49,23 +42,83 @@ export function FuncoesCia() {
   const [effective, setEffective] = useState('');
   const [substitute, setSubstitute] = useState('');
 
-  // Handlers for Function Types
-  const handleSaveFunctionType = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newFunctionTypeName.trim()) return;
-
-    const newType: FunctionType = {
-      id: functionTypes.length > 0 ? Math.max(...functionTypes.map(f => f.id)) + 1 : 1,
-      name: newFunctionTypeName.trim(),
-    };
-    
-    setFunctionTypes([...functionTypes, newType]);
-    setNewFunctionTypeName('');
+  // Função utilitária para garantir a primeira letra maiúscula conforme regras solicitadas
+  const capitalizeFirstLetter = (str: string): string => {
+    const match = str.match(/[a-zA-ZáàâãéèêíïóôõöúçñÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇÑ]/);
+    if (match && match.index !== undefined) {
+      const idx = match.index;
+      return str.slice(0, idx) + str.charAt(idx).toUpperCase() + str.slice(idx + 1);
+    }
+    return str;
   };
 
-  const handleDeleteFunctionType = (id: number) => {
+  // Carrega os tipos de funções do banco de dados NocoDB
+  const fetchFunctionTypes = useCallback(async () => {
+    try {
+      const res = await api.get('/funcoes');
+      const mapped = res.data.map((f: any) => ({
+        id: f.id,
+        name: f.funcao
+      }));
+      setFunctionTypes(mapped);
+    } catch (err) {
+      console.error('Erro ao carregar tipos de funções:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchFunctionTypes();
+  }, [fetchFunctionTypes]);
+
+  // Estado para controle de edição inline das funções no modal
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingName, setEditingName] = useState('');
+
+  // Handlers for Function Types
+  const handleSaveFunctionType = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const formattedName = capitalizeFirstLetter(newFunctionTypeName.trim());
+    if (!formattedName) return;
+
+    try {
+      const res = await api.post('/funcoes', { funcao: formattedName });
+      const newType: FunctionType = {
+        id: res.data.id,
+        name: res.data.funcao
+      };
+      
+      setFunctionTypes(prev => [...prev, newType]);
+      setNewFunctionTypeName('');
+    } catch (err) {
+      console.error('Erro ao salvar nova função:', err);
+      alert('Não foi possível salvar a função no banco de dados.');
+    }
+  };
+
+  const handleUpdateFunctionType = async (id: number) => {
+    const formattedName = capitalizeFirstLetter(editingName.trim());
+    if (!formattedName) return;
+
+    try {
+      const res = await api.put(`/funcoes/${id}`, { funcao: formattedName });
+      setFunctionTypes(prev => prev.map(f => f.id === id ? { ...f, name: res.data.funcao } : f));
+      setEditingId(null);
+      setEditingName('');
+    } catch (err) {
+      console.error('Erro ao atualizar função:', err);
+      alert('Não foi possível atualizar o nome da função.');
+    }
+  };
+
+  const handleDeleteFunctionType = async (id: number) => {
     if (window.confirm('Tem certeza que deseja excluir esta função?')) {
-      setFunctionTypes(functionTypes.filter(f => f.id !== id));
+      try {
+        await api.delete(`/funcoes/${id}`);
+        setFunctionTypes(prev => prev.filter(f => f.id !== id));
+      } catch (err) {
+        console.error('Erro ao excluir função:', err);
+        alert('Não foi possível excluir a função.');
+      }
     }
   };
 
@@ -255,7 +308,13 @@ export function FuncoesCia() {
             <div className="flex gap-2 items-end">
               <div className="flex-1">
                 <label className="block text-xs font-medium text-gray-600 mb-1">Nome da Função</label>
-                <Input required placeholder="Ex: Sargenteante" value={newFunctionTypeName} onChange={e => setNewFunctionTypeName(e.target.value)} />
+                <Input 
+                  required 
+                  placeholder="Ex: Sargenteante" 
+                  value={newFunctionTypeName} 
+                  onChange={e => setNewFunctionTypeName(e.target.value)} 
+                  onBlur={() => setNewFunctionTypeName(capitalizeFirstLetter(newFunctionTypeName))}
+                />
               </div>
               <Button type="submit" size="md" icon={<Plus size={16} />}>Adicionar</Button>
             </div>
@@ -268,24 +327,77 @@ export function FuncoesCia() {
             ) : (
               <div className="max-h-64 overflow-y-auto pr-2">
                 <ul className="space-y-2">
-                  {functionTypes.map(f => (
-                    <li key={f.id} className="flex justify-between items-center bg-white border border-gray-200 p-3 rounded-lg shadow-sm">
-                      <span className="block text-sm font-medium text-gray-900">{f.name}</span>
-                      <button 
-                        onClick={() => handleDeleteFunctionType(f.id)}
-                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </li>
-                  ))}
+                  {functionTypes.map(f => {
+                    const isEditing = editingId === f.id;
+                    return (
+                      <li key={f.id} className="flex justify-between items-center bg-white border border-gray-200 p-3 rounded-lg shadow-sm gap-2">
+                        {isEditing ? (
+                          <Input 
+                            value={editingName} 
+                            onChange={e => setEditingName(e.target.value)} 
+                            onBlur={() => setEditingName(capitalizeFirstLetter(editingName))}
+                            className="flex-1 text-sm py-1"
+                            autoFocus
+                          />
+                        ) : (
+                          <span className="block text-sm font-medium text-gray-900">{f.name}</span>
+                        )}
+                        <div className="flex gap-1.5">
+                          {isEditing ? (
+                            <>
+                              <button 
+                                onClick={() => handleUpdateFunctionType(f.id)}
+                                className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors"
+                                title="Salvar"
+                              >
+                                <Check size={16} />
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  setEditingId(null);
+                                  setEditingName('');
+                                }}
+                                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
+                                title="Cancelar"
+                              >
+                                <X size={16} />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button 
+                                onClick={() => {
+                                  setEditingId(f.id);
+                                  setEditingName(f.name);
+                                }}
+                                className="p-2 text-gray-400 hover:text-militar-main hover:bg-militar-light/10 rounded-md transition-colors"
+                                title="Editar"
+                              >
+                                <Edit2 size={16} />
+                              </button>
+                              <button 
+                                onClick={() => handleDeleteFunctionType(f.id)}
+                                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
+                                title="Excluir"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             )}
           </div>
           
           <div className="flex justify-end pt-4 border-t border-gray-100">
-            <Button onClick={() => setIsConfigModalOpen(false)}>
+            <Button 
+              onClick={() => setIsConfigModalOpen(false)}
+              disabled={editingId !== null}
+            >
               Concluir
             </Button>
           </div>
