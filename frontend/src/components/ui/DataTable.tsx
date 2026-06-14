@@ -118,6 +118,8 @@ export function DataTable<T>({
     updateSelectedRows(newSelected);
   };
 
+  const hasSelection = !!(externalSelectedRows || onSelectedRowsChange);
+
   return (
     <div className="overflow-x-auto bg-white rounded-xl border border-gray-200 shadow-sm">
       <style dangerouslySetInnerHTML={{ __html: `
@@ -159,7 +161,7 @@ export function DataTable<T>({
           <tr>
             {renderExpandedRow ? (
               <th className="px-6 py-4 w-12" />
-            ) : (
+            ) : hasSelection ? (
               <th className="px-6 py-4 w-12">
                 <input 
                   type="checkbox" 
@@ -168,7 +170,7 @@ export function DataTable<T>({
                   className="rounded border-gray-300 text-militar-main focus:ring-militar-main cursor-pointer" 
                 />
               </th>
-            )}
+            ) : null}
             {columns.map((col, idx) => (
               <th key={idx} className={`px-6 py-4 font-semibold ${col.className || ''}`}>
                 {col.header}
@@ -195,7 +197,7 @@ export function DataTable<T>({
                         className={`text-gray-400 transition-transform duration-200 inline-block ${isExpanded ? 'rotate-90 text-militar-main' : ''}`}
                       />
                     </td>
-                  ) : (
+                  ) : hasSelection ? (
                     <td className="px-6 py-4 w-12" onClick={(e) => e.stopPropagation()}>
                       <input 
                         type="checkbox" 
@@ -204,7 +206,7 @@ export function DataTable<T>({
                         className="rounded border-gray-300 text-militar-main focus:ring-militar-main cursor-pointer" 
                       />
                     </td>
-                  )}
+                  ) : null}
                   {columns.map((col, colIndex) => (
                     <td key={colIndex} className={`px-6 py-4 text-gray-900 ${col.className || ''}`}>
                       {typeof col.accessor === 'function'
@@ -227,7 +229,7 @@ export function DataTable<T>({
           })}
           {paginatedData.length === 0 && (
             <tr>
-              <td colSpan={columns.length + 1} className="px-6 py-8 text-center text-gray-500">
+              <td colSpan={columns.length + (renderExpandedRow || hasSelection ? 1 : 0)} className="px-6 py-8 text-center text-gray-500">
                 Nenhum registro encontrado.
               </td>
             </tr>

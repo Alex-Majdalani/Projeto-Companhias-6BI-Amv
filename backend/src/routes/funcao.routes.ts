@@ -8,5 +8,6 @@ funcaoRoutes.get('/', authMiddleware, FuncaoController.list);
 funcaoRoutes.post('/', authMiddleware, FuncaoController.create);
 funcaoRoutes.delete('/:id', authMiddleware, FuncaoController.delete);
 funcaoRoutes.put('/:id', authMiddleware, FuncaoController.update);
+funcaoRoutes.put('/:id/designar', authMiddleware, FuncaoController.assign);
 
 export { funcaoRoutes };

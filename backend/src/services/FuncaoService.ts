@@ -13,7 +13,9 @@ export interface FuncaoRecord {
   id: number;
   funcao: string;
   efetivoId?: number | null;
+  nomeEfetivo?: string | null;
   substitutoId?: number | null;
+  nomeSubstituto?: string | null;
 }
 
 export class FuncaoService {
@@ -25,12 +27,19 @@ export class FuncaoService {
       const response = await api.get(`/api/v2/tables/${FUNCOES_TABLE_ID}/records`, {
         params: { limit: 100 }
       });
-      return response.data.list.map((r: any) => ({
-        id: r.Id || r.id,
-        funcao: r.funcao || '',
-        efetivoId: r.efetivo?.Id || r.efetivo?.id || null,
-        substitutoId: r.substituto?.Id || r.substituto?.id || null
-      }));
+      return response.data.list.map((r: any) => {
+        // As colunas de link de militares vêm como objetos se vinculadas
+        const ef = r.efetivo;
+        const sub = r.substituto;
+        return {
+          id: r.Id || r.id,
+          funcao: r.funcao || '',
+          efetivoId: ef?.Id || ef?.id || null,
+          nomeEfetivo: ef ? `${ef.posto_graduacao || ''} ${ef.nome_guerra || ''}`.trim() : null,
+          substitutoId: sub?.Id || sub?.id || null,
+          nomeSubstituto: sub ? `${sub.posto_graduacao || ''} ${sub.nome_guerra || ''}`.trim() : null
+        };
+      });
     } catch (error: any) {
       console.error('[FuncaoService] Erro ao listar funções:', error?.response?.data || error.message);
       throw new Error('Não foi possível listar as funções da cia.');
@@ -85,6 +94,59 @@ export class FuncaoService {
     } catch (error: any) {
       console.error('[FuncaoService] Erro ao atualizar função:', error?.response?.data || error.message);
       throw new Error('Não foi possível atualizar a função.');
+    }
+  }
+
+  /**
+   * Designa (vincula) militares efetivo e substituto para uma função.
+   */
+  static async assign(id: number, efetivoId: number | null, substitutoId: number | null): Promise<void> {
+    console.log('[FuncaoService] assign recebido:', { id, efetivoId, substitutoId });
+    try {
+      // 1. Busca o registro atual para verificar vínculos anteriores
+      const response = await api.get(`/api/v2/tables/${FUNCOES_TABLE_ID}/records/${id}`);
+      const current = response.data;
+      const oldEfetivoId = current.efetivo?.Id ? Number(current.efetivo.Id) : (current.efetivo?.id ? Number(current.efetivo.id) : null);
+      const oldSubstitutoId = current.substituto?.Id ? Number(current.substituto.Id) : (current.substituto?.id ? Number(current.substituto.id) : null);
+      console.log('[FuncaoService] old links:', { oldEfetivoId, oldSubstitutoId });
+
+      const effId = efetivoId ? Number(efetivoId) : null;
+      const subId = substitutoId ? Number(substitutoId) : null;
+
+      // 2. Gerencia o link de militar efetivo
+      if (effId !== oldEfetivoId) {
+        if (oldEfetivoId) {
+          try {
+            await api.delete(`/api/v2/tables/${FUNCOES_TABLE_ID}/links/cfp8hcod98hlx1h/records/${id}`, {
+              data: { Id: oldEfetivoId }
+            });
+          } catch (e) {}
+        }
+        if (effId) {
+          await api.post(`/api/v2/tables/${FUNCOES_TABLE_ID}/links/cfp8hcod98hlx1h/records/${id}`, {
+            Id: effId
+          });
+        }
+      }
+
+      // 3. Gerencia o link de militar substituto
+      if (subId !== oldSubstitutoId) {
+        if (oldSubstitutoId) {
+          try {
+            await api.delete(`/api/v2/tables/${FUNCOES_TABLE_ID}/links/czhgonijkr9p44c/records/${id}`, {
+              data: { Id: oldSubstitutoId }
+            });
+          } catch (e) {}
+        }
+        if (subId) {
+          await api.post(`/api/v2/tables/${FUNCOES_TABLE_ID}/links/czhgonijkr9p44c/records/${id}`, {
+            Id: subId
+          });
+        }
+      }
+    } catch (error: any) {
+      console.error('[FuncaoService] Erro ao designar militares:', error?.response?.data || error.message);
+      throw new Error('Não foi possível designar os militares para a função.');
     }
   }
 }

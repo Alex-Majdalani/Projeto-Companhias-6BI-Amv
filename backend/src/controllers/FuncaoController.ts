@@ -49,4 +49,17 @@ export class FuncaoController {
       res.status(500).json({ error: error.message });
     }
   }
+
+  static async assign(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const { efetivoId, substitutoId } = req.body;
+      
+      // As IDs podem vir como null se o militar não foi designado
+      await FuncaoService.assign(Number(id), efetivoId ? Number(efetivoId) : null, substitutoId ? Number(substitutoId) : null);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  }
 }

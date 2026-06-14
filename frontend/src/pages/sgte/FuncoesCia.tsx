@@ -5,8 +5,48 @@ import { Input, Select } from '../../components/ui/Input';
 import { DataTable } from '../../components/ui/DataTable';
 import { Modal } from '../../components/ui/Modal';
 import { Plus, Search, Edit2, Trash2, Settings, Check, X } from 'lucide-react';
-import { militaresMock } from './CadastroMilitares';
 import { api } from '../../services/api';
+
+// Função utilitária para remover acentos e converter para minúscula (busca insensível a acentos e caixa)
+function normalizeText(text: string): string {
+  if (!text) return '';
+  return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
+// Função utilitária para renderizar o nome completo do militar destacando em negrito e com sublinhado apenas as palavras do Nome de Guerra
+function renderMilitarName(militar: any) {
+  const nomeCompleto = militar.nome_completo || militar.nome || '';
+  const nomeGuerra = militar.nome_guerra || '';
+
+  if (!nomeGuerra) {
+    return <span className="font-bold text-gray-900">{nomeCompleto}</span>;
+  }
+
+  const words = nomeGuerra.split(/\s+/).filter((w: string) => w.trim().length > 0);
+  if (words.length === 0) {
+    return <span className="font-bold text-gray-900">{nomeCompleto}</span>;
+  }
+
+  const escapedWords = words.map((w: string) => w.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'));
+  const regex = new RegExp(`(${escapedWords.join('|')})`, 'gi');
+  const parts = nomeCompleto.split(regex);
+
+  return (
+    <span>
+      {parts.map((part: string, index: number) => 
+        regex.test(part) ? (
+          <strong key={index} className="font-bold text-militar-main underline decoration-2 decoration-militar-light">
+            {part}
+          </strong>
+        ) : (
+          <span key={index} className="font-bold text-gray-500">
+            {part}
+          </span>
+        )
+      )}
+    </span>
+  );
+}
 
 interface FunctionType {
   id: number;
@@ -20,27 +60,66 @@ interface FunctionAssignment {
   substitute: string;
 }
 
-const initialAssignments: FunctionAssignment[] = [
-  { id: 1, functionName: 'Of TFM', effective: '1º Ten Rafael', substitute: '2º Ten Marcos' },
-  { id: 2, functionName: 'Sgt TFM', effective: '3º Sgt Nogueira', substitute: 'Cb Lucas' },
+const PG_ORDER = [
+  'CEL', 'TC', 'MAJ', 'CAP', '1º TEN', '2º TEN', 'ASP',
+  'ST', '1º SGT', '2º SGT', '3º SGT', 'CB', 'SD EP', 'SD EV'
 ];
 
 export function FuncoesCia() {
   // States
   const [functionTypes, setFunctionTypes] = useState<FunctionType[]>([]);
-  const [assignments, setAssignments] = useState<FunctionAssignment[]>(initialAssignments);
+  const [assignments, setAssignments] = useState<FunctionAssignment[]>([]);
+  const [militares, setMilitares] = useState<any[]>([]);
   
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isSavingAssignment, setIsSavingAssignment] = useState(false);
+  const [isEditingAssignment, setIsEditingAssignment] = useState(false);
+
+  // Filtros Avançados
+  const [showFiltersCard, setShowFiltersCard] = useState(false);
+  const [pgFilter, setPgFilter] = useState('Todos');
+  const [functionFilter, setFunctionFilter] = useState('Todos');
+  const [showPgFilterScroll, setShowPgFilterScroll] = useState(false);
+  const [showFunctionFilterScroll, setShowFunctionFilterScroll] = useState(false);
 
   // Form State - Config Function Types
   const [newFunctionTypeName, setNewFunctionTypeName] = useState('');
 
   // Form State - New Assignment
   const [selectedFunction, setSelectedFunction] = useState('');
+  
+  // States para a seleção do Militar Efetivo (idêntico ao plano de férias)
   const [effective, setEffective] = useState('');
+  const [effectiveId, setEffectiveId] = useState<number | null>(null);
+  const [selectedEffectivePG, setSelectedEffectivePG] = useState('');
+  const [showEffectiveSuggestions, setShowEffectiveSuggestions] = useState(false);
+  const [showEffectivePGScroll, setShowEffectivePGScroll] = useState(false);
+
+  // States para a seleção do Militar Substituto (idêntico ao plano de férias)
   const [substitute, setSubstitute] = useState('');
+  const [substituteId, setSubstituteId] = useState<number | null>(null);
+  const [selectedSubstitutePG, setSelectedSubstitutePG] = useState('');
+  const [showSubstituteSuggestions, setShowSubstituteSuggestions] = useState(false);
+  const [showSubstitutePGScroll, setShowSubstitutePGScroll] = useState(false);
+
+  const closeAllSelectsExcept = useCallback((except?: string) => {
+    if (except !== 'effectivePG') setShowEffectivePGScroll(false);
+    if (except !== 'effectiveSuggestions') setShowEffectiveSuggestions(false);
+    if (except !== 'substitutePG') setShowSubstitutePGScroll(false);
+    if (except !== 'substituteSuggestions') setShowSubstituteSuggestions(false);
+    if (except !== 'pgFilter') setShowPgFilterScroll(false);
+    if (except !== 'functionFilter') setShowFunctionFilterScroll(false);
+  }, []);
+
+  // Opções de P/G ordenadas hierarquicamente
+  const pgOptions = Array.from(new Set(militares.map(m => m.posto).filter(Boolean)))
+    .sort((a, b) => {
+      const idxA = PG_ORDER.indexOf(a);
+      const idxB = PG_ORDER.indexOf(b);
+      return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
+    });
 
   // Função utilitária para garantir a primeira letra maiúscula conforme regras solicitadas
   const capitalizeFirstLetter = (str: string): string => {
@@ -52,23 +131,44 @@ export function FuncoesCia() {
     return str;
   };
 
-  // Carrega os tipos de funções do banco de dados NocoDB
+  // Carrega os militares da API
+  const fetchMilitares = useCallback(async () => {
+    try {
+      const res = await api.get('/militares');
+      setMilitares(res.data);
+    } catch (err) {
+      console.error('Erro ao buscar militares:', err);
+    }
+  }, []);
+
+  // Carrega os tipos de funções do banco de dados NocoDB e as designações
   const fetchFunctionTypes = useCallback(async () => {
     try {
       const res = await api.get('/funcoes');
-      const mapped = res.data.map((f: any) => ({
+      const mappedTypes = res.data.map((f: any) => ({
         id: f.id,
         name: f.funcao
       }));
-      setFunctionTypes(mapped);
+      setFunctionTypes(mappedTypes);
+
+      const mappedAssignments = res.data.map((f: any) => ({
+        id: f.id,
+        functionName: f.funcao,
+        effective: f.nomeEfetivo || 'Não designado',
+        substitute: f.nomeSubstituto || 'Não designado',
+        efetivoId: f.efetivoId,
+        substitutoId: f.substitutoId
+      }));
+      setAssignments(mappedAssignments);
     } catch (err) {
-      console.error('Erro ao carregar tipos de funções:', err);
+      console.error('Erro ao carregar tipos de funções e designações:', err);
     }
   }, []);
 
   useEffect(() => {
     fetchFunctionTypes();
-  }, [fetchFunctionTypes]);
+    fetchMilitares();
+  }, [fetchFunctionTypes, fetchMilitares]);
 
   // Estado para controle de edição inline das funções no modal
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -122,39 +222,214 @@ export function FuncoesCia() {
     }
   };
 
-  // Handlers for Assignments
-  const handleSaveAssignment = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedFunction) return;
-
-    const newAssignment: FunctionAssignment = {
-      id: assignments.length > 0 ? Math.max(...assignments.map(a => a.id)) + 1 : 1,
-      functionName: selectedFunction,
-      effective: effective.trim(),
-      substitute: substitute.trim()
-    };
-
-    setAssignments([...assignments, newAssignment]);
-    setIsAssignmentModalOpen(false);
-
-    // Reset Form
-    setSelectedFunction('');
-    setEffective('');
-    setSubstitute('');
-  };
-
-  const handleDeleteAssignment = (id: number) => {
-    if (window.confirm('Tem certeza que deseja excluir esta designação?')) {
-      setAssignments(assignments.filter(a => a.id !== id));
+  const handleEffectiveMilitarChange = (val: string) => {
+    setEffective(val);
+    const normalizedVal = normalizeText(val);
+    const found = militares.find(m => 
+      normalizeText(`${m.posto} ${m.nome}`) === normalizedVal || 
+      normalizeText(m.nome) === normalizedVal
+    );
+    if (found) {
+      setEffectiveId(found.id);
+      if (!selectedEffectivePG || selectedEffectivePG !== found.posto) {
+        setSelectedEffectivePG(found.posto);
+      }
+    } else {
+      setEffectiveId(null);
     }
   };
 
+  const handleEffectivePGChange = (pg: string) => {
+    setSelectedEffectivePG(pg);
+    if (effectiveId) {
+      const selectedMilitar = militares.find(m => m.id === effectiveId);
+      if (selectedMilitar && selectedMilitar.posto !== pg) {
+        setEffectiveId(null);
+        setEffective('');
+      }
+    }
+  };
+
+  const handleSubstituteMilitarChange = (val: string) => {
+    setSubstitute(val);
+    const normalizedVal = normalizeText(val);
+    const found = militares.find(m => 
+      normalizeText(`${m.posto} ${m.nome}`) === normalizedVal || 
+      normalizeText(m.nome) === normalizedVal
+    );
+    if (found) {
+      setSubstituteId(found.id);
+      if (!selectedSubstitutePG || selectedSubstitutePG !== found.posto) {
+        setSelectedSubstitutePG(found.posto);
+      }
+    } else {
+      setSubstituteId(null);
+    }
+  };
+
+  const handleSubstitutePGChange = (pg: string) => {
+    setSelectedSubstitutePG(pg);
+    if (substituteId) {
+      const selectedMilitar = militares.find(m => m.id === substituteId);
+      if (selectedMilitar && selectedMilitar.posto !== pg) {
+        setSubstituteId(null);
+        setSubstitute('');
+      }
+    }
+  };
+
+  const resetAssignmentForm = useCallback(() => {
+    setSelectedFunction('');
+    setEffective('');
+    setEffectiveId(null);
+    setSelectedEffectivePG('');
+    setShowEffectiveSuggestions(false);
+    setShowEffectivePGScroll(false);
+    setSubstitute('');
+    setSubstituteId(null);
+    setSelectedSubstitutePG('');
+    setShowSubstituteSuggestions(false);
+    setShowSubstitutePGScroll(false);
+  }, []);
+
+  // Handlers for Assignments
+  const handleSaveAssignment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log('[FuncoesCia] handleSaveAssignment chamando:', { selectedFunction, effective, effectiveId, substitute, substituteId });
+    if (!selectedFunction) return;
+
+    // Busca a função selecionada para encontrar o ID
+    const foundFunction = functionTypes.find(f => f.name === selectedFunction);
+    if (!foundFunction) {
+      alert('Função selecionada inválida.');
+      return;
+    }
+
+    // Validação: Militar Efetivo precisa existir no banco (id preenchido e correspondência exata de nome)
+    const matchedEffective = militares.find(m => m.id === effectiveId);
+    if (!matchedEffective || normalizeText(`${matchedEffective.posto} ${matchedEffective.nome}`) !== normalizeText(effective)) {
+      alert('Militar Efetivo não encontrado no banco de dados. Por favor, selecione um militar válido a partir da lista de sugestões.');
+      return;
+    }
+
+    // Validação: Militar Substituto, se digitado, precisa existir no banco (id preenchido e correspondência exata de nome)
+    if (substitute.trim()) {
+      const matchedSubstitute = militares.find(m => m.id === substituteId);
+      if (!matchedSubstitute || normalizeText(`${matchedSubstitute.posto} ${matchedSubstitute.nome}`) !== normalizeText(substitute)) {
+        alert('Militar Substituto não encontrado no banco de dados. Por favor, selecione um militar válido a partir da lista de sugestões.');
+        return;
+      }
+    }
+
+    // Validação: Efetivo e Substituto não podem ser a mesma pessoa
+    if (effectiveId && substituteId && effectiveId === substituteId) {
+      alert('O militar efetivo e o militar substituto não podem ser a mesma pessoa.');
+      return;
+    }
+
+    try {
+      setIsSavingAssignment(true);
+      await api.put(`/funcoes/${foundFunction.id}/designar`, {
+        efetivoId: effectiveId,
+        substitutoId: substitute.trim() ? substituteId : null
+      });
+
+      setIsAssignmentModalOpen(false);
+      resetAssignmentForm();
+      fetchFunctionTypes(); // Recarrega a tabela de designações
+    } catch (err) {
+      console.error('Erro ao salvar designação:', err);
+      alert('Não foi possível salvar a designação no banco de dados.');
+    } finally {
+      setIsSavingAssignment(false);
+    }
+  };
+
+  const handleDeleteAssignment = async (id: number) => {
+    if (window.confirm('Tem certeza que deseja excluir esta designação?')) {
+      try {
+        await api.put(`/funcoes/${id}/designar`, {
+          efetivoId: null,
+          substitutoId: null
+        });
+        fetchFunctionTypes();
+      } catch (err) {
+        console.error('Erro ao excluir designação:', err);
+        alert('Não foi possível excluir a designação.');
+      }
+    }
+  };
+
+  // Opções de P/G filtradas para exibição no filtro (apenas postos/graduações que possuem designações)
+  const pgOptionsFilter = React.useMemo(() => {
+    const pgs = new Set<string>();
+    assignments.forEach(a => {
+      const effectiveMilitar = militares.find(m => m.id === (a as any).efetivoId);
+      if (effectiveMilitar && effectiveMilitar.posto) pgs.add(effectiveMilitar.posto);
+      const substituteMilitar = militares.find(m => m.id === (a as any).substitutoId);
+      if (substituteMilitar && substituteMilitar.posto) pgs.add(substituteMilitar.posto);
+    });
+    return Array.from(pgs).sort((a, b) => {
+      const idxA = PG_ORDER.indexOf(a);
+      const idxB = PG_ORDER.indexOf(b);
+      return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
+    });
+  }, [assignments, militares]);
+
+  // Opções de Funções para exibição no filtro
+  const functionFilterOptions = React.useMemo(() => {
+    return Array.from(new Set(assignments.map(a => a.functionName).filter(Boolean)))
+      .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }, [assignments]);
+
   // Derived state
-  const filteredAssignments = assignments.filter(a => 
-    a.functionName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    a.effective.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    a.substitute.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredAssignments = assignments.filter(a => {
+    // 1. Filtro por P/G (Posto/Graduação)
+    if (pgFilter !== 'Todos') {
+      const effectiveMilitar = militares.find(m => m.id === (a as any).efetivoId);
+      const substituteMilitar = militares.find(m => m.id === (a as any).substitutoId);
+      const hasPgEffective = effectiveMilitar && effectiveMilitar.posto === pgFilter;
+      const hasPgSubstitute = substituteMilitar && substituteMilitar.posto === pgFilter;
+      if (!hasPgEffective && !hasPgSubstitute) return false;
+    }
+
+    // 2. Filtro por Função
+    if (functionFilter !== 'Todos' && a.functionName !== functionFilter) {
+      return false;
+    }
+
+    // 3. Busca por texto normalizada
+    if (!searchTerm.trim()) return true;
+    const term = normalizeText(searchTerm);
+
+    if (normalizeText(a.functionName).includes(term)) return true;
+    if (normalizeText(a.effective).includes(term)) return true;
+    if (normalizeText(a.substitute).includes(term)) return true;
+
+    const effectiveMilitar = militares.find(m => m.id === (a as any).efetivoId);
+    if (effectiveMilitar) {
+      if (effectiveMilitar.nome && normalizeText(effectiveMilitar.nome).includes(term)) return true;
+      if (effectiveMilitar.nome_completo && normalizeText(effectiveMilitar.nome_completo).includes(term)) return true;
+      if (effectiveMilitar.nome_guerra && normalizeText(effectiveMilitar.nome_guerra).includes(term)) return true;
+      if (effectiveMilitar.posto && normalizeText(effectiveMilitar.posto).includes(term)) return true;
+    }
+
+    const substituteMilitar = militares.find(m => m.id === (a as any).substitutoId);
+    if (substituteMilitar) {
+      if (substituteMilitar.nome && normalizeText(substituteMilitar.nome).includes(term)) return true;
+      if (substituteMilitar.nome_completo && normalizeText(substituteMilitar.nome_completo).includes(term)) return true;
+      if (substituteMilitar.nome_guerra && normalizeText(substituteMilitar.nome_guerra).includes(term)) return true;
+      if (substituteMilitar.posto && normalizeText(substituteMilitar.posto).includes(term)) return true;
+    }
+
+    return false;
+  });
+
+  const sortedAssignments = React.useMemo(() => {
+    return [...filteredAssignments].sort((a, b) => 
+      a.functionName.localeCompare(b.functionName, 'pt-BR')
+    );
+  }, [filteredAssignments]);
 
   const columns: any[] = [
     { header: 'Função', accessor: 'functionName' },
@@ -164,7 +439,34 @@ export function FuncoesCia() {
       header: 'Ações',
       accessor: (row: FunctionAssignment) => (
         <div className="flex gap-2 text-gray-400">
-          <button className="p-1 hover:text-militar-main transition-colors border border-gray-200 rounded">
+          <button 
+            onClick={() => {
+              setSelectedFunction(row.functionName);
+              const effectiveMilitar = militares.find(m => m.id === (row as any).efetivoId);
+              if (effectiveMilitar) {
+                setEffective(`${effectiveMilitar.posto} ${effectiveMilitar.nome}`);
+                setEffectiveId(effectiveMilitar.id);
+                setSelectedEffectivePG(effectiveMilitar.posto);
+              } else {
+                setEffective('');
+                setEffectiveId(null);
+                setSelectedEffectivePG('');
+              }
+              const substituteMilitar = militares.find(m => m.id === (row as any).substitutoId);
+              if (substituteMilitar) {
+                setSubstitute(`${substituteMilitar.posto} ${substituteMilitar.nome}`);
+                setSubstituteId(substituteMilitar.id);
+                setSelectedSubstitutePG(substituteMilitar.posto);
+              } else {
+                setSubstitute('');
+                setSubstituteId(null);
+                setSelectedSubstitutePG('');
+              }
+              setIsEditingAssignment(true);
+              setIsAssignmentModalOpen(true);
+            }}
+            className="p-1 hover:text-militar-main transition-colors border border-gray-200 rounded"
+          >
             <Edit2 size={16} />
           </button>
           <button 
@@ -180,6 +482,26 @@ export function FuncoesCia() {
 
   return (
     <div className="space-y-6">
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+        .animate-filters {
+          animation: fadeIn 0.12s ease-in-out forwards;
+          overflow: visible;
+        }
+        .interactive-select {
+          transition: all 0.15s ease;
+        }
+        .interactive-select:hover {
+          border-color: #1F7A45;
+        }
+      `}} />
       <div className="flex justify-between items-start">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Funções Cia</h1>
@@ -190,6 +512,7 @@ export function FuncoesCia() {
             Configurar Funções
           </Button>
           <Button onClick={() => {
+            setIsEditingAssignment(false);
             if (!selectedFunction && functionTypes.length > 0) {
               setSelectedFunction(functionTypes[0].name);
             }
@@ -201,21 +524,155 @@ export function FuncoesCia() {
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden p-6">
-        {/* Filters */}
-        <div className="flex flex-wrap items-end gap-4 mb-6">
-          <div className="flex-1 min-w-[200px]">
-            <label className="block text-xs font-semibold text-gray-600 mb-1">Buscar</label>
+        {/* Main Search Bar */}
+        <div className="flex gap-4 items-center mb-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             <Input 
-              placeholder="Digite função ou nome..." 
+              placeholder="Buscar por função, militar efetivo ou substituto..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 text-sm"
             />
           </div>
-          
-          <div className="flex gap-2">
-            <Button icon={<Search size={16} />} size="md">Filtrar</Button>
-          </div>
+          <Button 
+            onClick={() => setShowFiltersCard(!showFiltersCard)} 
+            variant={showFiltersCard || pgFilter !== 'Todos' || functionFilter !== 'Todos' ? "primary" : "outline"} 
+            icon={<Search size={16} />}
+          >
+            Filtrar {(pgFilter !== 'Todos' ? 1 : 0) + (functionFilter !== 'Todos' ? 1 : 0) > 0 && `(${(pgFilter !== 'Todos' ? 1 : 0) + (functionFilter !== 'Todos' ? 1 : 0)})`}
+          </Button>
+          {((pgFilter !== 'Todos' ? 1 : 0) + (functionFilter !== 'Todos' ? 1 : 0) > 0 || searchTerm) && (
+            <Button onClick={() => { setPgFilter('Todos'); setFunctionFilter('Todos'); setSearchTerm(''); }} variant="ghost" size="sm" className="text-gray-500 hover:text-red-500 font-semibold">
+              Limpar Filtros
+            </Button>
+          )}
         </div>
+
+        {/* Expandable Filter Card */}
+        {showFiltersCard && (
+          <div className="bg-gray-50 p-5 rounded-xl border border-gray-200 gap-4 grid grid-cols-1 sm:grid-cols-2 mb-6 animate-filters">
+            <div className="relative">
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">P/G (Posto/Graduação)</label>
+              <div className="relative">
+                <Input
+                  readOnly
+                  value={pgFilter}
+                  onClick={() => {
+                    const nextState = !showPgFilterScroll;
+                    closeAllSelectsExcept(nextState ? 'pgFilter' : undefined);
+                    setShowPgFilterScroll(nextState);
+                  }}
+                  onFocus={() => {
+                    closeAllSelectsExcept('pgFilter');
+                    setShowPgFilterScroll(true);
+                  }}
+                  className="cursor-pointer pr-8 text-sm interactive-select"
+                />
+                <div className={`absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 text-[10px] transition-transform duration-200 ${showPgFilterScroll ? 'rotate-180' : ''}`}>
+                  ▼
+                </div>
+              </div>
+              {showPgFilterScroll && (
+                <>
+                  <div className="fixed inset-0 z-[900]" onClick={() => setShowPgFilterScroll(false)} />
+                  <div className="absolute z-[1000] w-full mt-1 max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
+                    <div
+                      onClick={() => {
+                        setPgFilter('Todos');
+                        setShowPgFilterScroll(false);
+                      }}
+                      className={`px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm flex justify-between items-center ${
+                        pgFilter === 'Todos' ? 'bg-militar-light/10 font-semibold text-militar-main' : 'text-gray-700'
+                      }`}
+                    >
+                      <span>Todos</span>
+                      {pgFilter === 'Todos' && <span className="text-militar-main text-xs">✓</span>}
+                    </div>
+                    {pgOptionsFilter.map((pg) => {
+                      const isSelected = pgFilter === pg;
+                      return (
+                        <div
+                          key={pg}
+                          onClick={() => {
+                            setPgFilter(pg);
+                            setShowPgFilterScroll(false);
+                          }}
+                          className={`px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm flex justify-between items-center ${
+                            isSelected ? 'bg-militar-light/10 font-semibold text-militar-main' : 'text-gray-700'
+                          }`}
+                        >
+                          <span>{pg}</span>
+                          {isSelected && <span className="text-militar-main text-xs">✓</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="relative">
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Função</label>
+              <div className="relative">
+                <Input
+                  readOnly
+                  value={functionFilter}
+                  onClick={() => {
+                    const nextState = !showFunctionFilterScroll;
+                    closeAllSelectsExcept(nextState ? 'functionFilter' : undefined);
+                    setShowFunctionFilterScroll(nextState);
+                  }}
+                  onFocus={() => {
+                    closeAllSelectsExcept('functionFilter');
+                    setShowFunctionFilterScroll(true);
+                  }}
+                  className="cursor-pointer pr-8 text-sm interactive-select"
+                />
+                <div className={`absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 text-[10px] transition-transform duration-200 ${showFunctionFilterScroll ? 'rotate-180' : ''}`}>
+                  ▼
+                </div>
+              </div>
+              {showFunctionFilterScroll && (
+                <>
+                  <div className="fixed inset-0 z-[900]" onClick={() => setShowFunctionFilterScroll(false)} />
+                  <div className="absolute z-[1000] w-full mt-1 max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
+                    <div
+                      onClick={() => {
+                        setFunctionFilter('Todos');
+                        setShowFunctionFilterScroll(false);
+                      }}
+                      className={`px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm flex justify-between items-center ${
+                        functionFilter === 'Todos' ? 'bg-militar-light/10 font-semibold text-militar-main' : 'text-gray-700'
+                      }`}
+                    >
+                      <span>Todos</span>
+                      {functionFilter === 'Todos' && <span className="text-militar-main text-xs">✓</span>}
+                    </div>
+                    {functionFilterOptions.map((fName) => {
+                      const isSelected = functionFilter === fName;
+                      return (
+                        <div
+                          key={fName}
+                          onClick={() => {
+                            setFunctionFilter(fName);
+                            setShowFunctionFilterScroll(false);
+                          }}
+                          className={`px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm flex justify-between items-center ${
+                            isSelected ? 'bg-militar-light/10 font-semibold text-militar-main' : 'text-gray-700'
+                          }`}
+                        >
+                          <span>{fName}</span>
+                          {isSelected && <span className="text-militar-main text-xs">✓</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="flex justify-between items-center mb-4">
            <span className="text-sm text-gray-600">Total de <strong className="text-gray-900">{filteredAssignments.length}</strong> designações encontradas</span>
@@ -224,16 +681,19 @@ export function FuncoesCia() {
         {/* Table */}
         <DataTable 
           columns={columns}
-          data={filteredAssignments}
+          data={sortedAssignments}
           keyExtractor={(row) => row.id}
         />
       </div>
 
-      {/* Modal - Nova Designação */}
       <Modal 
         isOpen={isAssignmentModalOpen} 
-        onClose={() => setIsAssignmentModalOpen(false)} 
-        title="Cadastrar Designação de Função"
+        onClose={() => {
+          setIsAssignmentModalOpen(false);
+          resetAssignmentForm();
+        }} 
+        title={isEditingAssignment ? "Editar Designação de Função" : "Cadastrar Designação de Função"}
+        size="lg"
       >
         <form onSubmit={handleSaveAssignment} className="space-y-4">
           <div>
@@ -244,6 +704,7 @@ export function FuncoesCia() {
               required
               value={selectedFunction}
               onChange={(e) => setSelectedFunction(e.target.value)}
+              disabled={isEditingAssignment}
             >
               <option value="" disabled>Selecione uma função</option>
               {functionTypes.map(f => (
@@ -254,43 +715,246 @@ export function FuncoesCia() {
             </Select>
           </div>
           
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Militar Efetivo
-            </label>
-            <Input 
-              required
-              list="militares-list"
-              placeholder="Digite para buscar..." 
-              value={effective}
-              onChange={(e) => setEffective(e.target.value)}
-            />
+          <div className="grid grid-cols-3 gap-4">
+            <div className="col-span-1 relative">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                P/G (Efetivo)
+              </label>
+              <div className="relative">
+                <Input
+                  readOnly
+                  value={selectedEffectivePG || 'Todos'}
+                  onClick={() => {
+                    const nextState = !showEffectivePGScroll;
+                    closeAllSelectsExcept(nextState ? 'effectivePG' : undefined);
+                    setShowEffectivePGScroll(nextState);
+                  }}
+                  onFocus={() => {
+                    closeAllSelectsExcept('effectivePG');
+                    setShowEffectivePGScroll(true);
+                  }}
+                  className="cursor-pointer pr-10 interactive-select text-sm"
+                />
+                <div className={`absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 text-xs transition-transform duration-200 ${showEffectivePGScroll ? 'rotate-180' : ''}`}>
+                  ▼
+                </div>
+              </div>
+              {showEffectivePGScroll && (
+                <>
+                  <div className="fixed inset-0 z-[900]" onClick={() => setShowEffectivePGScroll(false)} />
+                  <div className="absolute z-[1000] w-full mt-1 max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
+                    <div
+                      onClick={() => {
+                        handleEffectivePGChange('');
+                        setShowEffectivePGScroll(false);
+                      }}
+                      className={`px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm flex justify-between items-center ${
+                        selectedEffectivePG === '' ? 'bg-militar-light/10 font-semibold text-militar-main' : 'text-gray-700'
+                      }`}
+                    >
+                      <span>Todos</span>
+                      {selectedEffectivePG === '' && <span className="text-militar-main text-xs">✓</span>}
+                    </div>
+                    {pgOptions.map((pg) => {
+                      const isSelected = selectedEffectivePG === pg;
+                      return (
+                        <div
+                          key={pg}
+                          onClick={() => {
+                            handleEffectivePGChange(pg);
+                            setShowEffectivePGScroll(false);
+                          }}
+                          className={`px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm flex justify-between items-center ${
+                            isSelected ? 'bg-militar-light/10 font-semibold text-militar-main' : 'text-gray-700'
+                          }`}
+                        >
+                          <span>{pg}</span>
+                          {isSelected && <span className="text-militar-main text-xs">✓</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+            
+            <div className="col-span-2 relative">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Militar Efetivo
+              </label>
+              <Input 
+                required
+                placeholder="Digite para buscar..."
+                value={effective}
+                onChange={(e) => {
+                  handleEffectiveMilitarChange(e.target.value);
+                  setShowEffectiveSuggestions(true);
+                }}
+                onFocus={() => {
+                  closeAllSelectsExcept('effectiveSuggestions');
+                  setShowEffectiveSuggestions(true);
+                }}
+                onBlur={() => {
+                  setTimeout(() => setShowEffectiveSuggestions(false), 250);
+                }}
+              />
+              {showEffectiveSuggestions && (
+                <div className="absolute z-[1000] w-full mt-1 max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
+                  {militares
+                    .filter(m => {
+                      if (substituteId && m.id === substituteId) return false;
+                      if (selectedEffectivePG && m.posto !== selectedEffectivePG) return false;
+                      const search = normalizeText(effective);
+                      return normalizeText(`${m.posto} ${m.nome}`).includes(search) ||
+                        (m.nome_completo && normalizeText(m.nome_completo).includes(search)) ||
+                        (m.nome_guerra && normalizeText(m.nome_guerra).includes(search));
+                    })
+                    .map(m => (
+                      <div
+                        key={m.id}
+                        onMouseDown={() => {
+                          handleEffectiveMilitarChange(`${m.posto} ${m.nome}`);
+                          setEffectiveId(m.id);
+                          setSelectedEffectivePG(m.posto);
+                          setShowEffectiveSuggestions(false);
+                        }}
+                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm flex justify-between items-center"
+                      >
+                        <span>
+                          <span className="text-gray-400 mr-2 text-xs font-semibold uppercase">{m.posto}</span>
+                          {renderMilitarName(m)}
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Militar Substituto
-            </label>
-            <Input 
-              list="militares-list"
-              placeholder="Digite para buscar (Opcional)" 
-              value={substitute}
-              onChange={(e) => setSubstitute(e.target.value)}
-            />
+          <div className="grid grid-cols-3 gap-4">
+            <div className="col-span-1 relative">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                P/G (Substituto)
+              </label>
+              <div className="relative">
+                <Input
+                  readOnly
+                  value={selectedSubstitutePG || 'Todos'}
+                  onClick={() => {
+                    const nextState = !showSubstitutePGScroll;
+                    closeAllSelectsExcept(nextState ? 'substitutePG' : undefined);
+                    setShowSubstitutePGScroll(nextState);
+                  }}
+                  onFocus={() => {
+                    closeAllSelectsExcept('substitutePG');
+                    setShowSubstitutePGScroll(true);
+                  }}
+                  className="cursor-pointer pr-10 interactive-select text-sm"
+                />
+                <div className={`absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 text-xs transition-transform duration-200 ${showSubstitutePGScroll ? 'rotate-180' : ''}`}>
+                  ▼
+                </div>
+              </div>
+              {showSubstitutePGScroll && (
+                <>
+                  <div className="fixed inset-0 z-[900]" onClick={() => setShowSubstitutePGScroll(false)} />
+                  <div className="absolute z-[1000] w-full mt-1 max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
+                    <div
+                      onClick={() => {
+                        handleSubstitutePGChange('');
+                        setShowSubstitutePGScroll(false);
+                      }}
+                      className={`px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm flex justify-between items-center ${
+                        selectedSubstitutePG === '' ? 'bg-militar-light/10 font-semibold text-militar-main' : 'text-gray-700'
+                      }`}
+                    >
+                      <span>Todos</span>
+                      {selectedSubstitutePG === '' && <span className="text-militar-main text-xs">✓</span>}
+                    </div>
+                    {pgOptions.map((pg) => {
+                      const isSelected = selectedSubstitutePG === pg;
+                      return (
+                        <div
+                          key={pg}
+                          onClick={() => {
+                            handleSubstitutePGChange(pg);
+                            setShowSubstitutePGScroll(false);
+                          }}
+                          className={`px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm flex justify-between items-center ${
+                            isSelected ? 'bg-militar-light/10 font-semibold text-militar-main' : 'text-gray-700'
+                          }`}
+                        >
+                          <span>{pg}</span>
+                          {isSelected && <span className="text-militar-main text-xs">✓</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+            
+            <div className="col-span-2 relative">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Militar Substituto
+              </label>
+              <Input 
+                placeholder="Digite para buscar (Opcional)..."
+                value={substitute}
+                onChange={(e) => {
+                  handleSubstituteMilitarChange(e.target.value);
+                  setShowSubstituteSuggestions(true);
+                }}
+                onFocus={() => {
+                  closeAllSelectsExcept('substituteSuggestions');
+                  setShowSubstituteSuggestions(true);
+                }}
+                onBlur={() => {
+                  setTimeout(() => setShowSubstituteSuggestions(false), 250);
+                }}
+              />
+              {showSubstituteSuggestions && (
+                <div className="absolute z-[1000] w-full mt-1 max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
+                  {militares
+                    .filter(m => {
+                      if (effectiveId && m.id === effectiveId) return false;
+                      if (selectedSubstitutePG && m.posto !== selectedSubstitutePG) return false;
+                      const search = normalizeText(substitute);
+                      return normalizeText(`${m.posto} ${m.nome}`).includes(search) ||
+                        (m.nome_completo && normalizeText(m.nome_completo).includes(search)) ||
+                        (m.nome_guerra && normalizeText(m.nome_guerra).includes(search));
+                    })
+                    .map(m => (
+                      <div
+                        key={m.id}
+                        onMouseDown={() => {
+                          handleSubstituteMilitarChange(`${m.posto} ${m.nome}`);
+                          setSubstituteId(m.id);
+                          setSelectedSubstitutePG(m.posto);
+                          setShowSubstituteSuggestions(false);
+                        }}
+                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm flex justify-between items-center"
+                      >
+                        <span>
+                          <span className="text-gray-400 mr-2 text-xs font-semibold uppercase">{m.posto}</span>
+                          {renderMilitarName(m)}
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
           </div>
-
-          <datalist id="militares-list">
-            {militaresMock.map(m => (
-              <option key={m.id} value={`${m.posto} ${m.nome}`} />
-            ))}
-          </datalist>
 
           <div className="flex justify-end gap-2 pt-4 mt-2 border-t border-gray-100">
-            <Button type="button" variant="outline" onClick={() => setIsAssignmentModalOpen(false)}>
+            <Button type="button" variant="outline" onClick={() => {
+              setIsAssignmentModalOpen(false);
+              resetAssignmentForm();
+            }}>
               Cancelar
             </Button>
-            <Button type="submit">
-              Salvar Designação
+            <Button type="submit" disabled={isSavingAssignment}>
+              {isSavingAssignment ? 'Salvando...' : 'Salvar Designação'}
             </Button>
           </div>
         </form>

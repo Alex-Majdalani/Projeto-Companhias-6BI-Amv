@@ -48,11 +48,11 @@ function renderMilitarName(militar: any) {
     <span>
       {parts.map((part: string, index: number) => 
         regex.test(part) ? (
-          <strong key={index} className="font-extrabold text-militar-main underline decoration-2 decoration-militar-light">
+          <strong key={index} className="font-bold text-militar-main underline decoration-2 decoration-militar-light">
             {part}
           </strong>
         ) : (
-          <span key={index} className="text-gray-500 font-normal">
+          <span key={index} className="font-bold text-gray-500">
             {part}
           </span>
         )
