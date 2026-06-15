@@ -4,7 +4,7 @@ import { Button } from '../../components/ui/Button';
 import { Input, Select } from '../../components/ui/Input';
 import { DataTable } from '../../components/ui/DataTable';
 import { Modal } from '../../components/ui/Modal';
-import { Plus, Search, Edit2, Trash2, Settings, Check, X } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Settings, Check, X, AlertTriangle } from 'lucide-react';
 import { api } from '../../services/api';
 
 // Função utilitária para remover acentos e converter para minúscula (busca insensível a acentos e caixa)
@@ -433,8 +433,34 @@ export function FuncoesCia() {
 
   const columns: any[] = [
     { header: 'Função', accessor: 'functionName' },
-    { header: 'Militar Efetivo', accessor: 'effective' },
-    { header: 'Militar Substituto', accessor: 'substitute' },
+    { 
+      header: 'Militar Efetivo', 
+      accessor: (row: FunctionAssignment) => {
+        if (row.effective === 'Não designado' || !row.effective) {
+          return (
+            <span className="flex items-center gap-1.5 text-amber-600 font-medium bg-amber-50/50 px-2 py-1 rounded border border-amber-100/50 w-fit">
+              <AlertTriangle size={15} className="text-amber-500 flex-shrink-0" />
+              Não designado
+            </span>
+          );
+        }
+        return row.effective;
+      }
+    },
+    { 
+      header: 'Militar Substituto', 
+      accessor: (row: FunctionAssignment) => {
+        if (row.substitute === 'Não designado' || !row.substitute) {
+          return (
+            <span className="flex items-center gap-1.5 text-amber-600 font-medium bg-amber-50/50 px-2 py-1 rounded border border-amber-100/50 w-fit">
+              <AlertTriangle size={15} className="text-amber-500 flex-shrink-0" />
+              Não designado
+            </span>
+          );
+        }
+        return row.substitute;
+      }
+    },
     {
       header: 'Ações',
       accessor: (row: FunctionAssignment) => (
@@ -480,12 +506,7 @@ export function FuncoesCia() {
     },
   ];
 
-  const selectableFunctions = isEditingAssignment 
-    ? functionTypes 
-    : functionTypes.filter(f => {
-        const ass = assignments.find(a => a.id === f.id);
-        return !ass || !ass.efetivoId;
-      });
+  const selectableFunctions = functionTypes;
 
   return (
     <div className="space-y-6">
@@ -710,7 +731,38 @@ export function FuncoesCia() {
             <Select 
               required
               value={selectedFunction}
-              onChange={(e) => setSelectedFunction(e.target.value)}
+              onChange={(e) => {
+                const funcName = e.target.value;
+                setSelectedFunction(funcName);
+                if (!isEditingAssignment) {
+                  const ass = assignments.find(a => a.functionName === funcName);
+                  if (ass && ass.efetivoId) {
+                    const effectiveMilitar = militares.find(m => m.id === (ass as any).efetivoId);
+                    if (effectiveMilitar) {
+                      setEffective(`${effectiveMilitar.posto} ${effectiveMilitar.nome}`);
+                      setEffectiveId(effectiveMilitar.id);
+                      setSelectedEffectivePG(effectiveMilitar.posto);
+                    }
+                    const substituteMilitar = militares.find(m => m.id === (ass as any).substitutoId);
+                    if (substituteMilitar) {
+                      setSubstitute(`${substituteMilitar.posto} ${substituteMilitar.nome}`);
+                      setSubstituteId(substituteMilitar.id);
+                      setSelectedSubstitutePG(substituteMilitar.posto);
+                    } else {
+                      setSubstitute('');
+                      setSubstituteId(null);
+                      setSelectedSubstitutePG('');
+                    }
+                  } else {
+                    setEffective('');
+                    setEffectiveId(null);
+                    setSelectedEffectivePG('');
+                    setSubstitute('');
+                    setSubstituteId(null);
+                    setSelectedSubstitutePG('');
+                  }
+                }
+              }}
               disabled={isEditingAssignment}
             >
               <option value="" disabled>Selecione uma função</option>
@@ -720,6 +772,12 @@ export function FuncoesCia() {
                 </option>
               ))}
             </Select>
+            {!isEditingAssignment && selectedFunction && assignments.find(a => a.functionName === selectedFunction)?.efetivoId && (
+              <div className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-3 py-2 rounded-lg flex items-center gap-1.5 mt-2 animate-filters">
+                <AlertTriangle size={14} className="text-amber-500 flex-shrink-0" />
+                <span>Aviso: Esta função já possui militares designados. Salvar irá atualizar a designação existente.</span>
+              </div>
+            )}
           </div>
           
           <div className="grid grid-cols-3 gap-4">
