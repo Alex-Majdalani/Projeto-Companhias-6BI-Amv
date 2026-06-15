@@ -42,9 +42,11 @@ export function Select({ label, className = '', children, ...props }: SelectProp
         >
           {children}
         </select>
-        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 text-xs">
-          ▼
-        </div>
+        {!props.disabled && (
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 text-xs">
+            ▼
+          </div>
+        )}
       </div>
     </div>
   );

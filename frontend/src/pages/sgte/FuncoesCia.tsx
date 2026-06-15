@@ -480,6 +480,13 @@ export function FuncoesCia() {
     },
   ];
 
+  const selectableFunctions = isEditingAssignment 
+    ? functionTypes 
+    : functionTypes.filter(f => {
+        const ass = assignments.find(a => a.id === f.id);
+        return !ass || !ass.efetivoId;
+      });
+
   return (
     <div className="space-y-6">
       <style dangerouslySetInnerHTML={{ __html: `
@@ -707,7 +714,7 @@ export function FuncoesCia() {
               disabled={isEditingAssignment}
             >
               <option value="" disabled>Selecione uma função</option>
-              {functionTypes.map(f => (
+              {selectableFunctions.map(f => (
                 <option key={f.id} value={f.name}>
                   {f.name}
                 </option>
