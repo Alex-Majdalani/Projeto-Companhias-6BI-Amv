@@ -58,6 +58,7 @@ interface FunctionAssignment {
   functionName: string;
   effective: string;
   substitute: string;
+  ativa?: boolean;
 }
 
 const PG_ORDER = [
@@ -86,6 +87,22 @@ export function FuncoesCia() {
 
   // Form State - Config Function Types
   const [newFunctionTypeName, setNewFunctionTypeName] = useState('');
+
+  // Estado para controle de exclusão via Modais de Confirmação
+  const [deleteAssignmentTarget, setDeleteAssignmentTarget] = useState<number | null>(null);
+  const [isDeletingAssignment, setIsDeletingAssignment] = useState(false);
+  const [deleteAssignmentError, setDeleteAssignmentError] = useState<string | null>(null);
+
+  const [clearAssignmentTarget, setClearAssignmentTarget] = useState<number | null>(null);
+  const [isClearingAssignment, setIsClearingAssignment] = useState(false);
+  const [clearAssignmentError, setClearAssignmentError] = useState<string | null>(null);
+
+  const [deleteFunctionTypeTarget, setDeleteFunctionTypeTarget] = useState<number | null>(null);
+  const [isDeletingFunctionType, setIsDeletingFunctionType] = useState(false);
+  const [deleteFunctionTypeError, setDeleteFunctionTypeError] = useState<string | null>(null);
+
+  // Estado para controle de salvamento concorrente
+  const [isAddingFunctionType, setIsAddingFunctionType] = useState(false);
 
   // Form State - New Assignment
   const [selectedFunction, setSelectedFunction] = useState('');
@@ -157,7 +174,8 @@ export function FuncoesCia() {
         effective: f.nomeEfetivo || 'Não designado',
         substitute: f.nomeSubstituto || 'Não designado',
         efetivoId: f.efetivoId,
-        substitutoId: f.substitutoId
+        substitutoId: f.substitutoId,
+        ativa: f.ativa !== false
       }));
       setAssignments(mappedAssignments);
     } catch (err) {
@@ -177,10 +195,20 @@ export function FuncoesCia() {
   // Handlers for Function Types
   const handleSaveFunctionType = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isAddingFunctionType) return;
+
     const formattedName = capitalizeFirstLetter(newFunctionTypeName.trim());
     if (!formattedName) return;
 
+    // Validação de unicidade no frontend
+    const exists = functionTypes.some(f => normalizeText(f.name) === normalizeText(formattedName));
+    if (exists) {
+      alert('Já existe uma função cadastrada com este nome.');
+      return;
+    }
+
     try {
+      setIsAddingFunctionType(true);
       const res = await api.post('/funcoes', { funcao: formattedName });
       const newType: FunctionType = {
         id: res.data.id,
@@ -192,6 +220,8 @@ export function FuncoesCia() {
     } catch (err) {
       console.error('Erro ao salvar nova função:', err);
       alert('Não foi possível salvar a função no banco de dados.');
+    } finally {
+      setIsAddingFunctionType(false);
     }
   };
 
@@ -210,15 +240,25 @@ export function FuncoesCia() {
     }
   };
 
-  const handleDeleteFunctionType = async (id: number) => {
-    if (window.confirm('Tem certeza que deseja excluir esta função?')) {
-      try {
-        await api.delete(`/funcoes/${id}`);
-        setFunctionTypes(prev => prev.filter(f => f.id !== id));
-      } catch (err) {
-        console.error('Erro ao excluir função:', err);
-        alert('Não foi possível excluir a função.');
-      }
+  const handleDeleteFunctionType = (id: number) => {
+    setDeleteFunctionTypeError(null);
+    setDeleteFunctionTypeTarget(id);
+  };
+
+  const handleConfirmDeleteFunctionType = async () => {
+    if (deleteFunctionTypeTarget === null) return;
+    setIsDeletingFunctionType(true);
+    setDeleteFunctionTypeError(null);
+    try {
+      await api.delete(`/funcoes/${deleteFunctionTypeTarget}`);
+      setFunctionTypes(prev => prev.filter(f => f.id !== deleteFunctionTypeTarget));
+      fetchFunctionTypes();
+      setDeleteFunctionTypeTarget(null);
+    } catch (err: any) {
+      console.error('Erro ao excluir função:', err);
+      setDeleteFunctionTypeError(err.response?.data?.error || 'Não foi possível excluir a função.');
+    } finally {
+      setIsDeletingFunctionType(false);
     }
   };
 
@@ -345,18 +385,53 @@ export function FuncoesCia() {
     }
   };
 
-  const handleDeleteAssignment = async (id: number) => {
-    if (window.confirm('Tem certeza que deseja excluir esta designação?')) {
-      try {
-        await api.put(`/funcoes/${id}/designar`, {
-          efetivoId: null,
-          substitutoId: null
-        });
-        fetchFunctionTypes();
-      } catch (err) {
-        console.error('Erro ao excluir designação:', err);
-        alert('Não foi possível excluir a designação.');
-      }
+  const handleDeleteAssignment = (id: number) => {
+    setDeleteAssignmentError(null);
+    setDeleteAssignmentTarget(id);
+  };
+
+  const handleConfirmDeleteAssignment = async () => {
+    if (deleteAssignmentTarget === null) return;
+    setIsDeletingAssignment(true);
+    setDeleteAssignmentError(null);
+    try {
+      await api.put(`/funcoes/${deleteAssignmentTarget}/designar`, {
+        efetivoId: null,
+        substitutoId: null,
+        desativar: true
+      });
+      fetchFunctionTypes();
+      setDeleteAssignmentTarget(null);
+    } catch (err: any) {
+      console.error('Erro ao excluir designação:', err);
+      setDeleteAssignmentError(err.response?.data?.error || 'Não foi possível excluir a designação.');
+    } finally {
+      setIsDeletingAssignment(false);
+    }
+  };
+
+  const handleClearAssignment = (id: number) => {
+    setClearAssignmentError(null);
+    setClearAssignmentTarget(id);
+  };
+
+  const handleConfirmClearAssignment = async () => {
+    if (clearAssignmentTarget === null) return;
+    setIsClearingAssignment(true);
+    setClearAssignmentError(null);
+    try {
+      await api.put(`/funcoes/${clearAssignmentTarget}/designar`, {
+        efetivoId: null,
+        substitutoId: null,
+        desativar: false
+      });
+      fetchFunctionTypes();
+      setClearAssignmentTarget(null);
+    } catch (err: any) {
+      console.error('Erro ao limpar designação:', err);
+      setClearAssignmentError(err.response?.data?.error || 'Não foi possível limpar a designação.');
+    } finally {
+      setIsClearingAssignment(false);
     }
   };
 
@@ -384,6 +459,9 @@ export function FuncoesCia() {
 
   // Derived state
   const filteredAssignments = assignments.filter(a => {
+    // 0. Filtro de ativas (esconde se ativa for false)
+    if ((a as any).ativa === false) return false;
+
     // 1. Filtro por P/G (Posto/Graduação)
     if (pgFilter !== 'Todos') {
       const effectiveMilitar = militares.find(m => m.id === (a as any).efetivoId);
@@ -496,8 +574,16 @@ export function FuncoesCia() {
             <Edit2 size={16} />
           </button>
           <button 
+            onClick={() => handleClearAssignment(row.id)}
+            className="p-1 hover:text-amber-500 transition-colors border border-gray-200 rounded"
+            title="Limpar Designação"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-eraser"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21Z"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg>
+          </button>
+          <button 
             onClick={() => handleDeleteAssignment(row.id)}
             className="p-1 hover:text-red-500 transition-colors border border-gray-200 rounded"
+            title="Excluir Função da Tela"
           >
             <Trash2 size={16} />
           </button>
@@ -1043,9 +1129,12 @@ export function FuncoesCia() {
                   value={newFunctionTypeName} 
                   onChange={e => setNewFunctionTypeName(e.target.value)} 
                   onBlur={() => setNewFunctionTypeName(capitalizeFirstLetter(newFunctionTypeName))}
+                  disabled={isAddingFunctionType}
                 />
               </div>
-              <Button type="submit" size="md" icon={<Plus size={16} />}>Adicionar</Button>
+              <Button type="submit" size="md" icon={<Plus size={16} />} disabled={isAddingFunctionType}>
+                {isAddingFunctionType ? 'Salvando...' : 'Adicionar'}
+              </Button>
             </div>
           </form>
 
@@ -1129,6 +1218,114 @@ export function FuncoesCia() {
             >
               Concluir
             </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal de Confirmação para Excluir Designação */}
+      <Modal
+        isOpen={deleteAssignmentTarget !== null}
+        onClose={() => !isDeletingAssignment && setDeleteAssignmentTarget(null)}
+        title="Confirmar Exclusão de Função da Tela"
+      >
+        <div className="space-y-4">
+          <div className="flex items-start gap-3 p-4 bg-red-50 rounded-xl border border-red-100">
+            <Trash2 size={20} className="text-red-600 mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-red-800 font-medium">
+              Tem certeza que deseja excluir esta função da tela? Ela sairá desta visualização e perderá os militares designados, mas continuará cadastrada no sistema.
+            </p>
+          </div>
+
+          {deleteAssignmentError && (
+            <div className="text-xs text-red-700 bg-red-50 border border-red-200 px-3 py-2 rounded-lg">
+              ⚠️ {deleteAssignmentError}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => { setDeleteAssignmentTarget(null); setDeleteAssignmentError(null); }} disabled={isDeletingAssignment}>
+              Cancelar
+            </Button>
+            <button
+              onClick={handleConfirmDeleteAssignment}
+              disabled={isDeletingAssignment}
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors cursor-pointer"
+            >
+              <Trash2 size={14} />
+              {isDeletingAssignment ? 'Excluindo...' : 'Sim, Excluir'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal de Confirmação para Limpar Designação */}
+      <Modal
+        isOpen={clearAssignmentTarget !== null}
+        onClose={() => !isClearingAssignment && setClearAssignmentTarget(null)}
+        title="Confirmar Limpeza de Designação"
+      >
+        <div className="space-y-4">
+          <div className="flex items-start gap-3 p-4 bg-amber-50 rounded-xl border border-amber-100">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-600 mt-0.5 flex-shrink-0"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21Z"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg>
+            <p className="text-sm text-amber-800 font-medium">
+              Tem certeza que deseja limpar as designações desta função? A função continuará visível na tela como "Não designado".
+            </p>
+          </div>
+
+          {clearAssignmentError && (
+            <div className="text-xs text-red-700 bg-red-50 border border-red-200 px-3 py-2 rounded-lg">
+              ⚠️ {clearAssignmentError}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => { setClearAssignmentTarget(null); setClearAssignmentError(null); }} disabled={isClearingAssignment}>
+              Cancelar
+            </Button>
+            <button
+              onClick={handleConfirmClearAssignment}
+              disabled={isClearingAssignment}
+              className="px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors cursor-pointer"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1 inline-block"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21Z"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg>
+              {isClearingAssignment ? 'Limpando...' : 'Sim, Limpar'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal de Confirmação para Excluir Tipo de Função */}
+      <Modal
+        isOpen={deleteFunctionTypeTarget !== null}
+        onClose={() => !isDeletingFunctionType && setDeleteFunctionTypeTarget(null)}
+        title="Confirmar Exclusão de Função"
+      >
+        <div className="space-y-4">
+          <div className="flex items-start gap-3 p-4 bg-red-50 rounded-xl border border-red-100">
+            <Trash2 size={20} className="text-red-600 mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-red-800 font-medium">
+              Tem certeza que deseja excluir esta função permanentemente do cadastro? Essa ação removerá a função e qualquer designação associada a ela.
+            </p>
+          </div>
+
+          {deleteFunctionTypeError && (
+            <div className="text-xs text-red-700 bg-red-50 border border-red-200 px-3 py-2 rounded-lg">
+              ⚠️ {deleteFunctionTypeError}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => { setDeleteFunctionTypeTarget(null); setDeleteFunctionTypeError(null); }} disabled={isDeletingFunctionType}>
+              Cancelar
+            </Button>
+            <button
+              onClick={handleConfirmDeleteFunctionType}
+              disabled={isDeletingFunctionType}
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors cursor-pointer"
+            >
+              <Trash2 size={14} />
+              {isDeletingFunctionType ? 'Excluindo...' : 'Sim, Excluir'}
+            </button>
           </div>
         </div>
       </Modal>

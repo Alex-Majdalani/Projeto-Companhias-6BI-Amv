@@ -16,6 +16,7 @@ export interface FuncaoRecord {
   nomeEfetivo?: string | null;
   substitutoId?: number | null;
   nomeSubstituto?: string | null;
+  ativa?: boolean;
 }
 
 export class FuncaoService {
@@ -37,7 +38,8 @@ export class FuncaoService {
           efetivoId: ef?.Id || ef?.id || null,
           nomeEfetivo: ef ? `${ef.posto_graduacao || ''} ${ef.nome_guerra || ''}`.trim() : null,
           substitutoId: sub?.Id || sub?.id || null,
-          nomeSubstituto: sub ? `${sub.posto_graduacao || ''} ${sub.nome_guerra || ''}`.trim() : null
+          nomeSubstituto: sub ? `${sub.posto_graduacao || ''} ${sub.nome_guerra || ''}`.trim() : null,
+          ativa: r.ativa !== false
         };
       });
     } catch (error: any) {
@@ -100,8 +102,8 @@ export class FuncaoService {
   /**
    * Designa (vincula) militares efetivo e substituto para uma função.
    */
-  static async assign(id: number, efetivoId: number | null, substitutoId: number | null): Promise<void> {
-    console.log('[FuncaoService] assign recebido:', { id, efetivoId, substitutoId });
+  static async assign(id: number, efetivoId: number | null, substitutoId: number | null, desativar?: boolean): Promise<void> {
+    console.log('[FuncaoService] assign recebido:', { id, efetivoId, substitutoId, desativar });
     try {
       // 1. Busca o registro atual para verificar vínculos anteriores
       const response = await api.get(`/api/v2/tables/${FUNCOES_TABLE_ID}/records/${id}`);
@@ -144,6 +146,20 @@ export class FuncaoService {
           });
         }
       }
+
+      // 4. Atualiza o status de ativacao da funcao
+      // Se estamos designando militares, a funcao fica ativa.
+      // Se estamos limpando/excluindo e passamos desativar = true, ela fica inativa (ativa = false).
+      // Se apenas limpamos sem desativar, ela continua ativa (ativa = true).
+      let novaAtiva = true;
+      if (!effId && !subId && desativar) {
+        novaAtiva = false;
+      }
+      
+      await api.patch(`/api/v2/tables/${FUNCOES_TABLE_ID}/records`, {
+        Id: id,
+        ativa: novaAtiva
+      });
     } catch (error: any) {
       console.error('[FuncaoService] Erro ao designar militares:', error?.response?.data || error.message);
       throw new Error('Não foi possível designar os militares para a função.');

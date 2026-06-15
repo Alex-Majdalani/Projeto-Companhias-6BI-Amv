@@ -93,6 +93,18 @@ export function PlanoFerias() {
   const [militares, setMilitares] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
+
+  // Estado para controle de exclusão via Modais de Confirmação
+  const [deletePlanTarget, setDeletePlanTarget] = useState<number | null>(null);
+  const [isDeletingPlan, setIsDeletingPlan] = useState(false);
+  const [deletePlanError, setDeletePlanError] = useState<string | null>(null);
+
+  const [deletePeriodTarget, setDeletePeriodTarget] = useState<number | null>(null);
+  const [isDeletingPeriod, setIsDeletingPeriod] = useState(false);
+  const [deletePeriodError, setDeletePeriodError] = useState<string | null>(null);
+
+  // Estado para controle de salvamento concorrente
+  const [isSavingPeriod, setIsSavingPeriod] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('Todos');
   const [showFiltersCard, setShowFiltersCard] = useState(false);
@@ -369,21 +381,30 @@ export function PlanoFerias() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (id: number) => {
-    if (window.confirm('Tem certeza que deseja excluir este plano de férias?')) {
-      try {
-        await api.delete(`/ferias/planos/${id}`);
-        fetchPlanos();
-      } catch (err) {
-        console.error('Erro ao excluir plano:', err);
-        alert('Não foi possível excluir o plano de férias.');
-      }
+  const handleDelete = (id: number) => {
+    setDeletePlanError(null);
+    setDeletePlanTarget(id);
+  };
+
+  const handleConfirmDeletePlan = async () => {
+    if (deletePlanTarget === null) return;
+    setIsDeletingPlan(true);
+    setDeletePlanError(null);
+    try {
+      await api.delete(`/ferias/planos/${deletePlanTarget}`);
+      fetchPlanos();
+      setDeletePlanTarget(null);
+    } catch (err: any) {
+      console.error('Erro ao excluir plano:', err);
+      setDeletePlanError(err.response?.data?.error || 'Não foi possível excluir o plano de férias.');
+    } finally {
+      setIsDeletingPlan(false);
     }
   };
 
-  // Comentário de organização: Envia o cadastro do novo período ao backend
   const handleSavePeriod = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSavingPeriod) return;
 
     const missingFields: string[] = [];
     if (!newPeriodNome.trim()) missingFields.push('Nome do Período');
@@ -395,16 +416,24 @@ export function PlanoFerias() {
       return;
     }
 
+    const trimmedNome = newPeriodNome.trim();
+    let finalNome = trimmedNome;
+    const match = trimmedNome.match(/[a-zA-ZáàâãéèêíïóôõöúçñÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇÑ]/);
+    if (match && match.index !== undefined) {
+      const idx = match.index;
+      finalNome = trimmedNome.slice(0, idx) + trimmedNome.charAt(idx).toUpperCase() + trimmedNome.slice(idx + 1);
+    }
+
+    // Validação de unicidade no frontend
+    const exists = periods.some(p => normalizeText(p.nome) === normalizeText(finalNome));
+    if (exists) {
+      setPeriodError('Já existe um período cadastrado com este nome.');
+      return;
+    }
+
     try {
+      setIsSavingPeriod(true);
       setPeriodError(null);
-      
-      const trimmedNome = newPeriodNome.trim();
-      let finalNome = trimmedNome;
-      const match = trimmedNome.match(/[a-zA-ZáàâãéèêíïóôõöúçñÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇÑ]/);
-      if (match && match.index !== undefined) {
-        const idx = match.index;
-        finalNome = trimmedNome.slice(0, idx) + trimmedNome.charAt(idx).toUpperCase() + trimmedNome.slice(idx + 1);
-      }
 
       await api.post('/ferias/periodos', {
         Nome_Periodo: finalNome,
@@ -420,20 +449,37 @@ export function PlanoFerias() {
       console.error(err);
       const msg = err.response?.data?.error || 'Erro ao salvar o período de férias no banco.';
       setPeriodError(msg);
+    } finally {
+      setIsSavingPeriod(false);
     }
   };
 
-  // Comentário de organização: Remove um período de férias no banco de dados e atualiza a UI
-  const handleDeletePeriod = async (id: number) => {
-    if (window.confirm('Tem certeza que deseja excluir este período?')) {
-      try {
-        setPeriodError(null);
-        await api.delete(`/ferias/periodos/${id}`);
-        fetchPeriodos();
-      } catch (err: any) {
-        console.error(err);
-        setPeriodError('Não foi possível excluir o período de férias.');
-      }
+  const handleDeletePeriod = (id: number) => {
+    setDeletePeriodError(null);
+    setDeletePeriodTarget(id);
+  };
+
+  const handleConfirmDeletePeriod = async () => {
+    if (deletePeriodTarget === null) return;
+
+    // Validação local: impede exclusão se o período estiver em uso por algum plano
+    const isPeriodUsed = plans.some(p => p.periodoIdList?.includes(deletePeriodTarget) || p.periodoId === deletePeriodTarget);
+    if (isPeriodUsed) {
+      setDeletePeriodError('Este período não pode ser excluído pois está associado a um ou mais planos de férias ativos.');
+      return;
+    }
+
+    setIsDeletingPeriod(true);
+    setDeletePeriodError(null);
+    try {
+      await api.delete(`/ferias/periodos/${deletePeriodTarget}`);
+      fetchPeriodos();
+      setDeletePeriodTarget(null);
+    } catch (err: any) {
+      console.error(err);
+      setDeletePeriodError(err.response?.data?.error || 'Não foi possível excluir o período de férias.');
+    } finally {
+      setIsDeletingPeriod(false);
     }
   };
 
@@ -1596,21 +1642,24 @@ export function PlanoFerias() {
                       setNewPeriodNome(transformed);
                     }
                   }}
+                  disabled={isSavingPeriod}
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Data Início</label>
-                  <Input type="date" required value={newPeriodInicio} onChange={e => setNewPeriodInicio(e.target.value)} />
+                  <Input type="date" required value={newPeriodInicio} onChange={e => setNewPeriodInicio(e.target.value)} disabled={isSavingPeriod} />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Data Fim</label>
-                  <Input type="date" required value={newPeriodFim} onChange={e => setNewPeriodFim(e.target.value)} />
+                  <Input type="date" required value={newPeriodFim} onChange={e => setNewPeriodFim(e.target.value)} disabled={isSavingPeriod} />
                 </div>
               </div>
             </div>
             <div className="flex justify-end">
-              <Button type="submit" size="sm" icon={<Plus size={16} />} className="hover-scale">Adicionar</Button>
+              <Button type="submit" size="sm" icon={<Plus size={16} />} className="hover-scale" disabled={isSavingPeriod}>
+                {isSavingPeriod ? 'Salvando...' : 'Adicionar'}
+              </Button>
             </div>
           </form>
 
@@ -1654,6 +1703,77 @@ export function PlanoFerias() {
         </div>
       </Modal>
 
+      {/* Modal de Confirmação para Excluir Plano de Férias */}
+      <Modal
+        isOpen={deletePlanTarget !== null}
+        onClose={() => !isDeletingPlan && setDeletePlanTarget(null)}
+        title="Confirmar Exclusão de Plano"
+      >
+        <div className="space-y-4">
+          <div className="flex items-start gap-3 p-4 bg-red-50 rounded-xl border border-red-100">
+            <Trash2 size={20} className="text-red-600 mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-red-800 font-medium">
+              Tem certeza que deseja excluir este plano de férias permanentemente? Esta ação não pode ser desfeita.
+            </p>
+          </div>
+
+          {deletePlanError && (
+            <div className="text-xs text-red-700 bg-red-50 border border-red-200 px-3 py-2 rounded-lg">
+              ⚠️ {deletePlanError}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => { setDeletePlanTarget(null); setDeletePlanError(null); }} disabled={isDeletingPlan}>
+              Cancelar
+            </Button>
+            <button
+              onClick={handleConfirmDeletePlan}
+              disabled={isDeletingPlan}
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors cursor-pointer"
+            >
+              <Trash2 size={14} />
+              {isDeletingPlan ? 'Excluindo...' : 'Sim, Excluir'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal de Confirmação para Excluir Período de Férias */}
+      <Modal
+        isOpen={deletePeriodTarget !== null}
+        onClose={() => !isDeletingPeriod && setDeletePeriodTarget(null)}
+        title="Confirmar Exclusão de Período"
+      >
+        <div className="space-y-4">
+          <div className="flex items-start gap-3 p-4 bg-red-50 rounded-xl border border-red-100">
+            <Trash2 size={20} className="text-red-600 mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-red-800 font-medium">
+              Tem certeza que deseja excluir este período de férias? Qualquer plano que use apenas este período poderá ficar inconsistente ou precisar de reconfiguração.
+            </p>
+          </div>
+
+          {deletePeriodError && (
+            <div className="text-xs text-red-700 bg-red-50 border border-red-200 px-3 py-2 rounded-lg">
+              ⚠️ {deletePeriodError}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => { setDeletePeriodTarget(null); setDeletePeriodError(null); }} disabled={isDeletingPeriod}>
+              Cancelar
+            </Button>
+            <button
+              onClick={handleConfirmDeletePeriod}
+              disabled={isDeletingPeriod}
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors cursor-pointer"
+            >
+              <Trash2 size={14} />
+              {isDeletingPeriod ? 'Excluindo...' : 'Sim, Excluir'}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
