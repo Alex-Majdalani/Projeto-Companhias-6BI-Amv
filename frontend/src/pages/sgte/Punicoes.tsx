@@ -7,7 +7,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
 import { 
   Scale, Search, Edit2, Trash2, CheckCircle2, 
-  AlertCircle, ShieldCheck 
+  AlertCircle, ShieldCheck, RefreshCw 
 } from 'lucide-react';
 import { api } from '../../services/api';
 
@@ -33,6 +33,7 @@ export function Punicoes() {
   const [punicoes, setPunicoes] = useState<Punicao[]>([]);
   const [militares, setMilitares] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedPunicaoId, setSelectedPunicaoId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -113,6 +114,7 @@ export function Punicoes() {
 
     try {
       if (selectedPunicaoId) {
+        setIsSaving(true);
         const fatdId = Number(selectedPunicaoId);
         await api.post(`/fatd/${fatdId}/punicao`, {
           bi_publicacao: biPublicacao,
@@ -126,6 +128,8 @@ export function Punicoes() {
     } catch (err) {
       console.error('Erro ao salvar punição:', err);
       alert('Erro ao salvar os dados da punição.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -313,7 +317,6 @@ export function Punicoes() {
     },
   ];
 
-  // Renderiza os detalhes da linha ao clicar na tabela
   const renderExpandedRow = (row: Punicao) => (
     <div className="p-5 grid grid-cols-1 md:grid-cols-3 gap-5 bg-gray-50 rounded-lg border border-gray-200 shadow-inner">
       <div className="md:col-span-1 border-r border-gray-200 pr-4 space-y-4">
@@ -326,22 +329,6 @@ export function Punicoes() {
             {row.pgParticipante ? `${row.pgParticipante} ` : ''}{row.nomeParticipante || 'Não informado'}
           </span>
         </div>
-        
-        {row.documentoFatdUrl && (
-          <div>
-            <span className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-              Documento da FATD (PDF)
-            </span>
-            <a 
-              href={row.documentoFatdUrl} 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className="inline-flex items-center gap-1.5 bg-militar-main hover:bg-militar-dark text-white text-xs px-3 py-1.5 rounded font-semibold shadow transition-colors"
-            >
-              📄 Baixar PDF do Processo
-            </a>
-          </div>
-        )}
 
         <div>
           <span className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
@@ -373,13 +360,28 @@ export function Punicoes() {
         </div>
       </div>
       
-      <div className="md:col-span-2 pl-2">
-        <span className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-          Relato Completo do Fato
-        </span>
-        <p className="text-sm text-gray-700 whitespace-pre-wrap bg-white p-4 rounded-lg border border-gray-200 leading-relaxed font-normal shadow-sm">
-          {row.relatoFato}
-        </p>
+      <div className="md:col-span-2 pl-2 space-y-4">
+        <div>
+          <span className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+            Relato Completo do Fato
+          </span>
+          <p className="text-sm text-gray-700 whitespace-pre-wrap bg-white p-4 rounded-lg border border-gray-200 leading-relaxed font-normal shadow-sm">
+            {row.relatoFato}
+          </p>
+        </div>
+
+        {row.documentoFatdUrl && (
+          <div className="pt-1">
+            <a 
+              href={row.documentoFatdUrl} 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="inline-flex items-center gap-2 bg-militar-main hover:bg-militar-dark text-white text-xs px-3.5 py-2 rounded font-semibold shadow transition-colors"
+            >
+              📄 Baixar PDF do Processo (FATD)
+            </a>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -536,8 +538,15 @@ export function Punicoes() {
             <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>
               Cancelar
             </Button>
-            <Button type="submit">
-              Salvar Registro
+            <Button type="submit" disabled={isSaving} className="flex items-center gap-1.5">
+              {isSaving ? (
+                <>
+                  <RefreshCw className="animate-spin" size={15} />
+                  Salvando...
+                </>
+              ) : (
+                'Salvar Registro'
+              )}
             </Button>
           </div>
         </form>

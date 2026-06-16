@@ -87,6 +87,7 @@ function renderMilitarName(militar: any) {
 export function FATD() {
   const [militares, setMilitares] = useState<any[]>([]);
   const [funcoes, setFuncoes] = useState<any[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
 
   const [form, setForm] = useState<FATDForm>({
     processo: '',
@@ -240,11 +241,6 @@ export function FATD() {
     loadData();
   }, []);
 
-  // Helper para verificar substituto
-  const isSubstitute = (mId: number | null): boolean => {
-    if (!mId) return false;
-    return funcoes.some(f => f.substitutoId === mId && f.ativa !== false);
-  };
 
   // Helper para buscar função automática do militar
   const getMilitarFunction = (mId: number | null): string => {
@@ -669,7 +665,7 @@ export function FATD() {
 
     doc.text('PUNIÇÃO PUBLICADA NO BI nº_________,de__________________de_______________', pageW / 2, y + 134, { align: 'center' });
 
-    // Validação inicial
+    // Validação de todos os campos obrigatórios
     if (!form.processo.trim()) {
       alert('Por favor, informe o número do processo.');
       return;
@@ -678,9 +674,34 @@ export function FATD() {
       alert('Por favor, informe a data do processo/fato.');
       return;
     }
+    if (!arroladoId) {
+      alert('Por favor, selecione o Militar Arrolado (Transgressor) da lista.');
+      return;
+    }
+    if (!participanteId) {
+      alert('Por favor, selecione o Militar Participante da lista.');
+      return;
+    }
+    if (!form.funcaoParticipante.trim()) {
+      alert('Por favor, informe a função do participante.');
+      return;
+    }
+    if (!form.relatoFato.trim()) {
+      alert('Por favor, relate o fato ocorrido.');
+      return;
+    }
+    if (!sargenteanteId) {
+      alert('Por favor, selecione o Sargenteante da lista.');
+      return;
+    }
+    if (!comandanteId) {
+      alert('Por favor, selecione o Comandante de Cia da lista.');
+      return;
+    }
 
     // Função assíncrona interna para lidar com as chamadas de API
     const salvarEGerar = async () => {
+      setIsSaving(true);
       try {
         // 1. Verificar duplicidade do processo
         const checkRes = await api.get(`/fatd/verify`, {
@@ -688,6 +709,7 @@ export function FATD() {
         });
         if (checkRes.data && checkRes.data.exists) {
           alert(`Erro: Já existe um processo cadastrado com o número ${form.processo}.`);
+          setIsSaving(false);
           return;
         }
 
@@ -756,6 +778,8 @@ export function FATD() {
         console.error('Erro ao salvar FATD:', saveErr);
         const msg = saveErr.response?.data?.error || 'Erro interno ao salvar os dados.';
         alert(`Erro ao salvar a FATD: ${msg}`);
+      } finally {
+        setIsSaving(false);
       }
     };
 
@@ -1084,12 +1108,6 @@ export function FATD() {
                       value={form.funcaoParticipante}
                       onChange={e => handleFieldChange('funcaoParticipante', e.target.value)}
                     />
-                    {isSubstitute(participanteId) && (
-                      <div className="flex items-center gap-1.5 text-amber-600 bg-amber-50 px-2.5 py-1 rounded border border-amber-200 w-fit text-xs font-semibold mt-2">
-                        <AlertCircle size={14} className="text-amber-500" />
-                        <span>Aviso: Este militar é substituto nesta função.</span>
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>
@@ -1391,9 +1409,19 @@ export function FATD() {
                 onClick={gerarPDF}
                 className="w-full flex justify-center items-center gap-2"
                 size="lg"
+                disabled={isSaving}
               >
-                <FileText size={18} />
-                Salvar e Gerar Documento (PDF)
+                {isSaving ? (
+                  <>
+                    <RefreshCw className="animate-spin" size={18} />
+                    Salvando...
+                  </>
+                ) : (
+                  <>
+                    <FileText size={18} />
+                    Salvar e Gerar Documento (PDF)
+                  </>
+                )}
               </Button>
 
               <Button 

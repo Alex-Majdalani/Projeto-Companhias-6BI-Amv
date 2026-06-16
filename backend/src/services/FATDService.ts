@@ -132,6 +132,13 @@ export class FATDService {
       });
       const records = response.data.list || [];
 
+      // Buscar todas as punições para fazer o link local
+      const PUNICOES_TABLE_ID = 'mxdic5ej7eigds1';
+      const punRes = await api.get(`/api/v2/tables/${PUNICOES_TABLE_ID}/records`, {
+        params: { limit: 1000 }
+      });
+      const punicoes = punRes.data.list || [];
+
       return records.map((r: any) => {
         const transgressorArr = Array.isArray(r.militar_transgressor) 
           ? r.militar_transgressor 
@@ -143,20 +150,18 @@ export class FATDService {
           : (r.militar_participante ? [r.militar_participante] : []);
         const participante = participanteArr[0];
 
-        const punicoesArr = Array.isArray(r.punicoes) 
-          ? r.punicoes 
-          : (r.punicoes ? [r.punicoes] : []);
-        const punicao = punicoesArr[0];
+        const fatdId = r.Id || r.id;
+        const punicao = punicoes.find((p: any) => p.fatd_id === fatdId);
 
         return {
-          id: r.Id || r.id,
+          id: fatdId,
           numeroProcesso: r.numero_processo || '',
           dataProcessoFato: r.data_processo_fato || '',
           fatoRelatado: r.fato_relatado || '',
           funcaoParticipante: r.funcao_participante || '',
-          documentoFatdUrl: Array.isArray(r.documento_fatd) && r.documento_fatd[0]?.url 
-            ? r.documento_fatd[0].url 
-            : (r.documento_fatd?.url || ''),
+          documentoFatdUrl: Array.isArray(r.documento_fatd) && r.documento_fatd[0]?.path 
+            ? `${process.env.NOCODB_URL}/${r.documento_fatd[0].path}`
+            : '',
 
           arroladoId: transgressor?.Id || transgressor?.id || null,
           pgArrolado: transgressor?.posto_graduacao || transgressor?.posto || '',
@@ -185,19 +190,25 @@ export class FATDService {
    */
   static async savePunicao(fatdId: number, data: { bi_publicacao: string; tipo: string; dias: number }): Promise<void> {
     try {
-      // 1. Obter a FATD para verificar se já possui punição
-      const response = await api.get(`/api/v2/tables/${FATD_TABLE_ID}/records/${fatdId}`);
-      const fatd = response.data;
-      const punicoesArr = Array.isArray(fatd.punicoes) 
-        ? fatd.punicoes 
-        : (fatd.punicoes ? [fatd.punicoes] : []);
-      const existingPunicao = punicoesArr[0];
-
       const PUNICOES_TABLE_ID = 'mxdic5ej7eigds1';
       const LINK_PUNICAO_FATD = 'ccm7b1wnmyicgjf';
+      const LINK_MILITAR = 'ccoo3k941ztli1o';
+
+      // 1. Obter o ID do militar transgressor da FATD
+      const fatdResponse = await api.get(`/api/v2/tables/${FATD_TABLE_ID}/records/${fatdId}`);
+      const militarPunidoId = fatdResponse.data.militar_transgressor?.Id || fatdResponse.data.militar_transgressor?.id || null;
+
+      // 2. Verificar se já existe punição vinculada a essa FATD usando fatd_id
+      const response = await api.get(`/api/v2/tables/${PUNICOES_TABLE_ID}/records`, {
+        params: {
+          where: `(fatd_id,eq,${fatdId})`
+        }
+      });
+      const list = response.data.list || [];
+      const existingPunicao = list[0];
+      let punicaoId = existingPunicao ? (existingPunicao.Id || existingPunicao.id) : null;
 
       if (existingPunicao) {
-        const punicaoId = existingPunicao.Id || existingPunicao.id;
         await api.patch(`/api/v2/tables/${PUNICOES_TABLE_ID}/records`, {
           Id: punicaoId,
           bi_publicacao: data.bi_publicacao,
@@ -210,11 +221,22 @@ export class FATDService {
           tipo: data.tipo,
           dias: data.dias ? Number(data.dias) : null
         });
-        const newPunicaoId = createRes.data.Id || createRes.data.id;
+        punicaoId = createRes.data.Id || createRes.data.id;
         
-        await api.post(`/api/v2/tables/${PUNICOES_TABLE_ID}/links/${LINK_PUNICAO_FATD}/records/${newPunicaoId}`, {
+        await api.post(`/api/v2/tables/${PUNICOES_TABLE_ID}/links/${LINK_PUNICAO_FATD}/records/${punicaoId}`, {
           Id: fatdId
         });
+      }
+
+      // 3. Vincular o militar punido/transgresso à punição
+      if (militarPunidoId && punicaoId) {
+        try {
+          await api.post(`/api/v2/tables/${PUNICOES_TABLE_ID}/links/${LINK_MILITAR}/records/${punicaoId}`, {
+            Id: militarPunidoId
+          });
+        } catch (linkErr: any) {
+          console.error('[FATDService] Erro ao vincular militar_punido:', linkErr?.response?.data || linkErr.message);
+        }
       }
     } catch (error: any) {
       console.error('[FATDService] Erro ao salvar punição:', error?.response?.data || error.message);
