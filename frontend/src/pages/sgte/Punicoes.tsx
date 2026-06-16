@@ -112,6 +112,24 @@ export function Punicoes() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Se o BI for preenchido, deve estar completo (formato XXX/XXXX)
+    if (biPublicacao && biPublicacao.trim().length > 0) {
+      const biRegex = /^\d{3}\/\d{4}$/;
+      if (!biRegex.test(biPublicacao)) {
+        alert('Por favor, preencha o número do BI completo no formato XXX/XXXX (ex: 012/2026).');
+        return;
+      }
+
+      // Verificar se já existe outra punição com o mesmo BI
+      const biDuplicado = punicoes.some(
+        p => p.id !== selectedPunicaoId && p.biPublicacao === biPublicacao
+      );
+      if (biDuplicado) {
+        alert(`Erro: Já existe um registro com o número de BI ${biPublicacao} cadastrado.`);
+        return;
+      }
+    }
+
     try {
       if (selectedPunicaoId) {
         setIsSaving(true);
