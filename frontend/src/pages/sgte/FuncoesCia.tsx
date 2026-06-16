@@ -58,8 +58,15 @@ interface FunctionAssignment {
   functionName: string;
   effective: string;
   substitute: string;
+  efetivoId?: number | null;
+  substitutoId?: number | null;
   ativa?: boolean;
 }
+
+const isProtectedFunction = (name: string): boolean => {
+  const normalized = (name || '').trim().toLowerCase();
+  return normalized === 'comandante' || normalized === 'furriel' || normalized === 'sargenteante';
+};
 
 const PG_ORDER = [
   'CEL', 'TC', 'MAJ', 'CAP', '1º TEN', '2º TEN', 'ASP',
@@ -580,13 +587,15 @@ export function FuncoesCia() {
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-eraser"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21Z"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg>
           </button>
-          <button 
-            onClick={() => handleDeleteAssignment(row.id)}
-            className="p-1 hover:text-red-500 transition-colors border border-gray-200 rounded"
-            title="Excluir Função da Tela"
-          >
-            <Trash2 size={16} />
-          </button>
+          {!isProtectedFunction(row.functionName) && (
+            <button 
+              onClick={() => handleDeleteAssignment(row.id)}
+              className="p-1 hover:text-red-500 transition-colors border border-gray-200 rounded"
+              title="Excluir Função da Tela"
+            >
+              <Trash2 size={16} />
+            </button>
+          )}
         </div>
       ),
     },
@@ -808,6 +817,7 @@ export function FuncoesCia() {
         }} 
         title={isEditingAssignment ? "Editar Designação de Função" : "Cadastrar Designação de Função"}
         size="lg"
+        overflowVisible
       >
         <form onSubmit={handleSaveAssignment} className="space-y-4">
           <div>
@@ -1183,23 +1193,31 @@ export function FuncoesCia() {
                             </>
                           ) : (
                             <>
-                              <button 
-                                onClick={() => {
-                                  setEditingId(f.id);
-                                  setEditingName(f.name);
-                                }}
-                                className="p-2 text-gray-400 hover:text-militar-main hover:bg-militar-light/10 rounded-md transition-colors"
-                                title="Editar"
-                              >
-                                <Edit2 size={16} />
-                              </button>
-                              <button 
-                                onClick={() => handleDeleteFunctionType(f.id)}
-                                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
-                                title="Excluir"
-                              >
-                                <Trash2 size={16} />
-                              </button>
+                              {isProtectedFunction(f.name) ? (
+                                <span className="text-xs font-semibold text-militar-main bg-militar-light/10 px-2 py-1 rounded">
+                                  Protegida
+                                </span>
+                              ) : (
+                                <>
+                                  <button 
+                                    onClick={() => {
+                                      setEditingId(f.id);
+                                      setEditingName(f.name);
+                                    }}
+                                    className="p-2 text-gray-400 hover:text-militar-main hover:bg-militar-light/10 rounded-md transition-colors"
+                                    title="Editar"
+                                  >
+                                    <Edit2 size={16} />
+                                  </button>
+                                  <button 
+                                    onClick={() => handleDeleteFunctionType(f.id)}
+                                    className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
+                                    title="Excluir"
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                </>
+                              )}
                             </>
                           )}
                         </div>

@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import jsPDF from 'jspdf';
 import { Breadcrumb } from '../../components/ui/Breadcrumb';
 import { Button } from '../../components/ui/Button';
-import { Input, Select } from '../../components/ui/Input';
+import { Input } from '../../components/ui/Input';
 import { 
   FileText, ChevronDown, ChevronUp, AlertCircle, 
   User, ShieldAlert, Calendar, FileCheck, RefreshCw, Scale 
 } from 'lucide-react';
-import { militaresMock } from './CadastroMilitares';
+import { api } from '../../services/api';
 
 interface FATDForm {
   // Identificação da FATD
@@ -29,52 +29,117 @@ interface FATDForm {
   relatoFato: string;
   sargenteanteNome: string;
   sargenteantePosto: string;
-  sargenteanteCargo: string;
+  sargenteanteFuncao: string;
+  sargenteanteCia: string;
 
   // Cmt Cia
-  cmtCia: string;
+  cmtCiaNome: string;
+  cmtCiaPosto: string;
+  cmtCiaFuncao: string;
+  cmtCiaCia: string;
 }
 
-const cmtsCiaMock = [
-  'Cap Rômulo',
-  '1º Ten Castro',
-  '2º Ten Henrique'
+
+const PG_ORDER = [
+  'CEL', 'TC', 'MAJ', 'CAP', '1º TEN', '2º TEN', 'ASP',
+  'ST', '1º SGT', '2º SGT', '3º SGT', 'CB', 'SD EP', 'SD EV'
 ];
 
-const subunidadesMock = [
-  '1ª Cia Fuz Amv',
-  '2ª Cia Fuz Amv',
-  'CCAp / 6º BI Amv',
-  'Esqd Cia',
-  '6º BI Amv'
-];
+function normalizeText(text: string): string {
+  if (!text) return '';
+  return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
 
-const postosGraduacoes = [
-  'Maj', 'Cap', '1º Ten', '2º Ten', 'Asp', 'Subten', 
-  '1º Sgt', '2º Sgt', '3º Sgt', 'Cb', 'Sd'
-];
+function renderMilitarName(militar: any) {
+  const nomeCompleto = militar.nome_completo || militar.nome || '';
+  const nomeGuerra = militar.nome_guerra || '';
+
+  if (!nomeGuerra) {
+    return <span className="font-bold text-gray-900">{nomeCompleto}</span>;
+  }
+
+  const words = nomeGuerra.split(/\s+/).filter((w: string) => w.trim().length > 0);
+  if (words.length === 0) {
+    return <span className="font-bold text-gray-900">{nomeCompleto}</span>;
+  }
+
+  const escapedWords = words.map((w: string) => w.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'));
+  const regex = new RegExp(`(${escapedWords.join('|')})`, 'gi');
+  const parts = nomeCompleto.split(regex);
+
+  return (
+    <span>
+      {parts.map((part: string, index: number) => 
+        regex.test(part) ? (
+          <strong key={index} className="font-bold text-militar-main underline decoration-2 decoration-militar-light">
+            {part}
+          </strong>
+        ) : (
+          <span key={index} className="font-bold text-gray-500">
+            {part}
+          </span>
+        )
+      )}
+    </span>
+  );
+}
 
 export function FATD() {
+  const [militares, setMilitares] = useState<any[]>([]);
+  const [funcoes, setFuncoes] = useState<any[]>([]);
+
   const [form, setForm] = useState<FATDForm>({
     processo: '',
     data: new Date().toISOString().split('T')[0],
 
     pgArrolado: '',
     nomeArrolado: '',
-    subunidadeArrolado: '2ª Cia Fuz Amv',
+    subunidadeArrolado: '',
 
     pgParticipante: '',
     nomeParticipante: '',
-    subunidadeParticipante: '2ª Cia Fuz Amv',
+    subunidadeParticipante: '',
     funcaoParticipante: '',
 
     relatoFato: '',
-    sargenteanteNome: 'ALEXNALDO MAJDALANI DE MELO JUNIOR',
-    sargenteantePosto: '2° SGT',
-    sargenteanteCargo: 'Sargenteante da 2ª Cia Fuz Amv',
+    sargenteanteNome: '',
+    sargenteantePosto: '',
+    sargenteanteFuncao: '',
+    sargenteanteCia: '',
 
-    cmtCia: cmtsCiaMock[0],
+    cmtCiaNome: '',
+    cmtCiaPosto: '',
+    cmtCiaFuncao: '',
+    cmtCiaCia: '',
   });
+
+  // Autocomplete States - Arrolado
+  const [arroladoId, setArroladoId] = useState<number | null>(null);
+  const [searchArrolado, setSearchArrolado] = useState('');
+  const [selectedArroladoPG, setSelectedArroladoPG] = useState('');
+  const [showArroladoSuggestions, setShowArroladoSuggestions] = useState(false);
+  const [showArroladoPGScroll, setShowArroladoPGScroll] = useState(false);
+
+  // Autocomplete States - Participante
+  const [participanteId, setParticipanteId] = useState<number | null>(null);
+  const [searchParticipante, setSearchParticipante] = useState('');
+  const [selectedParticipantePG, setSelectedParticipantePG] = useState('');
+  const [showParticipanteSuggestions, setShowParticipanteSuggestions] = useState(false);
+  const [showParticipantePGScroll, setShowParticipantePGScroll] = useState(false);
+
+  // Autocomplete States - Sargenteante
+  const [sargenteanteId, setSargenteanteId] = useState<number | null>(null);
+  const [searchSargenteante, setSearchSargenteante] = useState('');
+  const [selectedSargenteantePG, setSelectedSargenteantePG] = useState('');
+  const [showSargenteanteSuggestions, setShowSargenteanteSuggestions] = useState(false);
+  const [showSargenteantePGScroll, setShowSargenteantePGScroll] = useState(false);
+
+  // Autocomplete States - Comandante
+  const [comandanteId, setComandanteId] = useState<number | null>(null);
+  const [searchComandante, setSearchComandante] = useState('');
+  const [selectedComandantePG, setSelectedComandantePG] = useState('');
+  const [showComandanteSuggestions, setShowComandanteSuggestions] = useState(false);
+  const [showComandantePGScroll, setShowComandantePGScroll] = useState(false);
 
   const [expandedSections, setExpandedSections] = useState({
     identificacao: true,
@@ -84,6 +149,110 @@ export function FATD() {
     cmtCiaSec: true,
   });
 
+  const closeAllSelectsExcept = useCallback((except?: string) => {
+    if (except !== 'arroladoPG') setShowArroladoPGScroll(false);
+    if (except !== 'arroladoSuggestions') setShowArroladoSuggestions(false);
+    if (except !== 'participantePG') setShowParticipantePGScroll(false);
+    if (except !== 'participanteSuggestions') setShowParticipanteSuggestions(false);
+    if (except !== 'sargenteantePG') setShowSargenteantePGScroll(false);
+    if (except !== 'sargenteanteSuggestions') setShowSargenteanteSuggestions(false);
+    if (except !== 'comandantePG') setShowComandantePGScroll(false);
+    if (except !== 'comandanteSuggestions') setShowComandanteSuggestions(false);
+  }, []);
+
+  // Opções de P/G ordenadas hierarquicamente
+  const pgOptions = Array.from(new Set(militares.map(m => m.posto).filter(Boolean)))
+    .sort((a, b) => {
+      const idxA = PG_ORDER.indexOf(a);
+      const idxB = PG_ORDER.indexOf(b);
+      return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
+    });
+
+  // Carregar dados da API
+  useEffect(() => {
+    const loadData = async () => {
+      let loadedMilitares: any[] = [];
+      let loadedFuncoes: any[] = [];
+
+      try {
+        const resMil = await api.get('/militares');
+        loadedMilitares = resMil.data || [];
+        setMilitares(loadedMilitares);
+      } catch (err) {
+        console.error('Erro ao carregar militares:', err);
+      }
+
+      try {
+        const resFun = await api.get('/funcoes');
+        loadedFuncoes = resFun.data || [];
+        setFuncoes(loadedFuncoes);
+      } catch (err) {
+        console.error('Erro ao carregar funções:', err);
+      }
+
+      // Preenchimento Automático para Sargenteante
+      const sgte = loadedFuncoes.find(f => normalizeText(f.funcao) === 'sargenteante');
+      if (sgte) {
+        const mId = sgte.efetivoId || sgte.substitutoId;
+        if (mId) {
+          const mil = loadedMilitares.find(m => m.id === mId);
+          if (mil) {
+            const funcFound = loadedFuncoes.find(f => (f.efetivoId === mId || f.substitutoId === mId) && f.ativa !== false);
+            const funcName = funcFound ? funcFound.funcao : '';
+            setForm(prev => ({
+              ...prev,
+              sargenteanteNome: mil.nome_completo || mil.nome || '',
+              sargenteantePosto: mil.posto || '',
+              sargenteanteFuncao: funcName,
+              sargenteanteCia: mil.subunidade || ''
+            }));
+            setSearchSargenteante(`${mil.posto} ${mil.nome}`);
+            setSelectedSargenteantePG(mil.posto);
+            setSargenteanteId(mId);
+          }
+        }
+      }
+
+      // Preenchimento Automático para Comandante
+      const cmt = loadedFuncoes.find(f => normalizeText(f.funcao) === 'comandante');
+      if (cmt) {
+        const mId = cmt.efetivoId || cmt.substitutoId;
+        if (mId) {
+          const mil = loadedMilitares.find(m => m.id === mId);
+          if (mil) {
+            const funcFound = loadedFuncoes.find(f => (f.efetivoId === mId || f.substitutoId === mId) && f.ativa !== false);
+            const funcName = funcFound ? funcFound.funcao : '';
+            setForm(prev => ({
+              ...prev,
+              cmtCiaNome: mil.nome_completo || mil.nome || '',
+              cmtCiaPosto: mil.posto || '',
+              cmtCiaFuncao: funcName,
+              cmtCiaCia: mil.subunidade || ''
+            }));
+            setSearchComandante(`${mil.posto} ${mil.nome}`);
+            setSelectedComandantePG(mil.posto);
+            setComandanteId(mId);
+          }
+        }
+      }
+    };
+
+    loadData();
+  }, []);
+
+  // Helper para verificar substituto
+  const isSubstitute = (mId: number | null): boolean => {
+    if (!mId) return false;
+    return funcoes.some(f => f.substitutoId === mId && f.ativa !== false);
+  };
+
+  // Helper para buscar função automática do militar
+  const getMilitarFunction = (mId: number | null): string => {
+    if (!mId) return '';
+    const found = funcoes.find(f => (f.efetivoId === mId || f.substitutoId === mId) && f.ativa !== false);
+    return found ? found.funcao : '';
+  };
+
   const toggleSection = (section: keyof typeof expandedSections) => {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
   };
@@ -92,58 +261,198 @@ export function FATD() {
     setForm(prev => ({ ...prev, [field]: value }));
   };
 
-  // Preenche dados do Arrolado automaticamente se encontrar no autocomplete
-  const handleNomeArroladoChange = (val: string) => {
-    handleFieldChange('nomeArrolado', val);
-    const encontrado = militaresMock.find(m => 
-      m.nome.toLowerCase() === val.trim().toLowerCase() ||
-      `${m.posto} ${m.nome}`.toLowerCase() === val.trim().toLowerCase()
+  // Máscara do Processo (xxx/xxxx) - Apenas números
+  const handleProcessoChange = (val: string) => {
+    let cleaned = val.replace(/[^0-9]/g, '');
+    if (cleaned.length > 7) {
+      cleaned = cleaned.slice(0, 7);
+    }
+    let formatted = cleaned;
+    if (cleaned.length > 3) {
+      formatted = `${cleaned.slice(0, 3)}/${cleaned.slice(3)}`;
+    }
+    handleFieldChange('processo', formatted);
+  };
+
+  // Handlers de Autocomplete - Arrolado
+  const handleArroladoNameChange = (val: string) => {
+    setSearchArrolado(val);
+    const normalizedVal = normalizeText(val);
+    const found = militares.find(m => 
+      normalizeText(`${m.posto} ${m.nome}`) === normalizedVal || 
+      normalizeText(m.nome) === normalizedVal
     );
-    if (encontrado) {
+    if (found) {
       setForm(prev => ({
         ...prev,
-        nomeArrolado: encontrado.nome,
-        pgArrolado: encontrado.posto,
-        subunidadeArrolado: encontrado.subunidade || '2ª Cia Fuz Amv',
+        nomeArrolado: found.nome_completo || found.nome || '',
+        pgArrolado: found.posto || '',
+        subunidadeArrolado: found.subunidade || ''
       }));
+      setSelectedArroladoPG(found.posto);
+      setArroladoId(found.id);
+    } else {
+      handleFieldChange('nomeArrolado', val);
+      setArroladoId(null);
     }
   };
 
-  // Preenche dados do Participante automaticamente se encontrar no autocomplete
-  const handleNomeParticipanteChange = (val: string) => {
-    handleFieldChange('nomeParticipante', val);
-    const encontrado = militaresMock.find(m => 
-      m.nome.toLowerCase() === val.trim().toLowerCase() ||
-      `${m.posto} ${m.nome}`.toLowerCase() === val.trim().toLowerCase()
-    );
-    if (encontrado) {
-      setForm(prev => ({
-        ...prev,
-        nomeParticipante: encontrado.nome,
-        pgParticipante: encontrado.posto,
-        subunidadeParticipante: encontrado.subunidade || '2ª Cia Fuz Amv',
-      }));
+  const handleArroladoPGChange = (pg: string) => {
+    setSelectedArroladoPG(pg);
+    handleFieldChange('pgArrolado', pg);
+    const currentMilitar = militares.find(m => normalizeText(m.nome) === normalizeText(form.nomeArrolado));
+    if (currentMilitar && currentMilitar.posto !== pg) {
+      setSearchArrolado('');
+      handleFieldChange('nomeArrolado', '');
+      setArroladoId(null);
     }
   };
 
-  const handleLimparFormulario = () => {
-    if (window.confirm('Deseja realmente limpar todos os campos do formulário?')) {
+  // Handlers de Autocomplete - Participante
+  const handleParticipanteNameChange = (val: string) => {
+    setSearchParticipante(val);
+    const normalizedVal = normalizeText(val);
+    const found = militares.find(m => 
+      normalizeText(`${m.posto} ${m.nome}`) === normalizedVal || 
+      normalizeText(m.nome) === normalizedVal
+    );
+    if (found) {
+      const funcName = getMilitarFunction(found.id);
+      setForm(prev => ({
+        ...prev,
+        nomeParticipante: found.nome_completo || found.nome || '',
+        pgParticipante: found.posto || '',
+        subunidadeParticipante: found.subunidade || '',
+        funcaoParticipante: funcName
+      }));
+      setSelectedParticipantePG(found.posto);
+      setParticipanteId(found.id);
+    } else {
+      handleFieldChange('nomeParticipante', val);
+      setParticipanteId(null);
+    }
+  };
+
+  const handleParticipantePGChange = (pg: string) => {
+    setSelectedParticipantePG(pg);
+    handleFieldChange('pgParticipante', pg);
+    const currentMilitar = militares.find(m => m.id === participanteId);
+    if (currentMilitar && currentMilitar.posto !== pg) {
+      setSearchParticipante('');
+      handleFieldChange('nomeParticipante', '');
+      handleFieldChange('funcaoParticipante', '');
+      setParticipanteId(null);
+    }
+  };
+
+  // Handlers de Autocomplete - Sargenteante
+  const handleSargenteanteNameChange = (val: string) => {
+    setSearchSargenteante(val);
+    const normalizedVal = normalizeText(val);
+    const found = militares.find(m => 
+      normalizeText(`${m.posto} ${m.nome}`) === normalizedVal || 
+      normalizeText(m.nome) === normalizedVal
+    );
+    if (found) {
+      const funcName = getMilitarFunction(found.id);
+      setForm(prev => ({
+        ...prev,
+        sargenteanteNome: found.nome_completo || found.nome || '',
+        sargenteantePosto: found.posto || '',
+        sargenteanteFuncao: funcName,
+        sargenteanteCia: found.subunidade || ''
+      }));
+      setSelectedSargenteantePG(found.posto);
+      setSargenteanteId(found.id);
+    } else {
+      handleFieldChange('sargenteanteNome', val);
+      setSargenteanteId(null);
+    }
+  };
+
+  const handleSargenteantePGChange = (pg: string) => {
+    setSelectedSargenteantePG(pg);
+    handleFieldChange('sargenteantePosto', pg);
+    const currentMilitar = militares.find(m => normalizeText(m.nome) === normalizeText(form.sargenteanteNome));
+    if (currentMilitar && currentMilitar.posto !== pg) {
+      setSearchSargenteante('');
+      handleFieldChange('sargenteanteNome', '');
+      handleFieldChange('sargenteanteFuncao', '');
+      setSargenteanteId(null);
+    }
+  };
+
+  // Handlers de Autocomplete - Comandante
+  const handleComandanteNameChange = (val: string) => {
+    setSearchComandante(val);
+    const normalizedVal = normalizeText(val);
+    const found = militares.find(m => 
+      normalizeText(`${m.posto} ${m.nome}`) === normalizedVal || 
+      normalizeText(m.nome) === normalizedVal
+    );
+    if (found) {
+      const funcName = getMilitarFunction(found.id);
+      setForm(prev => ({
+        ...prev,
+        cmtCiaNome: found.nome_completo || found.nome || '',
+        cmtCiaPosto: found.posto || '',
+        cmtCiaFuncao: funcName,
+        cmtCiaCia: found.subunidade || ''
+      }));
+      setSelectedComandantePG(found.posto);
+      setComandanteId(found.id);
+    } else {
+      handleFieldChange('cmtCiaNome', val);
+      setComandanteId(null);
+    }
+  };
+
+  const handleComandantePGChange = (pg: string) => {
+    setSelectedComandantePG(pg);
+    handleFieldChange('cmtCiaPosto', pg);
+    const currentMilitar = militares.find(m => normalizeText(m.nome) === normalizeText(form.cmtCiaNome));
+    if (currentMilitar && currentMilitar.posto !== pg) {
+      setSearchComandante('');
+      handleFieldChange('cmtCiaNome', '');
+      handleFieldChange('cmtCiaFuncao', '');
+      setComandanteId(null);
+    }
+  };
+
+  const handleLimparFormulario = (force?: boolean) => {
+    if (force === true || window.confirm('Deseja realmente limpar todos os campos do formulário?')) {
       setForm({
         processo: '',
         data: new Date().toISOString().split('T')[0],
         pgArrolado: '',
         nomeArrolado: '',
-        subunidadeArrolado: '2ª Cia Fuz Amv',
+        subunidadeArrolado: '',
         pgParticipante: '',
         nomeParticipante: '',
-        subunidadeParticipante: '2ª Cia Fuz Amv',
+        subunidadeParticipante: '',
         funcaoParticipante: '',
         relatoFato: '',
-        sargenteanteNome: 'ALEXNALDO MAJDALANI DE MELO JUNIOR',
-        sargenteantePosto: '2° SGT',
-        sargenteanteCargo: 'Sargenteante da 2ª Cia Fuz Amv',
-        cmtCia: cmtsCiaMock[0],
+        sargenteanteNome: '',
+        sargenteantePosto: '',
+        sargenteanteFuncao: '',
+        sargenteanteCia: '',
+        cmtCiaNome: '',
+        cmtCiaPosto: '',
+        cmtCiaFuncao: '',
+        cmtCiaCia: '',
       });
+      setSearchArrolado('');
+      setSelectedArroladoPG('');
+      setArroladoId(null);
+      setSearchParticipante('');
+      setSelectedParticipantePG('');
+      setParticipanteId(null);
+      setSearchSargenteante('');
+      setSelectedSargenteantePG('');
+      setSargenteanteId(null);
+      setSearchComandante('');
+      setSelectedComandantePG('');
+      setComandanteId(null);
     }
   };
 
@@ -156,16 +465,13 @@ export function FATD() {
     return dateStr;
   };
 
-  // Geração do PDF conforme o modelo FATD_MODELO2.pdf
+  // Geração de PDF adaptada
   const gerarPDF = () => {
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-    const pageW = doc.internal.pageSize.getWidth(); // 210mm
+    const pageW = doc.internal.pageSize.getWidth();
     const margin = 15;
-    const contentW = pageW - margin * 2; // 180mm
+    const contentW = pageW - margin * 2;
 
-    // ==========================================
-    // PÁGINA 1
-    // ==========================================
     let y = 15;
 
     // Cabeçalho Institucional
@@ -188,7 +494,6 @@ export function FATD() {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
     doc.text('2ª COMPANHIA DE FUZILEIROS AEROMÓVEL', pageW / 2, y, { align: 'center' });
-    // Linha de sublinhado da subunidade
     doc.setLineWidth(0.3);
     doc.line(pageW / 2 - 45, y + 1.5, pageW / 2 + 45, y + 1.5);
     y += 8;
@@ -199,10 +504,9 @@ export function FATD() {
     doc.line(pageW / 2 - 65, y + 1.5, pageW / 2 + 65, y + 1.5);
     y += 7;
 
-    // Retângulo: Identificação da FATD (Processo e Data)
+    // Retângulo: Identificação da FATD
     doc.setLineWidth(0.4);
     doc.rect(margin, y, contentW, 10);
-    // Linha divisória vertical
     doc.line(115, y, 115, y + 10);
 
     doc.setFont('helvetica', 'bold');
@@ -216,7 +520,7 @@ export function FATD() {
     doc.setFillColor(245, 245, 245);
     doc.rect(margin, y, contentW, 7, 'F');
     doc.rect(margin, y, contentW, hArrolado);
-    doc.rect(margin, y, contentW, 7); // borda do cabeçalho
+    doc.rect(margin, y, contentW, 7);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
     doc.text('IDENTIFICAÇÃO DO MILITAR', pageW / 2, y + 5, { align: 'center' });
@@ -233,7 +537,7 @@ export function FATD() {
     doc.setFillColor(245, 245, 245);
     doc.rect(margin, y, contentW, 7, 'F');
     doc.rect(margin, y, contentW, hParticipante);
-    doc.rect(margin, y, contentW, 7); // borda do cabeçalho
+    doc.rect(margin, y, contentW, 7);
     doc.setFont('helvetica', 'bold');
     doc.text('IDENTIFICAÇÃO DO PARTICIPANTE', pageW / 2, y + 5, { align: 'center' });
 
@@ -258,7 +562,7 @@ export function FATD() {
     doc.setFillColor(245, 245, 245);
     doc.rect(margin, y, contentW, 7, 'F');
     doc.rect(margin, y, contentW, hRelato);
-    doc.rect(margin, y, contentW, 7); // borda do cabeçalho
+    doc.rect(margin, y, contentW, 7);
     doc.setFont('helvetica', 'bold');
     doc.text('RELATO DO FATO', pageW / 2, y + 5, { align: 'center' });
 
@@ -267,14 +571,15 @@ export function FATD() {
     const linhasRelato = doc.splitTextToSize(relatoTexto, contentW - 6);
     doc.text(linhasRelato, margin + 3, y + 12);
 
-    // Assinatura de quem lavra/confecciona (Sargenteante)
+    // Assinatura do Sargenteante
     const assSgteNome = form.sargenteanteNome || '_______________________________';
     const assSgtePg = form.sargenteantePosto ? ` – ${form.sargenteantePosto}` : '';
     doc.setFont('helvetica', 'bold');
     doc.text(`${assSgteNome}${assSgtePg}`, pageW / 2, y + 50, { align: 'center' });
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8.5);
-    doc.text(form.sargenteanteCargo || 'Sargenteante', pageW / 2, y + 54.5, { align: 'center' });
+    const subSgte = `${form.sargenteanteFuncao || 'Sargenteante'} da ${form.sargenteanteCia || '2ª Cia Fuz Amv'}`;
+    doc.text(subSgte, pageW / 2, y + 54.5, { align: 'center' });
     doc.setFontSize(9);
     y += hRelato + 4;
 
@@ -283,7 +588,7 @@ export function FATD() {
     doc.setFillColor(245, 245, 245);
     doc.rect(margin, y, contentW, 7, 'F');
     doc.rect(margin, y, contentW, hCiente);
-    doc.rect(margin, y, contentW, 7); // borda do cabeçalho
+    doc.rect(margin, y, contentW, 7);
     doc.setFont('helvetica', 'bold');
     doc.text('CIENTE DO MILITAR ARROLADO', pageW / 2, y + 5, { align: 'center' });
 
@@ -292,15 +597,12 @@ export function FATD() {
     const linhasCiente = doc.splitTextToSize(cienteTexto, contentW - 6);
     doc.text(linhasCiente, margin + 3, y + 12);
 
-    // Data e local
     doc.text('Caçapava-SP,          de                                 de 2026.', pageW / 2, y + 32, { align: 'center' });
 
-    // Linha e assinatura
     doc.line(pageW / 2 - 50, y + 52, pageW / 2 + 50, y + 52);
     const assArroladoNome = form.nomeArrolado || '_______________________________';
     const assArroladoPg = form.pgArrolado ? ` – ${form.pgArrolado}` : '';
     doc.text(`${assArroladoNome}${assArroladoPg}`, pageW / 2, y + 57, { align: 'center' });
-
 
     // ==========================================
     // PÁGINA 2
@@ -313,7 +615,7 @@ export function FATD() {
     doc.setFillColor(245, 245, 245);
     doc.rect(margin, y, contentW, 7, 'F');
     doc.rect(margin, y, contentW, hDefesa);
-    doc.rect(margin, y, contentW, 7); // borda do cabeçalho
+    doc.rect(margin, y, contentW, 7);
     doc.setFont('helvetica', 'bold');
     doc.text('JUSTIFICATIVAS / RAZÕES DE DEFESA', pageW / 2, y + 5, { align: 'center' });
 
@@ -322,18 +624,15 @@ export function FATD() {
     const linhasIntro = doc.splitTextToSize(introDefesa, contentW - 6);
     doc.text(linhasIntro, margin + 3, y + 12);
 
-    // Linhas pautadas cinzas para escrita manual da defesa
     doc.setDrawColor(210);
     doc.setLineWidth(0.25);
     for (let ly = y + 23; ly <= y + 87; ly += 8) {
       doc.line(margin + 3, ly, pageW - margin - 3, ly);
     }
-    doc.setDrawColor(0); // Volta cor padrão preta
+    doc.setDrawColor(0);
 
-    // Data e local
     doc.text('Caçapava-SP,          de                                 de 2026.', pageW / 2, y + 97, { align: 'center' });
 
-    // Assinatura
     doc.setLineWidth(0.3);
     doc.line(pageW / 2 - 50, y + 107, pageW / 2 + 50, y + 107);
     doc.text(`${assArroladoNome}${assArroladoPg}`, pageW / 2, y + 111, { align: 'center' });
@@ -344,17 +643,12 @@ export function FATD() {
     doc.setFillColor(245, 245, 245);
     doc.rect(margin, y, contentW, 7, 'F');
     doc.rect(margin, y, contentW, hDecisao);
-    doc.rect(margin, y, contentW, 7); // borda do cabeçalho
+    doc.rect(margin, y, contentW, 7);
     doc.setFont('helvetica', 'bold');
     doc.text('DECISÃO DA AUTORIDADE COMPETENTE PARA APLICAR A PUNIÇÃO DISCIPLINAR', pageW / 2, y + 5, { align: 'center' });
 
-    // Linhas pautadas cinzas para escrita manual da decisão
     doc.setDrawColor(210);
     doc.setLineWidth(0.25);
-    for (let ly = y + 14; ly <= ly + 64 && ly <= y + 86; ly += 8) {
-      doc.line(margin + 3, ly, pageW - margin - 3, ly);
-    }
-    // Desenhando linhas adicionais até cobrir espaço
     for (let ly = y + 14; ly <= y + 78; ly += 8) {
       doc.line(margin + 3, ly, pageW - margin - 3, ly);
     }
@@ -364,54 +658,110 @@ export function FATD() {
     doc.setLineWidth(0.3);
     doc.line(pageW / 2 - 50, y + 105, pageW / 2 + 50, y + 105);
     doc.setFont('helvetica', 'bold');
-    doc.text(form.cmtCia || '_______________________________', pageW / 2, y + 110, { align: 'center' });
+    const assCmtNome = form.cmtCiaNome || '_______________________________';
+    const assCmtPg = form.cmtCiaPosto ? ` – ${form.cmtCiaPosto}` : '';
+    doc.text(`${assCmtNome}${assCmtPg}`, pageW / 2, y + 110, { align: 'center' });
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8.5);
-    doc.text('Cmt 2ª Cia Fuz Amv', pageW / 2, y + 114, { align: 'center' });
+    const subCmt = `${form.cmtCiaFuncao || 'Comandante'} da ${form.cmtCiaCia || '2ª Cia Fuz Amv'}`;
+    doc.text(subCmt, pageW / 2, y + 114, { align: 'center' });
     doc.setFontSize(9);
 
-    // Publicação no Boletim Interno no rodapé da caixa
     doc.text('PUNIÇÃO PUBLICADA NO BI nº_________,de__________________de_______________', pageW / 2, y + 134, { align: 'center' });
 
-    // Salvar no localStorage para integrar com a aba de Punições
-    try {
-      const obterNomeGuerra = (nomeCompleto: string) => {
-        if (!nomeCompleto) return '';
-        const partes = nomeCompleto.trim().split(/\s+/);
-        return partes.length > 0 ? partes[partes.length - 1].toUpperCase() : '';
-      };
-
-      const novasPunicoesRaw = localStorage.getItem('@SisGAdm:punicoes');
-      const punicoes = novasPunicoesRaw ? JSON.parse(novasPunicoesRaw) : [];
-
-      const novaPunicao = {
-        id: Date.now().toString(),
-        numProcesso: form.processo || 'S/N',
-        pgMilitar: form.pgArrolado || 'Sem P/G',
-        nomeGuerra: obterNomeGuerra(form.nomeArrolado) || form.nomeArrolado || 'Sem Nome',
-        dataFATD: form.data,
-        relatoFato: form.relatoFato || 'Sem relato',
-        status: 'Não Publicado',
-        biPublicacao: '',
-        tipoPunicao: '',
-        quantidadeDias: '',
-        nomeParticipante: form.nomeParticipante || 'Não informado',
-        pgParticipante: form.pgParticipante || '',
-      };
-
-      punicoes.push(novaPunicao);
-      localStorage.setItem('@SisGAdm:punicoes', JSON.stringify(punicoes));
-      alert('Documento gerado com sucesso! A punição foi registrada na aba "Punições" com status "Não Publicado".');
-    } catch (e) {
-      console.error('Erro ao salvar punição no localStorage:', e);
+    // Validação inicial
+    if (!form.processo.trim()) {
+      alert('Por favor, informe o número do processo.');
+      return;
+    }
+    if (!form.data) {
+      alert('Por favor, informe a data do processo/fato.');
+      return;
     }
 
-    // Salvar documento
-    const nomeArquivo = `FATD_PROCESSO_${form.processo.replace(/\//g, '-') || 'RASCUNHO'}.pdf`;
-    doc.save(nomeArquivo);
+    // Função assíncrona interna para lidar com as chamadas de API
+    const salvarEGerar = async () => {
+      try {
+        // 1. Verificar duplicidade do processo
+        const checkRes = await api.get(`/fatd/verify`, {
+          params: { numeroProcesso: form.processo }
+        });
+        if (checkRes.data && checkRes.data.exists) {
+          alert(`Erro: Já existe um processo cadastrado com o número ${form.processo}.`);
+          return;
+        }
+
+        // 2. Obter blob do PDF do jsPDF
+        const blob = doc.output('blob');
+
+        // 3. Montar FormData
+        const formData = new FormData();
+        formData.append('pdf', blob, `FATD_PROCESSO_${form.processo.replace(/\//g, '-')}.pdf`);
+        formData.append('numeroProcesso', form.processo);
+        formData.append('dataProcessoFato', form.data);
+        formData.append('fatoRelatado', form.relatoFato);
+        formData.append('funcaoParticipante', form.funcaoParticipante);
+        if (arroladoId) formData.append('arroladoId', String(arroladoId));
+        if (participanteId) formData.append('participanteId', String(participanteId));
+        if (sargenteanteId) formData.append('sargenteanteId', String(sargenteanteId));
+        if (comandanteId) formData.append('comandanteId', String(comandanteId));
+
+        // 4. Salvar no banco
+        await api.post('/fatd', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+
+        // 5. Download do PDF local
+        const nomeArquivo = `FATD_PROCESSO_${form.processo.replace(/\//g, '-') || 'RASCUNHO'}.pdf`;
+        doc.save(nomeArquivo);
+
+        // 6. Registrar punição no localStorage (legado)
+        try {
+          const obterNomeGuerra = (nomeCompleto: string) => {
+            if (!nomeCompleto) return '';
+            const partes = nomeCompleto.trim().split(/\s+/);
+            return partes.length > 0 ? partes[partes.length - 1].toUpperCase() : '';
+          };
+
+          const novasPunicoesRaw = localStorage.getItem('@SisGAdm:punicoes');
+          const punicoes = novasPunicoesRaw ? JSON.parse(novasPunicoesRaw) : [];
+
+          const novaPunicao = {
+            id: Date.now().toString(),
+            numProcesso: form.processo || 'S/N',
+            pgMilitar: form.pgArrolado || 'Sem P/G',
+            nomeGuerra: obterNomeGuerra(form.nomeArrolado) || form.nomeArrolado || 'Sem Nome',
+            dataFATD: form.data,
+            relatoFato: form.relatoFato || 'Sem relato',
+            status: 'Não Publicado',
+            biPublicacao: '',
+            tipoPunicao: '',
+            quantidadeDias: '',
+            nomeParticipante: form.nomeParticipante || 'Não informado',
+            pgParticipante: form.pgParticipante || '',
+          };
+
+          punicoes.push(novaPunicao);
+          localStorage.setItem('@SisGAdm:punicoes', JSON.stringify(punicoes));
+        } catch (localErr) {
+          console.error('Erro ao salvar punição no localStorage:', localErr);
+        }
+
+        alert('FATD registrada e documento PDF gerado com sucesso!');
+        handleLimparFormulario(true); // Limpa campos automaticamente
+
+      } catch (saveErr: any) {
+        console.error('Erro ao salvar FATD:', saveErr);
+        const msg = saveErr.response?.data?.error || 'Erro interno ao salvar os dados.';
+        alert(`Erro ao salvar a FATD: ${msg}`);
+      }
+    };
+
+    salvarEGerar();
   };
 
-  // Auxiliar para os headers de seções
   const SectionHeader = ({ label, section, icon }: { label: string; section: keyof typeof expandedSections; icon: React.ReactNode }) => (
     <button
       onClick={() => toggleSection(section)}
@@ -428,6 +778,23 @@ export function FATD() {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-10">
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        .animate-filters {
+          animation: fadeIn 0.12s ease-in-out forwards;
+          overflow: visible;
+        }
+        .interactive-select {
+          transition: all 0.15s ease;
+        }
+        .interactive-select:hover {
+          border-color: #1F7A45;
+        }
+      `}} />
+
       <div className="flex justify-between items-start">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Apuração de Transgressão Disciplinar (FATD)</h1>
@@ -436,11 +803,10 @@ export function FATD() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Painel do Formulário */}
         <div className="lg:col-span-2 space-y-4">
           
           {/* SEÇÃO 1: Identificação da FATD */}
-          <div className="bg-white rounded-xl overflow-hidden border border-gray-200 shadow-sm">
+          <div className="bg-white rounded-xl overflow-visible border border-gray-200 shadow-sm">
             <SectionHeader label="Identificação da FATD" section="identificacao" icon={<Calendar size={18} />} />
             {expandedSections.identificacao && (
               <div className="p-5 space-y-4 border-t border-gray-100">
@@ -449,7 +815,7 @@ export function FATD() {
                     label="Número do Processo"
                     placeholder="Ex: 001/2026"
                     value={form.processo}
-                    onChange={e => handleFieldChange('processo', e.target.value)}
+                    onChange={e => handleProcessoChange(e.target.value)}
                   />
                   <Input 
                     label="Data do Processo / Fato"
@@ -463,101 +829,275 @@ export function FATD() {
           </div>
 
           {/* SEÇÃO 2: Dados do Arrolado */}
-          <div className="bg-white rounded-xl overflow-hidden border border-gray-200 shadow-sm">
+          <div className="bg-white rounded-xl overflow-visible border border-gray-200 shadow-sm">
             <SectionHeader label="Dados do Militar Arrolado (Transgressor)" section="arrolado" icon={<User size={18} />} />
             {expandedSections.arrolado && (
               <div className="p-5 space-y-4 border-t border-gray-100">
-                <div>
-                  <Input 
-                    label="Nome Completo do Arrolado"
-                    list="arrolado-list"
-                    placeholder="Digite para buscar militar..."
-                    value={form.nomeArrolado}
-                    onChange={e => handleNomeArroladoChange(e.target.value)}
-                  />
-                  <datalist id="arrolado-list">
-                    {militaresMock.map(m => (
-                      <option key={`arrolado-${m.id}`} value={`${m.posto} ${m.nome}`} />
-                    ))}
-                  </datalist>
+                <div className="grid grid-cols-3 gap-4">
+                  {/* Dropdown de P/G */}
+                  <div className="col-span-1 relative">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">P/G</label>
+                    <div className="relative">
+                      <Input
+                        readOnly
+                        value={selectedArroladoPG || 'Todos'}
+                        onClick={() => {
+                          const nextState = !showArroladoPGScroll;
+                          closeAllSelectsExcept(nextState ? 'arroladoPG' : undefined);
+                          setShowArroladoPGScroll(nextState);
+                        }}
+                        onFocus={() => {
+                          closeAllSelectsExcept('arroladoPG');
+                          setShowArroladoPGScroll(true);
+                        }}
+                        className="cursor-pointer pr-10 interactive-select text-sm"
+                      />
+                      <div className={`absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 text-xs transition-transform duration-200 ${showArroladoPGScroll ? 'rotate-180' : ''}`}>
+                        ▼
+                      </div>
+                    </div>
+                    {showArroladoPGScroll && (
+                      <>
+                        <div className="fixed inset-0 z-[900]" onClick={() => setShowArroladoPGScroll(false)} />
+                        <div className="absolute z-[1000] w-full mt-1 max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
+                          <div
+                            onClick={() => {
+                              handleArroladoPGChange('');
+                              setShowArroladoPGScroll(false);
+                            }}
+                            className={`px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm flex justify-between items-center ${
+                              selectedArroladoPG === '' ? 'bg-militar-light/10 font-semibold text-militar-main' : 'text-gray-700'
+                            }`}
+                          >
+                            <span>Todos</span>
+                            {selectedArroladoPG === '' && <span className="text-militar-main text-xs">✓</span>}
+                          </div>
+                          {pgOptions.map((pg) => {
+                            const isSelected = selectedArroladoPG === pg;
+                            return (
+                              <div
+                                key={pg}
+                                onClick={() => {
+                                  handleArroladoPGChange(pg);
+                                  setShowArroladoPGScroll(false);
+                                }}
+                                className={`px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm flex justify-between items-center ${
+                                  isSelected ? 'bg-militar-light/10 font-semibold text-militar-main' : 'text-gray-700'
+                                }`}
+                              >
+                                <span>{pg}</span>
+                                {isSelected && <span className="text-militar-main text-xs">✓</span>}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Nome do Militar */}
+                  <div className="col-span-2 relative">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Militar Arrolado</label>
+                    <Input 
+                      placeholder="Digite para buscar..."
+                      value={searchArrolado}
+                      onChange={(e) => {
+                        handleArroladoNameChange(e.target.value);
+                        setShowArroladoSuggestions(true);
+                      }}
+                      onFocus={() => {
+                        closeAllSelectsExcept('arroladoSuggestions');
+                        setShowArroladoSuggestions(true);
+                      }}
+                      onBlur={() => {
+                        setTimeout(() => setShowArroladoSuggestions(false), 250);
+                      }}
+                    />
+                    {showArroladoSuggestions && (
+                      <div className="absolute z-[1000] w-full mt-1 max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
+                        {militares
+                          .filter(m => {
+                            if (selectedArroladoPG && m.posto !== selectedArroladoPG) return false;
+                            const search = normalizeText(searchArrolado);
+                            return normalizeText(`${m.posto} ${m.nome}`).includes(search) ||
+                              (m.nome_completo && normalizeText(m.nome_completo).includes(search)) ||
+                              (m.nome_guerra && normalizeText(m.nome_guerra).includes(search));
+                          })
+                          .map(m => (
+                            <div
+                              key={m.id}
+                              onMouseDown={() => {
+                                handleArroladoNameChange(`${m.posto} ${m.nome}`);
+                                setShowArroladoSuggestions(false);
+                              }}
+                              className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm flex justify-between items-center"
+                            >
+                              <span>
+                                <span className="text-gray-400 mr-2 text-xs font-semibold uppercase">{m.posto}</span>
+                                {renderMilitarName(m)}
+                              </span>
+                            </div>
+                          ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Select 
-                    label="Posto/Graduação (P/G)"
-                    value={form.pgArrolado}
-                    onChange={e => handleFieldChange('pgArrolado', e.target.value)}
-                  >
-                    <option value="">Selecione o P/G...</option>
-                    {postosGraduacoes.map(pg => (
-                      <option key={`pg-arrolado-${pg}`} value={pg}>{pg}</option>
-                    ))}
-                  </Select>
                   <Input 
-                    label="Subunidade / OM"
-                    list="subunidade-list"
-                    placeholder="Subunidade do militar"
-                    value={form.subunidadeArrolado}
-                    onChange={e => handleFieldChange('subunidadeArrolado', e.target.value)}
+                    label="Companhia"
+                    value={form.subunidadeArrolado || '(Aguardando militar)'}
+                    readOnly
+                    className={`bg-gray-100 cursor-not-allowed ${!form.subunidadeArrolado ? 'text-gray-500 italic' : 'text-gray-900 font-medium'}`}
                   />
-                  <datalist id="subunidade-list">
-                    {subunidadesMock.map(sub => (
-                      <option key={`sub-${sub}`} value={sub} />
-                    ))}
-                  </datalist>
                 </div>
               </div>
             )}
           </div>
 
           {/* SEÇÃO 3: Dados do Participante */}
-          <div className="bg-white rounded-xl overflow-hidden border border-gray-200 shadow-sm">
+          <div className="bg-white rounded-xl overflow-visible border border-gray-200 shadow-sm">
             <SectionHeader label="Dados do Militar Participante" section="participante" icon={<ShieldAlert size={18} />} />
             {expandedSections.participante && (
               <div className="p-5 space-y-4 border-t border-gray-100">
-                <div>
-                  <Input 
-                    label="Nome Completo do Participante"
-                    list="participante-list"
-                    placeholder="Digite para buscar militar..."
-                    value={form.nomeParticipante}
-                    onChange={e => handleNomeParticipanteChange(e.target.value)}
-                  />
-                  <datalist id="participante-list">
-                    {militaresMock.map(m => (
-                      <option key={`partic-${m.id}`} value={`${m.posto} ${m.nome}`} />
-                    ))}
-                  </datalist>
+                <div className="grid grid-cols-3 gap-4">
+                  {/* Dropdown de P/G */}
+                  <div className="col-span-1 relative">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">P/G</label>
+                    <div className="relative">
+                      <Input
+                        readOnly
+                        value={selectedParticipantePG || 'Todos'}
+                        onClick={() => {
+                          const nextState = !showParticipantePGScroll;
+                          closeAllSelectsExcept(nextState ? 'participantePG' : undefined);
+                          setShowParticipantePGScroll(nextState);
+                        }}
+                        onFocus={() => {
+                          closeAllSelectsExcept('participantePG');
+                          setShowParticipantePGScroll(true);
+                        }}
+                        className="cursor-pointer pr-10 interactive-select text-sm"
+                      />
+                      <div className={`absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 text-xs transition-transform duration-200 ${showParticipantePGScroll ? 'rotate-180' : ''}`}>
+                        ▼
+                      </div>
+                    </div>
+                    {showParticipantePGScroll && (
+                      <>
+                        <div className="fixed inset-0 z-[900]" onClick={() => setShowParticipantePGScroll(false)} />
+                        <div className="absolute z-[1000] w-full mt-1 max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
+                          <div
+                            onClick={() => {
+                              handleParticipantePGChange('');
+                              setShowParticipantePGScroll(false);
+                            }}
+                            className={`px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm flex justify-between items-center ${
+                              selectedParticipantePG === '' ? 'bg-militar-light/10 font-semibold text-militar-main' : 'text-gray-700'
+                            }`}
+                          >
+                            <span>Todos</span>
+                            {selectedParticipantePG === '' && <span className="text-militar-main text-xs">✓</span>}
+                          </div>
+                          {pgOptions.map((pg) => {
+                            const isSelected = selectedParticipantePG === pg;
+                            return (
+                              <div
+                                key={pg}
+                                onClick={() => {
+                                  handleParticipantePGChange(pg);
+                                  setShowParticipantePGScroll(false);
+                                }}
+                                className={`px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm flex justify-between items-center ${
+                                  isSelected ? 'bg-militar-light/10 font-semibold text-militar-main' : 'text-gray-700'
+                                }`}
+                              >
+                                <span>{pg}</span>
+                                {isSelected && <span className="text-militar-main text-xs">✓</span>}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Nome do Militar */}
+                  <div className="col-span-2 relative">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Militar Participante</label>
+                    <Input 
+                      placeholder="Digite para buscar..."
+                      value={searchParticipante}
+                      onChange={(e) => {
+                        handleParticipanteNameChange(e.target.value);
+                        setShowParticipanteSuggestions(true);
+                      }}
+                      onFocus={() => {
+                        closeAllSelectsExcept('participanteSuggestions');
+                        setShowParticipanteSuggestions(true);
+                      }}
+                      onBlur={() => {
+                        setTimeout(() => setShowParticipanteSuggestions(false), 250);
+                      }}
+                    />
+                    {showParticipanteSuggestions && (
+                      <div className="absolute z-[1000] w-full mt-1 max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
+                        {militares
+                          .filter(m => {
+                            if (selectedParticipantePG && m.posto !== selectedParticipantePG) return false;
+                            const search = normalizeText(searchParticipante);
+                            return normalizeText(`${m.posto} ${m.nome}`).includes(search) ||
+                              (m.nome_completo && normalizeText(m.nome_completo).includes(search)) ||
+                              (m.nome_guerra && normalizeText(m.nome_guerra).includes(search));
+                          })
+                          .map(m => (
+                            <div
+                              key={m.id}
+                              onMouseDown={() => {
+                                handleParticipanteNameChange(`${m.posto} ${m.nome}`);
+                                setShowParticipanteSuggestions(false);
+                              }}
+                              className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm flex justify-between items-center"
+                            >
+                              <span>
+                                <span className="text-gray-400 mr-2 text-xs font-semibold uppercase">{m.posto}</span>
+                                {renderMilitarName(m)}
+                              </span>
+                            </div>
+                          ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Select 
-                    label="Posto/Graduação (P/G)"
-                    value={form.pgParticipante}
-                    onChange={e => handleFieldChange('pgParticipante', e.target.value)}
-                  >
-                    <option value="">Selecione...</option>
-                    {postosGraduacoes.map(pg => (
-                      <option key={`pg-partic-${pg}`} value={pg}>{pg}</option>
-                    ))}
-                  </Select>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Input 
-                    label="Subunidade / OM"
-                    placeholder="Ex: 2ª Cia Fuz"
-                    value={form.subunidadeParticipante}
-                    onChange={e => handleFieldChange('subunidadeParticipante', e.target.value)}
+                    label="Companhia"
+                    value={form.subunidadeParticipante || '(Aguardando militar)'}
+                    readOnly
+                    className={`bg-gray-100 cursor-not-allowed ${!form.subunidadeParticipante ? 'text-gray-500 italic' : 'text-gray-900 font-medium'}`}
                   />
-                  <Input 
-                    label="Função do Participante"
-                    placeholder="Ex: Oficial de Dia, Adjunto"
-                    value={form.funcaoParticipante}
-                    onChange={e => handleFieldChange('funcaoParticipante', e.target.value)}
-                  />
+                  <div>
+                    <Input 
+                      label="Função do Participante"
+                      placeholder="Ex: Oficial de Dia, Adjunto"
+                      value={form.funcaoParticipante}
+                      onChange={e => handleFieldChange('funcaoParticipante', e.target.value)}
+                    />
+                    {isSubstitute(participanteId) && (
+                      <div className="flex items-center gap-1.5 text-amber-600 bg-amber-50 px-2.5 py-1 rounded border border-amber-200 w-fit text-xs font-semibold mt-2">
+                        <AlertCircle size={14} className="text-amber-500" />
+                        <span>Aviso: Este militar é substituto nesta função.</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
           </div>
 
           {/* SEÇÃO 4: Descrição do Fato */}
-          <div className="bg-white rounded-xl overflow-hidden border border-gray-200 shadow-sm">
+          <div className="bg-white rounded-xl overflow-visible border border-gray-200 shadow-sm">
             <SectionHeader label="Descrição do Fato" section="relato" icon={<Scale size={18} />} />
             {expandedSections.relato && (
               <div className="p-5 space-y-4 border-t border-gray-100">
@@ -574,25 +1114,129 @@ export function FATD() {
 
                 <div className="border-t border-gray-100 pt-4">
                   <h3 className="text-sm font-semibold text-gray-800 mb-3">Assinatura de Confeccionamento (Sargenteante)</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    {/* Dropdown de P/G */}
+                    <div className="relative">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">P/G</label>
+                      <div className="relative">
+                        <Input
+                          readOnly
+                          value={selectedSargenteantePG || 'Todos'}
+                          onClick={() => {
+                            const nextState = !showSargenteantePGScroll;
+                            closeAllSelectsExcept(nextState ? 'sargenteantePG' : undefined);
+                            setShowSargenteantePGScroll(nextState);
+                          }}
+                          onFocus={() => {
+                            closeAllSelectsExcept('sargenteantePG');
+                            setShowSargenteantePGScroll(true);
+                          }}
+                          className="cursor-pointer pr-10 interactive-select text-sm"
+                        />
+                        <div className={`absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 text-xs transition-transform duration-200 ${showSargenteantePGScroll ? 'rotate-180' : ''}`}>
+                          ▼
+                        </div>
+                      </div>
+                      {showSargenteantePGScroll && (
+                        <>
+                          <div className="fixed inset-0 z-[900]" onClick={() => setShowSargenteantePGScroll(false)} />
+                          <div className="absolute z-[1000] w-full mt-1 max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
+                            <div
+                              onClick={() => {
+                                handleSargenteantePGChange('');
+                                setShowSargenteantePGScroll(false);
+                              }}
+                              className={`px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm flex justify-between items-center ${
+                                selectedSargenteantePG === '' ? 'bg-militar-light/10 font-semibold text-militar-main' : 'text-gray-700'
+                              }`}
+                            >
+                              <span>Todos</span>
+                              {selectedSargenteantePG === '' && <span className="text-militar-main text-xs">✓</span>}
+                            </div>
+                            {pgOptions.map((pg) => {
+                              const isSelected = selectedSargenteantePG === pg;
+                              return (
+                                <div
+                                  key={pg}
+                                  onClick={() => {
+                                    handleSargenteantePGChange(pg);
+                                    setShowSargenteantePGScroll(false);
+                                  }}
+                                  className={`px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm flex justify-between items-center ${
+                                    isSelected ? 'bg-militar-light/10 font-semibold text-militar-main' : 'text-gray-700'
+                                  }`}
+                                >
+                                  <span>{pg}</span>
+                                  {isSelected && <span className="text-militar-main text-xs">✓</span>}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Nome do Militar */}
+                    <div className="relative">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Militar Sargenteante</label>
+                      <Input 
+                        placeholder="Digite para buscar..."
+                        value={searchSargenteante}
+                        onChange={(e) => {
+                          handleSargenteanteNameChange(e.target.value);
+                          setShowSargenteanteSuggestions(true);
+                        }}
+                        onFocus={() => {
+                          closeAllSelectsExcept('sargenteanteSuggestions');
+                          setShowSargenteanteSuggestions(true);
+                        }}
+                        onBlur={() => {
+                          setTimeout(() => setShowSargenteanteSuggestions(false), 250);
+                        }}
+                      />
+                      {showSargenteanteSuggestions && (
+                        <div className="absolute z-[1000] w-full mt-1 max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
+                          {militares
+                            .filter(m => {
+                              if (selectedSargenteantePG && m.posto !== selectedSargenteantePG) return false;
+                              const search = normalizeText(searchSargenteante);
+                              return normalizeText(`${m.posto} ${m.nome}`).includes(search) ||
+                                (m.nome_completo && normalizeText(m.nome_completo).includes(search)) ||
+                                (m.nome_guerra && normalizeText(m.nome_guerra).includes(search));
+                            })
+                            .map(m => (
+                              <div
+                                key={m.id}
+                                onMouseDown={() => {
+                                  handleSargenteanteNameChange(`${m.posto} ${m.nome}`);
+                                  setShowSargenteanteSuggestions(false);
+                                }}
+                                className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm flex justify-between items-center"
+                              >
+                                <span>
+                                  <span className="text-gray-400 mr-2 text-xs font-semibold uppercase">{m.posto}</span>
+                                  {renderMilitarName(m)}
+                                </span>
+                              </div>
+                            ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <Input 
-                      label="Nome do Sargenteante"
-                      value={form.sargenteanteNome}
-                      onChange={e => handleFieldChange('sargenteanteNome', e.target.value)}
+                      label="Função"
+                      value={form.sargenteanteFuncao}
+                      readOnly
+                      className="bg-gray-100 cursor-not-allowed"
                     />
-                    <Select 
-                      label="Posto/Grad."
-                      value={form.sargenteantePosto}
-                      onChange={e => handleFieldChange('sargenteantePosto', e.target.value)}
-                    >
-                      {postosGraduacoes.map(pg => (
-                        <option key={`pg-sgte-${pg}`} value={pg}>{pg}</option>
-                      ))}
-                    </Select>
                     <Input 
-                      label="Cargo / Função da Assinatura"
-                      value={form.sargenteanteCargo}
-                      onChange={e => handleFieldChange('sargenteanteCargo', e.target.value)}
+                      label="Companhia"
+                      value={form.sargenteanteCia || '(Aguardando militar)'}
+                      readOnly
+                      className={`bg-gray-100 cursor-not-allowed ${!form.sargenteanteCia ? 'text-gray-500 italic' : 'text-gray-900 font-medium'}`}
                     />
                   </div>
                 </div>
@@ -601,25 +1245,132 @@ export function FATD() {
           </div>
 
           {/* SEÇÃO 5: Comandante da Companhia */}
-          <div className="bg-white rounded-xl overflow-hidden border border-gray-200 shadow-sm">
+          <div className="bg-white rounded-xl overflow-visible border border-gray-200 shadow-sm">
             <SectionHeader label="Comandante da Companhia (Cmt Cia)" section="cmtCiaSec" icon={<FileCheck size={18} />} />
             {expandedSections.cmtCiaSec && (
               <div className="p-5 space-y-4 border-t border-gray-100">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  {/* Dropdown de P/G */}
+                  <div className="relative">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">P/G</label>
+                    <div className="relative">
+                      <Input
+                        readOnly
+                        value={selectedComandantePG || 'Todos'}
+                        onClick={() => {
+                          const nextState = !showComandantePGScroll;
+                          closeAllSelectsExcept(nextState ? 'comandantePG' : undefined);
+                          setShowComandantePGScroll(nextState);
+                        }}
+                        onFocus={() => {
+                          closeAllSelectsExcept('comandantePG');
+                          setShowComandantePGScroll(true);
+                        }}
+                        className="cursor-pointer pr-10 interactive-select text-sm"
+                      />
+                      <div className={`absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 text-xs transition-transform duration-200 ${showComandantePGScroll ? 'rotate-180' : ''}`}>
+                        ▼
+                      </div>
+                    </div>
+                    {showComandantePGScroll && (
+                      <>
+                        <div className="fixed inset-0 z-[900]" onClick={() => setShowComandantePGScroll(false)} />
+                        <div className="absolute z-[1000] w-full mt-1 max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
+                          <div
+                            onClick={() => {
+                              handleComandantePGChange('');
+                              setShowComandantePGScroll(false);
+                            }}
+                            className={`px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm flex justify-between items-center ${
+                              selectedComandantePG === '' ? 'bg-militar-light/10 font-semibold text-militar-main' : 'text-gray-700'
+                            }`}
+                          >
+                            <span>Todos</span>
+                            {selectedComandantePG === '' && <span className="text-militar-main text-xs">✓</span>}
+                          </div>
+                          {pgOptions.map((pg) => {
+                            const isSelected = selectedComandantePG === pg;
+                            return (
+                              <div
+                                key={pg}
+                                onClick={() => {
+                                  handleComandantePGChange(pg);
+                                  setShowComandantePGScroll(false);
+                                }}
+                                className={`px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm flex justify-between items-center ${
+                                  isSelected ? 'bg-militar-light/10 font-semibold text-militar-main' : 'text-gray-700'
+                                }`}
+                              >
+                                <span>{pg}</span>
+                                {isSelected && <span className="text-militar-main text-xs">✓</span>}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Nome do Militar */}
+                  <div className="relative">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Militar Comandante</label>
+                    <Input 
+                      placeholder="Digite para buscar..."
+                      value={searchComandante}
+                      onChange={(e) => {
+                        handleComandanteNameChange(e.target.value);
+                        setShowComandanteSuggestions(true);
+                      }}
+                      onFocus={() => {
+                        closeAllSelectsExcept('comandanteSuggestions');
+                        setShowComandanteSuggestions(true);
+                      }}
+                      onBlur={() => {
+                        setTimeout(() => setShowComandanteSuggestions(false), 250);
+                      }}
+                    />
+                    {showComandanteSuggestions && (
+                      <div className="absolute z-[1000] w-full mt-1 max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
+                        {militares
+                          .filter(m => {
+                            if (selectedComandantePG && m.posto !== selectedComandantePG) return false;
+                            const search = normalizeText(searchComandante);
+                            return normalizeText(`${m.posto} ${m.nome}`).includes(search) ||
+                              (m.nome_completo && normalizeText(m.nome_completo).includes(search)) ||
+                              (m.nome_guerra && normalizeText(m.nome_guerra).includes(search));
+                          })
+                          .map(m => (
+                            <div
+                              key={m.id}
+                              onMouseDown={() => {
+                                handleComandanteNameChange(`${m.posto} ${m.nome}`);
+                                setShowComandanteSuggestions(false);
+                              }}
+                              className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm flex justify-between items-center"
+                            >
+                              <span>
+                                <span className="text-gray-400 mr-2 text-xs font-semibold uppercase">{m.posto}</span>
+                                {renderMilitarName(m)}
+                              </span>
+                            </div>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Select 
-                    label="Selecione o Comandante"
-                    value={form.cmtCia}
-                    onChange={e => handleFieldChange('cmtCia', e.target.value)}
-                  >
-                    {cmtsCiaMock.map(c => (
-                      <option key={`cmt-${c}`} value={c}>{c}</option>
-                    ))}
-                  </Select>
                   <Input 
-                    label="Ou digite o nome e posto"
-                    placeholder="Ex: Cap Rodolfo Rômulo"
-                    value={form.cmtCia}
-                    onChange={e => handleFieldChange('cmtCia', e.target.value)}
+                    label="Função"
+                    value={form.cmtCiaFuncao}
+                    readOnly
+                    className="bg-gray-100 cursor-not-allowed"
+                  />
+                  <Input 
+                    label="Companhia"
+                    value={form.cmtCiaCia || '(Aguardando militar)'}
+                    readOnly
+                    className={`bg-gray-100 cursor-not-allowed ${!form.cmtCiaCia ? 'text-gray-500 italic' : 'text-gray-900 font-medium'}`}
                   />
                 </div>
               </div>
@@ -642,11 +1393,11 @@ export function FATD() {
                 size="lg"
               >
                 <FileText size={18} />
-                Gerar Documento (PDF)
+                Salvar e Gerar Documento (PDF)
               </Button>
 
               <Button 
-                onClick={handleLimparFormulario}
+                onClick={() => handleLimparFormulario()}
                 variant="outline"
                 className="w-full flex justify-center items-center gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
                 size="md"

@@ -1669,22 +1669,24 @@ export function PlanoFerias() {
             {periods.length === 0 ? (
               <p className="text-sm text-gray-500">Nenhum período cadastrado.</p>
             ) : (
-              <ul className="space-y-2">
-                {periods.map(p => (
-                  <li key={p.id} className="flex justify-between items-center bg-white border border-gray-200 p-3 rounded-lg shadow-sm">
-                    <div>
-                      <span className="block text-sm font-bold text-gray-900 mb-0.5">{p.nome}</span>
-                      <span className="block text-xs text-gray-500 font-medium">{formatToMockDate(p.dataInicio)} até {formatToMockDate(p.dataFim)}</span>
-                    </div>
-                    <button 
-                      onClick={() => handleDeletePeriod(p.id)}
-                      className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              <div className="max-h-64 overflow-y-auto pr-2">
+                <ul className="space-y-2">
+                  {periods.map(p => (
+                    <li key={p.id} className="flex justify-between items-center bg-white border border-gray-200 p-3 rounded-lg shadow-sm">
+                      <div>
+                        <span className="block text-sm font-bold text-gray-900 mb-0.5">{p.nome}</span>
+                        <span className="block text-xs text-gray-500 font-medium">{formatToMockDate(p.dataInicio)} até {formatToMockDate(p.dataFim)}</span>
+                      </div>
+                      <button 
+                        onClick={() => handleDeletePeriod(p.id)}
+                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
           </div>
           

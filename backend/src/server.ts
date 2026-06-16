@@ -7,6 +7,7 @@ import { militarRoutes } from './routes/militar.routes';
 import { agendaRoutes } from './routes/agenda.routes';
 import { feriasRoutes } from './routes/ferias.routes';
 import { funcaoRoutes } from './routes/funcao.routes';
+import { fatdRoutes } from './routes/fatd.routes';
 
 const app = express();
 
@@ -16,6 +17,9 @@ app.use(express.json()); // Configura o parser de JSON para que o express proces
 // Define o prefixo '/api' e vincula os endpoints de autenticação
 app.use('/api/auth', authRoutes);
 app.use('/api/militares', militarRoutes);
+
+// Define o prefixo '/api/fatd' e vincula as rotas de FATD
+app.use('/api/fatd', fatdRoutes);
 
 // Vincula o endpoint de upload para o MinIO
 app.use('/api/upload', uploadRoutes);

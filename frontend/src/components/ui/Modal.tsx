@@ -8,6 +8,7 @@ interface ModalProps {
   title: string;
   children: React.ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl';
+  overflowVisible?: boolean;
 }
 
 const sizeClasses = {
@@ -17,7 +18,7 @@ const sizeClasses = {
   xl: 'max-w-4xl'
 };
 
-export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalProps) {
+export function Modal({ isOpen, onClose, title, children, size = 'md', overflowVisible = false }: ModalProps) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -33,7 +34,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
         onClick={onClose}
       />
       
-      <div className={`relative bg-white rounded-2xl shadow-2xl w-full ${sizeClasses[size]} overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200`}>
+      <div className={`relative bg-white rounded-2xl shadow-2xl w-full ${sizeClasses[size]} ${overflowVisible ? 'overflow-visible' : 'overflow-hidden'} flex flex-col animate-in fade-in zoom-in-95 duration-200`}>
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
           <h2 className="text-lg font-bold text-gray-900">{title}</h2>
           <button 
@@ -44,7 +45,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
           </button>
         </div>
         
-        <div className="p-6 overflow-y-auto max-h-[85vh]">
+        <div className={`p-6 ${overflowVisible ? 'overflow-visible' : 'overflow-y-auto max-h-[85vh]'}`}>
           {children}
         </div>
       </div>

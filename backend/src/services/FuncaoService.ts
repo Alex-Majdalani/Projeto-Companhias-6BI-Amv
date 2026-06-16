@@ -28,7 +28,64 @@ export class FuncaoService {
       const response = await api.get(`/api/v2/tables/${FUNCOES_TABLE_ID}/records`, {
         params: { limit: 100 }
       });
-      return response.data.list.map((r: any) => {
+      
+      const records = response.data.list || [];
+      
+      // Renomeia 'Comandante CIA' para 'Comandante' se existir no banco para manter dados/vínculos
+      const oldCmt = records.find((r: any) => (r.funcao || '').trim().toLowerCase() === 'comandante cia');
+      if (oldCmt) {
+        try {
+          const oldId = oldCmt.Id || oldCmt.id;
+          const hasNewCmt = records.some((r: any) => (r.funcao || '').trim().toLowerCase() === 'comandante');
+          if (!hasNewCmt) {
+            await api.patch(`/api/v2/tables/${FUNCOES_TABLE_ID}/records`, {
+              Id: oldId,
+              funcao: 'Comandante',
+              ativa: true
+            });
+            oldCmt.funcao = 'Comandante';
+            oldCmt.ativa = true;
+          } else {
+            await api.patch(`/api/v2/tables/${FUNCOES_TABLE_ID}/records`, {
+              Id: oldId,
+              ativa: false
+            });
+            oldCmt.ativa = false;
+          }
+        } catch (renameErr) {
+          console.error('[FuncaoService] Erro ao renomear Comandante CIA:', renameErr);
+        }
+      }
+
+      const mandatoryNames = ['Comandante', 'Furriel', 'Sargenteante'];
+      
+      for (const name of mandatoryNames) {
+        const found = records.find((r: any) => (r.funcao || '').trim().toLowerCase() === name.toLowerCase());
+        if (!found) {
+          try {
+            const createResponse = await api.post(`/api/v2/tables/${FUNCOES_TABLE_ID}/records`, {
+              funcao: name,
+              ativa: true
+            });
+            records.push(createResponse.data);
+          } catch (createErr) {
+            console.error(`[FuncaoService] Erro ao auto-criar ${name}:`, createErr);
+          }
+        } else if (found.ativa === false || found.ativa === 'false') {
+          try {
+            const id = found.Id || found.id;
+            await api.patch(`/api/v2/tables/${FUNCOES_TABLE_ID}/records`, {
+              Id: id,
+              ativa: true
+            });
+            found.ativa = true;
+          } catch (reactivateErr) {
+            console.error(`[FuncaoService] Erro ao auto-reativar ${name}:`, reactivateErr);
+          }
+        }
+      }
+
+      return records.map((r: any) => {
         // As colunas de link de militares vêm como objetos se vinculadas
         const ef = r.efetivo;
         const sub = r.substituto;
@@ -39,7 +96,7 @@ export class FuncaoService {
           nomeEfetivo: ef ? `${ef.posto_graduacao || ''} ${ef.nome_guerra || ''}`.trim() : null,
           substitutoId: sub?.Id || sub?.id || null,
           nomeSubstituto: sub ? `${sub.posto_graduacao || ''} ${sub.nome_guerra || ''}`.trim() : null,
-          ativa: r.ativa !== false
+          ativa: r.ativa !== false && r.ativa !== 'false'
         };
       });
     } catch (error: any) {
