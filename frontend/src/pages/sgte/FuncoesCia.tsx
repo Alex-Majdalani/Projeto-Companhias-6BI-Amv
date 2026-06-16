@@ -5,7 +5,7 @@ import { Input, Select } from '../../components/ui/Input';
 import { DataTable } from '../../components/ui/DataTable';
 import { Modal } from '../../components/ui/Modal';
 import { Plus, Search, Edit2, Trash2, Settings } from 'lucide-react';
-import { militaresMock } from './CadastroMilitares';
+import { militaresMock } from './militaresMock';
 
 interface FunctionType {
   id: number;

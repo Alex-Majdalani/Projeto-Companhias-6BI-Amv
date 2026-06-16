@@ -9,6 +9,7 @@ import {
   Award, Heart, Phone, Users, Download
 } from 'lucide-react';
 import { api } from '../../services/api';
+import { exportarPerfilPDF } from '../../utils/exportarPDF';
 
 // Comentário de organização: Formata datas do formato ISO para DD/MM/AAAA
 function formatDate(dateStr: string): string {
@@ -192,18 +193,15 @@ export function PerfilMilitar() {
           { label: nomeGuerra || 'Perfil' }
         ]} />
 
-        {/* Comentário de organização: Botão Exportar — UI implementada, geração de PDF será adicionada na Etapa 5 */}
+        {/* Comentário de organização: Botão Exportar — gera PDF real com todos os dados do perfil do militar */}
         <div className="ml-auto">
           <button
             id="btn-exportar-perfil"
-            onClick={() => {
-              // TODO (Etapa 5): implementar geração de PDF do perfil do militar
-              alert('Exportação em PDF será implementada em breve.');
-            }}
+            onClick={() => exportarPerfilPDF(perfil)}
             className="flex items-center gap-2 px-4 py-2 bg-militar-main hover:bg-militar-dark text-white text-sm font-semibold rounded-xl shadow-sm transition-all"
           >
             <Download size={15} />
-            Exportar
+            Exportar PDF
           </button>
         </div>
       </div>

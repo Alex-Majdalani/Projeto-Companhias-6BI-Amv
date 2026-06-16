@@ -6,7 +6,7 @@ import { DataTable } from '../../components/ui/DataTable';
 import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
 import { Plus, Search, Eye, Edit2, Trash2 } from 'lucide-react';
-import { militaresMock } from './CadastroMilitares'; // Comentário de organização: Lista mock de militares para o datalist do formulário de plano
+import { militaresMock } from './militaresMock'; // Comentário de organização: Lista mock de militares para o datalist do formulário de plano
 import { api } from '../../services/api'; // Comentário de organização: Importa a instância configurada do axios para a comunicação com a API
 
 // Comentário de organização: Função utilitária para converter a data do input date (YYYY-MM-DD)

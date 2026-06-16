@@ -7,7 +7,7 @@ import {
   FileText, ChevronDown, ChevronUp, AlertCircle, 
   User, ShieldAlert, Calendar, FileCheck, RefreshCw, Scale 
 } from 'lucide-react';
-import { militaresMock } from './CadastroMilitares';
+import { militaresMock } from './militaresMock';
 
 interface FATDForm {
   // Identificação da FATD

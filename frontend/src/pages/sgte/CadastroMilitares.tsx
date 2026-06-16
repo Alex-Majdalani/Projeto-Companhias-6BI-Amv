@@ -11,6 +11,7 @@ import {
   Shield, Phone, MapPin
 } from 'lucide-react';
 import { api } from '../../services/api';
+import { exportarListaMilitaresPDF } from '../../utils/exportarPDF';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constantes: opções de filtro
@@ -442,9 +443,14 @@ export function CadastroMilitares() {
                 <span className="text-sm text-gray-600">
                   Total de <strong className="text-gray-900">{militaresFiltrados.length}</strong> militares encontrados
                 </span>
-                <button className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-gray-600 border border-gray-200 rounded-xl hover:border-gray-300 bg-white transition-all">
+                {/* Comentário de organização: Botão de exportação da listagem em PDF (todos os militares filtrados) */}
+                <button
+                  onClick={() => exportarListaMilitaresPDF(militaresFiltrados)}
+                  disabled={militaresFiltrados.length === 0}
+                  className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white bg-militar-main hover:bg-militar-dark border border-militar-main rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                >
                   <Download size={14} />
-                  Exportar
+                  Exportar PDF
                 </button>
               </div>
 

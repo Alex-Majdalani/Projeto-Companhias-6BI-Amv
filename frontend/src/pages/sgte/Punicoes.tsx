@@ -9,7 +9,7 @@ import {
   Scale, Plus, Search, Edit2, Trash2, CheckCircle2, 
   AlertCircle, ShieldCheck 
 } from 'lucide-react';
-import { militaresMock } from './CadastroMilitares';
+import { militaresMock } from './militaresMock';
 
 interface Punicao {
   id: string;
