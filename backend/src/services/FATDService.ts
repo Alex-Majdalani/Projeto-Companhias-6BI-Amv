@@ -121,4 +121,137 @@ export class FATDService {
       throw new Error('Não foi possível salvar o registro de FATD.');
     }
   }
+
+  /**
+   * Retorna a lista de todas as FATDs e suas punições vinculadas.
+   */
+  static async list(): Promise<any[]> {
+    try {
+      const response = await api.get(`/api/v2/tables/${FATD_TABLE_ID}/records`, {
+        params: { limit: 1000 }
+      });
+      const records = response.data.list || [];
+
+      return records.map((r: any) => {
+        const transgressorArr = Array.isArray(r.militar_transgressor) 
+          ? r.militar_transgressor 
+          : (r.militar_transgressor ? [r.militar_transgressor] : []);
+        const transgressor = transgressorArr[0];
+
+        const participanteArr = Array.isArray(r.militar_participante) 
+          ? r.militar_participante 
+          : (r.militar_participante ? [r.militar_participante] : []);
+        const participante = participanteArr[0];
+
+        const punicoesArr = Array.isArray(r.punicoes) 
+          ? r.punicoes 
+          : (r.punicoes ? [r.punicoes] : []);
+        const punicao = punicoesArr[0];
+
+        return {
+          id: r.Id || r.id,
+          numeroProcesso: r.numero_processo || '',
+          dataProcessoFato: r.data_processo_fato || '',
+          fatoRelatado: r.fato_relatado || '',
+          funcaoParticipante: r.funcao_participante || '',
+          documentoFatdUrl: Array.isArray(r.documento_fatd) && r.documento_fatd[0]?.url 
+            ? r.documento_fatd[0].url 
+            : (r.documento_fatd?.url || ''),
+
+          arroladoId: transgressor?.Id || transgressor?.id || null,
+          pgArrolado: transgressor?.posto_graduacao || transgressor?.posto || '',
+          nomeArrolado: transgressor?.nome_guerra || '',
+
+          participanteId: participante?.Id || participante?.id || null,
+          pgParticipante: participante?.posto_graduacao || participante?.posto || '',
+          nomeParticipante: participante?.nome_guerra || '',
+
+          punicao: punicao ? {
+            id: punicao.Id || punicao.id,
+            bi_publicacao: punicao.bi_publicacao || '',
+            tipo: punicao.tipo || '',
+            dias: punicao.dias || 0
+          } : null
+        };
+      });
+    } catch (error: any) {
+      console.error('[FATDService] Erro ao listar FATDs:', error?.response?.data || error.message);
+      throw new Error('Não foi possível listar os registros de FATD.');
+    }
+  }
+
+  /**
+   * Cria ou atualiza uma punição associada a uma FATD específica.
+   */
+  static async savePunicao(fatdId: number, data: { bi_publicacao: string; tipo: string; dias: number }): Promise<void> {
+    try {
+      // 1. Obter a FATD para verificar se já possui punição
+      const response = await api.get(`/api/v2/tables/${FATD_TABLE_ID}/records/${fatdId}`);
+      const fatd = response.data;
+      const punicoesArr = Array.isArray(fatd.punicoes) 
+        ? fatd.punicoes 
+        : (fatd.punicoes ? [fatd.punicoes] : []);
+      const existingPunicao = punicoesArr[0];
+
+      const PUNICOES_TABLE_ID = 'mxdic5ej7eigds1';
+      const LINK_PUNICAO_FATD = 'ccm7b1wnmyicgjf';
+
+      if (existingPunicao) {
+        const punicaoId = existingPunicao.Id || existingPunicao.id;
+        await api.patch(`/api/v2/tables/${PUNICOES_TABLE_ID}/records`, {
+          Id: punicaoId,
+          bi_publicacao: data.bi_publicacao,
+          tipo: data.tipo,
+          dias: data.dias ? Number(data.dias) : null
+        });
+      } else {
+        const createRes = await api.post(`/api/v2/tables/${PUNICOES_TABLE_ID}/records`, {
+          bi_publicacao: data.bi_publicacao,
+          tipo: data.tipo,
+          dias: data.dias ? Number(data.dias) : null
+        });
+        const newPunicaoId = createRes.data.Id || createRes.data.id;
+        
+        await api.post(`/api/v2/tables/${PUNICOES_TABLE_ID}/links/${LINK_PUNICAO_FATD}/records/${newPunicaoId}`, {
+          Id: fatdId
+        });
+      }
+    } catch (error: any) {
+      console.error('[FATDService] Erro ao salvar punição:', error?.response?.data || error.message);
+      throw new Error('Não foi possível salvar os dados de publicação da punição.');
+    }
+  }
+
+  /**
+   * Remove a FATD e suas punições vinculadas.
+   */
+  static async deleteFATD(id: number): Promise<void> {
+    try {
+      const response = await api.get(`/api/v2/tables/${FATD_TABLE_ID}/records/${id}`);
+      const fatd = response.data;
+      const punicoesArr = Array.isArray(fatd.punicoes) 
+        ? fatd.punicoes 
+        : (fatd.punicoes ? [fatd.punicoes] : []);
+
+      const PUNICOES_TABLE_ID = 'mxdic5ej7eigds1';
+
+      for (const p of punicoesArr) {
+        const pId = p.Id || p.id;
+        try {
+          await api.delete(`/api/v2/tables/${PUNICOES_TABLE_ID}/records`, {
+            data: [{ Id: pId }]
+          });
+        } catch (e) {
+          console.error(`[FATDService] Falha ao deletar punição vinculada ${pId}:`, e);
+        }
+      }
+
+      await api.delete(`/api/v2/tables/${FATD_TABLE_ID}/records`, {
+        data: [{ Id: id }]
+      });
+    } catch (error: any) {
+      console.error('[FATDService] Erro ao excluir FATD:', error?.response?.data || error.message);
+      throw new Error('Não foi possível excluir a FATD do banco de dados.');
+    }
+  }
 }

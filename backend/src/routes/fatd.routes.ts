@@ -20,6 +20,9 @@ const uploadPDF = multer({
 });
 
 fatdRoutes.get('/verify', FATDController.verifyProcesso);
+fatdRoutes.get('/', FATDController.list);
 fatdRoutes.post('/', uploadPDF.single('pdf'), FATDController.create);
+fatdRoutes.post('/:id/punicao', FATDController.savePunicao);
+fatdRoutes.delete('/:id', FATDController.delete);
 
 export { fatdRoutes };

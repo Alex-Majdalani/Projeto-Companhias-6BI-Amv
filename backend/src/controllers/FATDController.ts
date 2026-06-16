@@ -74,4 +74,49 @@ export class FATDController {
       res.status(500).json({ error: error.message || 'Erro ao verificar processo.' });
     }
   }
+
+  static async list(req: Request, res: Response): Promise<void> {
+    try {
+      const list = await FATDService.list();
+      res.status(200).json(list);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || 'Erro ao listar FATDs.' });
+    }
+  }
+
+  static async savePunicao(req: Request, res: Response): Promise<void> {
+    try {
+      const id = Number(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: 'ID da FATD inválido.' });
+        return;
+      }
+
+      const { bi_publicacao, tipo, dias } = req.body;
+      await FATDService.savePunicao(id, {
+        bi_publicacao: bi_publicacao || '',
+        tipo: tipo || '',
+        dias: dias ? Number(dias) : 0
+      });
+
+      res.status(200).json({ message: 'Punição vinculada com sucesso!' });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || 'Erro ao salvar a publicação da punição.' });
+    }
+  }
+
+  static async delete(req: Request, res: Response): Promise<void> {
+    try {
+      const id = Number(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: 'ID da FATD inválido.' });
+        return;
+      }
+
+      await FATDService.deleteFATD(id);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || 'Erro ao excluir FATD.' });
+    }
+  }
 }

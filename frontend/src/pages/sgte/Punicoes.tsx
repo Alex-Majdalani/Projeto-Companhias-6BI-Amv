@@ -6,10 +6,10 @@ import { DataTable } from '../../components/ui/DataTable';
 import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
 import { 
-  Scale, Plus, Search, Edit2, Trash2, CheckCircle2, 
+  Scale, Search, Edit2, Trash2, CheckCircle2, 
   AlertCircle, ShieldCheck 
 } from 'lucide-react';
-import { militaresMock } from './CadastroMilitares';
+import { api } from '../../services/api';
 
 interface Punicao {
   id: string;
@@ -24,12 +24,8 @@ interface Punicao {
   quantidadeDias: number | string;
   nomeParticipante: string;
   pgParticipante: string;
+  documentoFatdUrl?: string;
 }
-
-const postosGraduacoes = [
-  'Maj', 'Cap', '1º Ten', '2º Ten', 'Asp', 'Subten', 
-  '1º Sgt', '2º Sgt', '3º Sgt', 'Cb', 'Sd'
-];
 
 export function Punicoes() {
   const [punicoes, setPunicoes] = useState<Punicao[]>([]);
@@ -45,7 +41,6 @@ export function Punicoes() {
   const [nomeMilitarBusca, setNomeMilitarBusca] = useState('');
   const [dataFATD, setDataFATD] = useState(new Date().toISOString().split('T')[0]);
   const [relatoFato, setRelatoFato] = useState('');
-  const [status, setStatus] = useState<'Publicado em BI' | 'Não Publicado'>('Não Publicado');
   const [biPublicacao, setBiPublicacao] = useState('');
   const [tipoPunicao, setTipoPunicao] = useState<'Advertido' | 'Impedimento' | 'Repreensão' | 'Detenção' | 'Prisão' | ''>('');
   const [quantidadeDias, setQuantidadeDias] = useState<number | string>('');
@@ -54,94 +49,34 @@ export function Punicoes() {
   const [nomeParticipante, setNomeParticipante] = useState('');
   const [pgParticipante, setPgParticipante] = useState('');
 
-  // Carregar dados iniciais do localStorage
+  // Carregar dados iniciais do banco de dados
+  const loadData = async () => {
+    try {
+      const res = await api.get('/fatd');
+      const list = (res.data || []).map((f: any) => ({
+        id: String(f.id),
+        numProcesso: f.numeroProcesso,
+        pgMilitar: f.pgArrolado,
+        nomeGuerra: f.nomeArrolado.toUpperCase(),
+        dataFATD: f.dataProcessoFato,
+        relatoFato: f.fatoRelatado,
+        status: f.punicao && f.punicao.bi_publicacao && f.punicao.tipo ? 'Publicado em BI' : 'Não Publicado',
+        biPublicacao: f.punicao?.bi_publicacao || '',
+        tipoPunicao: f.punicao?.tipo || '',
+        quantidadeDias: f.punicao?.dias || '',
+        nomeParticipante: f.nomeParticipante,
+        pgParticipante: f.pgParticipante,
+        documentoFatdUrl: f.documentoFatdUrl
+      }));
+      setPunicoes(list);
+    } catch (err) {
+      console.error('Erro ao carregar punições/FATDs:', err);
+    }
+  };
+
   useEffect(() => {
-    const rawData = localStorage.getItem('@SisGAdm:punicoes');
-    if (rawData) {
-      setPunicoes(JSON.parse(rawData));
-    } else {
-      // Mock inicial caso não exista nada no localStorage
-      const mockInicial: Punicao[] = [
-        {
-          id: '1',
-          numProcesso: '001/2026',
-          pgMilitar: 'Cb',
-          nomeGuerra: 'LIMA',
-          dataFATD: '2026-05-10',
-          relatoFato: 'Faltou ao serviço de guarda no dia 09 de maio de 2026 sem apresentar justificativa plausível.',
-          status: 'Publicado em BI',
-          biPublicacao: 'BI nº 15/2026',
-          tipoPunicao: 'Impedimento',
-          quantidadeDias: 2,
-          nomeParticipante: 'ALEXNALDO MAJDALANI DE MELO JUNIOR',
-          pgParticipante: '2º Sgt'
-        },
-        {
-          id: '2',
-          numProcesso: '002/2026',
-          pgMilitar: 'Sd',
-          nomeGuerra: 'SANTOS',
-          dataFATD: '2026-06-02',
-          relatoFato: 'Apresentou-se com atraso de 40 minutos para a instrução programada de tiro.',
-          status: 'Não Publicado',
-          biPublicacao: '',
-          tipoPunicao: '',
-          quantidadeDias: '',
-          nomeParticipante: 'PEDRO HENRIQUE ALMEIDA',
-          pgParticipante: '1º Ten'
-        }
-      ];
-      setPunicoes(mockInicial);
-      localStorage.setItem('@SisGAdm:punicoes', JSON.stringify(mockInicial));
-    }
+    loadData();
   }, []);
-
-  const salvarPunicoesLocalStorage = (lista: Punicao[]) => {
-    setPunicoes(lista);
-    localStorage.setItem('@SisGAdm:punicoes', JSON.stringify(lista));
-  };
-
-  const handleNomeMilitarChange = (val: string) => {
-    setNomeMilitarBusca(val);
-    const encontrado = militaresMock.find(m => 
-      m.nome.toLowerCase() === val.trim().toLowerCase() ||
-      `${m.posto} ${m.nome}`.toLowerCase() === val.trim().toLowerCase()
-    );
-    if (encontrado) {
-      setPgMilitar(encontrado.posto);
-      setNomeMilitarBusca(encontrado.nome.split(' ').pop() || encontrado.nome); // Nome de guerra (último nome)
-    }
-  };
-
-  const handleNomeParticipanteChange = (val: string) => {
-    setNomeParticipante(val);
-    const encontrado = militaresMock.find(m => 
-      m.nome.toLowerCase() === val.trim().toLowerCase() ||
-      `${m.posto} ${m.nome}`.toLowerCase() === val.trim().toLowerCase()
-    );
-    if (encontrado) {
-      setPgParticipante(encontrado.posto);
-      setNomeParticipante(encontrado.nome);
-    }
-  };
-
-  const handleOpenNewModal = () => {
-    setIsEditMode(false);
-    setSelectedPunicaoId(null);
-    // Reset Form
-    setNumProcesso('');
-    setPgMilitar('');
-    setNomeMilitarBusca('');
-    setDataFATD(new Date().toISOString().split('T')[0]);
-    setRelatoFato('');
-    setStatus('Não Publicado');
-    setBiPublicacao('');
-    setTipoPunicao('');
-    setQuantidadeDias('');
-    setNomeParticipante('');
-    setPgParticipante('');
-    setIsModalOpen(true);
-  };
 
   const handleOpenEditModal = (p: Punicao) => {
     setIsEditMode(true);
@@ -152,7 +87,6 @@ export function Punicoes() {
     setNomeMilitarBusca(p.nomeGuerra);
     setDataFATD(p.dataFATD);
     setRelatoFato(p.relatoFato);
-    setStatus(p.status);
     setBiPublicacao(p.biPublicacao);
     setTipoPunicao(p.tipoPunicao);
     setQuantidadeDias(p.quantidadeDias);
@@ -161,60 +95,37 @@ export function Punicoes() {
     setIsModalOpen(true);
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Se preencheu BI e Tipo de Punição, define automaticamente como Publicado
-    let statusFinal = status;
-    if (biPublicacao.trim() !== '' && tipoPunicao !== '') {
-      statusFinal = 'Publicado em BI';
+    try {
+      if (selectedPunicaoId) {
+        const fatdId = Number(selectedPunicaoId);
+        await api.post(`/fatd/${fatdId}/punicao`, {
+          bi_publicacao: biPublicacao,
+          tipo: tipoPunicao,
+          dias: quantidadeDias ? Number(quantidadeDias) : 0
+        });
+        alert('Dados da punição salvos com sucesso no banco de dados!');
+        setIsModalOpen(false);
+        loadData();
+      }
+    } catch (err) {
+      console.error('Erro ao salvar punição:', err);
+      alert('Erro ao salvar os dados da punição.');
     }
-
-    if (isEditMode && selectedPunicaoId) {
-      const listaAtualizada = punicoes.map(p => {
-        if (p.id === selectedPunicaoId) {
-          return {
-            ...p,
-            numProcesso,
-            pgMilitar,
-            nomeGuerra: nomeMilitarBusca.toUpperCase(),
-            dataFATD,
-            relatoFato,
-            status: statusFinal,
-            biPublicacao,
-            tipoPunicao,
-            quantidadeDias,
-            nomeParticipante,
-            pgParticipante
-          };
-        }
-        return p;
-      });
-      salvarPunicoesLocalStorage(listaAtualizada);
-    } else {
-      const novaPunicao: Punicao = {
-        id: Date.now().toString(),
-        numProcesso,
-        pgMilitar,
-        nomeGuerra: nomeMilitarBusca.toUpperCase(),
-        dataFATD,
-        relatoFato,
-        status: statusFinal,
-        biPublicacao,
-        tipoPunicao,
-        quantidadeDias,
-        nomeParticipante: nomeParticipante || 'Não informado',
-        pgParticipante: pgParticipante || ''
-      };
-      salvarPunicoesLocalStorage([...punicoes, novaPunicao]);
-    }
-    setIsModalOpen(false);
   };
 
-  const handleDelete = (id: string) => {
-    if (window.confirm('Deseja realmente excluir esta punição do registro?')) {
-      const listaFiltrada = punicoes.filter(p => p.id !== id);
-      salvarPunicoesLocalStorage(listaFiltrada);
+  const handleDelete = async (id: string) => {
+    if (window.confirm('Deseja realmente excluir esta FATD e sua punição correspondente do banco de dados?')) {
+      try {
+        await api.delete(`/fatd/${Number(id)}`);
+        alert('Registro de FATD excluído com sucesso!');
+        loadData();
+      } catch (err) {
+        console.error('Erro ao excluir FATD:', err);
+        alert('Erro ao excluir o registro.');
+      }
     }
   };
 
@@ -337,6 +248,22 @@ export function Punicoes() {
           </span>
         </div>
         
+        {row.documentoFatdUrl && (
+          <div>
+            <span className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+              Documento da FATD (PDF)
+            </span>
+            <a 
+              href={row.documentoFatdUrl} 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="inline-flex items-center gap-1.5 bg-militar-main hover:bg-militar-dark text-white text-xs px-3 py-1.5 rounded font-semibold shadow transition-colors"
+            >
+              📄 Baixar PDF do Processo
+            </a>
+          </div>
+        )}
+
         <div>
           <span className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
             Status de Publicação
@@ -385,9 +312,6 @@ export function Punicoes() {
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Controle de Punições Disciplinares</h1>
           <Breadcrumb items={[{ label: 'Gestão de Pessoas' }, { label: 'Punições' }]} />
         </div>
-        <Button onClick={handleOpenNewModal} icon={<Plus size={16} />}>
-          Lançar Punição Manual
-        </Button>
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden p-6">
@@ -444,16 +368,16 @@ export function Punicoes() {
             <Input 
               label="Número do Processo"
               placeholder="Ex: 001/2026"
-              required
+              disabled
               value={numProcesso}
-              onChange={(e) => setNumProcesso(e.target.value)}
+              className="bg-gray-100 cursor-not-allowed"
             />
             <Input 
               label="Data da FATD"
               type="date"
-              required
+              disabled
               value={dataFATD}
-              onChange={(e) => setDataFATD(e.target.value)}
+              className="bg-gray-100 cursor-not-allowed"
             />
           </div>
 
@@ -463,29 +387,17 @@ export function Punicoes() {
               <div className="md:col-span-2">
                 <Input 
                   label="Nome do Militar"
-                  list="militar-lista-punicoes"
-                  placeholder="Busque o militar arrolado..."
-                  required
+                  disabled
                   value={nomeMilitarBusca}
-                  onChange={(e) => handleNomeMilitarChange(e.target.value)}
+                  className="bg-gray-100 cursor-not-allowed"
                 />
-                <datalist id="militar-lista-punicoes">
-                  {militaresMock.map(m => (
-                    <option key={`m-${m.id}`} value={`${m.posto} ${m.nome}`} />
-                  ))}
-                </datalist>
               </div>
-              <Select 
+              <Input 
                 label="Posto/Graduação"
-                required
+                disabled
                 value={pgMilitar}
-                onChange={(e) => setPgMilitar(e.target.value)}
-              >
-                <option value="">Selecione...</option>
-                {postosGraduacoes.map(pg => (
-                  <option key={`modal-pg-${pg}`} value={pg}>{pg}</option>
-                ))}
-              </Select>
+                className="bg-gray-100 cursor-not-allowed"
+              />
             </div>
           </div>
 
@@ -495,27 +407,17 @@ export function Punicoes() {
               <div className="md:col-span-2">
                 <Input 
                   label="Nome do Participante"
-                  list="participante-lista-punicoes"
-                  placeholder="Busque o militar participante..."
+                  disabled
                   value={nomeParticipante}
-                  onChange={(e) => handleNomeParticipanteChange(e.target.value)}
+                  className="bg-gray-100 cursor-not-allowed"
                 />
-                <datalist id="participante-lista-punicoes">
-                  {militaresMock.map(m => (
-                    <option key={`part-${m.id}`} value={`${m.posto} ${m.nome}`} />
-                  ))}
-                </datalist>
               </div>
-              <Select 
+              <Input 
                 label="Posto/Graduação"
+                disabled
                 value={pgParticipante}
-                onChange={(e) => setPgParticipante(e.target.value)}
-              >
-                <option value="">Selecione...</option>
-                {postosGraduacoes.map(pg => (
-                  <option key={`modal-part-pg-${pg}`} value={pg}>{pg}</option>
-                ))}
-              </Select>
+                className="bg-gray-100 cursor-not-allowed"
+              />
             </div>
           </div>
 
@@ -523,11 +425,9 @@ export function Punicoes() {
             <label className="block text-sm font-semibold text-gray-700 mb-1">Relato do Fato</label>
             <textarea
               rows={3}
-              required
-              placeholder="Fato que originou a punição..."
-              className="w-full bg-white border border-gray-300 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-militar-light focus:border-transparent transition-all"
+              disabled
+              className="w-full bg-gray-100 border border-gray-300 rounded-lg py-2 px-3 text-sm cursor-not-allowed transition-all"
               value={relatoFato}
-              onChange={(e) => setRelatoFato(e.target.value)}
             />
           </div>
 
