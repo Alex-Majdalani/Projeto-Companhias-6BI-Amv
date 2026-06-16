@@ -31,36 +31,38 @@ async function nocoRequest(path: string, options: RequestInit = {}) {
   return data;
 }
 
-// Helpers para mapear opções do frontend para o NocoDB
-function mapFatorRh(fator: string): string {
+// Comentário de organização: Helpers para mapear opções do frontend para o NocoDB.
+// Retornam null quando o campo está vazio para não gravar valores default indesejados.
+function mapFatorRh(fator: string): string | null {
+  if (!fator) return null;
   if (fator === '+') return 'Positivo (+)';
   if (fator === '-') return 'Negativo (-)';
   return fator;
 }
 
-function mapCutis(cutis: string): string {
-  if (!cutis) return 'Branca';
-  // Capitalizar primeira letra
+function mapCutis(cutis: string): string | null {
+  if (!cutis) return null;
   return cutis.charAt(0).toUpperCase() + cutis.slice(1).toLowerCase();
 }
 
-function mapOlhos(olhos: string): string {
-  if (!olhos) return 'Castanhos';
+function mapOlhos(olhos: string): string | null {
+  if (!olhos) return null;
   return olhos.charAt(0).toUpperCase() + olhos.slice(1).toLowerCase();
 }
 
-function mapCabelos(cabelos: string): string {
-  if (!cabelos) return 'Preto';
+function mapCabelos(cabelos: string): string | null {
+  if (!cabelos) return null;
   const val = cabelos.toLowerCase();
   if (val.startsWith('preto')) return 'Preto';
   if (val.startsWith('castanho')) return 'Castanho';
   if (val.startsWith('loiro')) return 'Loiro';
   if (val.startsWith('ruivo')) return 'Ruivo';
   if (val.startsWith('grisalho') || val.startsWith('branco')) return 'Grisalho / Branco';
-  return 'Outro';
+  return cabelos;
 }
 
-function mapEscolaridade(esc: string): string {
+function mapEscolaridade(esc: string): string | null {
+  if (!esc) return null;
   const map: Record<string, string> = {
     fundamental_inc: 'Fundamental Incompleto',
     fundamental_com: 'Fundamental Completo',
@@ -69,27 +71,23 @@ function mapEscolaridade(esc: string): string {
     superior_inc: 'Superior Incompleto',
     superior_com: 'Superior Completo'
   };
-  return map[esc] || 'Médio Completo';
+  return map[esc] || null;
 }
 
-function mapPostoGraduacao(posto: string): string {
+function mapTipoSanguineo(ts: string): string | null {
+  if (!ts) return null;
+  return ts.toUpperCase();
+}
+
+function mapPostoGraduacao(posto: string): string | null {
+  if (!posto) return null;
   const map: Record<string, string> = {
-    cel: 'CEL',
-    tc: 'TC',
-    maj: 'MAJ',
-    cap: 'CAP',
-    '1ten': '1º TEN',
-    '2ten': '2º TEN',
-    asp: 'ASP',
-    st: 'ST',
-    '1sgt': '1º SGT',
-    '2sgt': '2º SGT',
-    '3sgt': '3º SGT',
-    cb: 'CB',
-    sdep: 'SD EP',
-    sdev: 'SD EV'
+    cel: 'CEL', tc: 'TC', maj: 'MAJ', cap: 'CAP',
+    '1ten': '1º TEN', '2ten': '2º TEN', asp: 'ASP', st: 'ST',
+    '1sgt': '1º SGT', '2sgt': '2º SGT', '3sgt': '3º SGT',
+    cb: 'CB', sdep: 'SD EP', sdev: 'SD EV'
   };
-  return map[(posto || '').toLowerCase()] || 'SD EP';
+  return map[(posto || '').toLowerCase()] || null;
 }
 
 function mapCompanhiaId(comp: string): number {
@@ -138,22 +136,65 @@ export class MilitarController {
 
   static async list(req: Request, res: Response) {
     try {
-      // Lista de militares com relacionamentos resolvidos
-      const data = await nocoRequest(`/tables/${TBL_MILITAR}/records?limit=100`);
+      // Comentário de organização: Filtros recebidos via query params
+      const { nome, postoGraduacao, situacao, companhia, pelotao, tipoVinculo } = req.query as Record<string, string>;
+
+      // Monta o where do NocoDB baseado nos filtros recebidos
+      const whereConditions: string[] = [];
+
+      if (postoGraduacao && postoGraduacao !== 'Todos') {
+        whereConditions.push(`(posto_graduacao,eq,${postoGraduacao})`);
+      }
+      if (pelotao && pelotao !== 'Todos') {
+        whereConditions.push(`(pelotao,eq,${pelotao})`);
+      }
+      if (tipoVinculo && tipoVinculo !== 'Todos') {
+        whereConditions.push(`(tipo_vinculo,eq,${tipoVinculo})`);
+      }
+
+      const whereStr = whereConditions.length > 0 ? `&where=${encodeURIComponent(whereConditions.join('~and'))}` : '';
+
+      const data = await nocoRequest(`/tables/${TBL_MILITAR}/records?limit=200${whereStr}`);
       
-      // Formatar dados para o frontend
-      const formatados = (data.list || []).map((m: any) => ({
+      let formatados = (data.list || []).map((m: any) => ({
         id: m.Id,
         posto: m.posto_graduacao || 'SD EP',
         nome: m.dados_civil?.nome_completo || m.nome_guerra || 'Sem Nome',
+        nomeGuerra: m.nome_guerra || '',
         identidade: m.idt_militar || '',
         cpf: m.dados_civil?.cpf || '',
         quadro: m.posto_graduacao || '',
         subunidade: m.companhia?.Companhia || '',
+        companhia: m.companhia?.Companhia || '',
+        pelotao: m.pelotao || '',
+        tipoVinculo: m.tipo_vinculo || '',
+        turmaFormacao: m.turma_formacao || '',
         situacao: 'Ativo',
         tipo: m.tipo_vinculo || 'Militar Temporário',
-        cursosProfissionais: m.especialidades_militar?.cursos_gerais || ''
+        cursosProfissionais: m.especialidades_militar?.cursos_gerais || '',
+        // IDs relacionados para operações de exclusão
+        dadosCivilId: typeof m.dados_civil === 'object' ? m.dados_civil?.Id : m.dados_civil,
+        enderecoId: typeof m.endereco === 'object' ? m.endereco?.Id : m.endereco,
+        contatoId: typeof m.formas_contato === 'object' ? m.formas_contato?.Id : m.formas_contato,
+        redesSociaisId: typeof m.redes_sociai === 'object' ? m.redes_sociai?.Id : m.redes_sociai,
+        especialidadesId: typeof m.especialidades_militar === 'object' ? m.especialidades_militar?.Id : m.especialidades_militar,
       }));
+
+      // Filtro por nome (busca parcial no nome completo ou nome de guerra)
+      if (nome && nome.trim()) {
+        const nomeLower = nome.toLowerCase().trim();
+        formatados = formatados.filter((m: any) =>
+          m.nome.toLowerCase().includes(nomeLower) ||
+          m.nomeGuerra.toLowerCase().includes(nomeLower)
+        );
+      }
+
+      // Filtro por companhia (NocoDB não suporta filtro por campo relacionado facilmente)
+      if (companhia && companhia !== 'Todas') {
+        formatados = formatados.filter((m: any) =>
+          m.companhia.toLowerCase().includes(companhia.toLowerCase())
+        );
+      }
 
       return res.status(200).json(formatados);
     } catch (error: any) {
@@ -205,21 +246,32 @@ export class MilitarController {
       }
 
       // 1. Criar dados civil
-      const dadosCivilBody = {
-        nome_completo: toTitleCase(body.nomeCompleto || body.nome_completo || ''),
+      // Comentário de organização: Apenas envia campos que foram preenchidos.
+      // Campos select vazios retornam null e não são gravados com valores default.
+      const dadosCivilBody: Record<string, any> = {
+        nome_completo: toTitleCase(body.nomeCompleto || body.nome_completo || '') || null,
         data_nascimento: body.dataNascimento || null,
-        cpf: body.cpf,
+        cpf: body.cpf || null,
         idt_civil: body.idtCivil || null,
         altura: alturaNum,
-        tipo_sanquineo: body.tipoSanguineo || 'O',
-        fator_rh: mapFatorRh(body.fatorRh || '+'),
-        cutis: toTitleCase(body.cutis || 'Branca'),
-        olhos: toTitleCase(body.olhos || 'Castanhos'),
-        cabelos: toTitleCase(body.cabelos || 'Preto'),
-        religiao: body.religiao || '',
+        tipo_sanquineo: mapTipoSanguineo(body.tipoSanguineo),
+        fator_rh: mapFatorRh(body.fatorRh),
+        cutis: mapCutis(body.cutis),
+        olhos: mapOlhos(body.olhos),
+        cabelos: mapCabelos(body.cabelos),
+        religiao: body.religiao || null,
         escolaridade: mapEscolaridade(body.escolaridade),
-        cnh_categoria: cnhCategorias
+        cnh_categoria: cnhCategorias.includes('Nenhum') ? null : (cnhCategorias.length > 0 ? cnhCategorias : null),
+        // Comentário de organização: URL da foto salva no S3, enviada pelo frontend após upload no momento do submit
+        foto_url: body.fotoUrl || null
       };
+
+      // Remove campos com valor null para não poluir o banco
+      Object.keys(dadosCivilBody).forEach(k => {
+        if (dadosCivilBody[k] === null || dadosCivilBody[k] === undefined) {
+          delete dadosCivilBody[k];
+        }
+      });
 
       console.log('Salvando dados_civil...');
       const civil = await nocoRequest(`/tables/${TBL_CIVIL}/records`, {
@@ -286,9 +338,9 @@ export class MilitarController {
       });
 
       // 4. Criar militar no NocoDB vinculando tudo
-      const militarBody = {
-        nome_guerra: toTitleCase(body.nomeGuerra || ''),
-        idt_militar: body.idtMil || body.idtMilitar || '',
+      const militarBody: Record<string, any> = {
+        nome_guerra: toTitleCase(body.nomeGuerra || '') || null,
+        idt_militar: body.idtMil || body.idtMilitar || null,
         numero_campo_basico: body.numero ? parseInt(body.numero) : null,
         numero_ebca: body.numero ? parseInt(body.numero) : null,
         data_praca: body.dataPraca || null,
@@ -298,11 +350,19 @@ export class MilitarController {
         formas_contato: contato.Id,
         redes_sociai: redesSociais.Id,
         especialidades_militar: especialidadesMilitar.Id,
-        posto_graduacao: mapPostoGraduacao(body.postoGraduacao || 'sdep'),
+        posto_graduacao: mapPostoGraduacao(body.postoGraduacao),
         companhia: companhiaId,
-        tipo_vinculo: tipoVinculo,
-        pelotao: body.pelotao || null
+        tipo_vinculo: tipoVinculo || null,
+        pelotao: body.pelotao || null,
+        periodo_obrigatorio: body.periodoObrigatorio || null
       };
+
+      // Remove campos null para não poluir o banco
+      Object.keys(militarBody).forEach(k => {
+        if (militarBody[k] === null || militarBody[k] === undefined) {
+          delete militarBody[k];
+        }
+      });
 
       console.log('Salvando militar...');
       const militar = await nocoRequest(`/tables/${TBL_MILITAR}/records`, {
@@ -318,6 +378,238 @@ export class MilitarController {
     } catch (error: any) {
       console.error('Erro ao criar militar:', error);
       return res.status(400).json({ error: error.message });
+    }
+  }
+
+  // Comentário de organização: Busca o perfil completo de um militar pelo ID,
+  // retornando todos os dados relacionados para a página de perfil
+  static async getById(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+
+      // Busca o militar com todos os relacionamentos expandidos
+      const militar = await nocoRequest(
+        `/tables/${TBL_MILITAR}/records/${id}`
+      );
+
+      if (!militar || !militar.Id) {
+        return res.status(404).json({ error: 'Militar não encontrado.' });
+      }
+
+      // Comentário de organização: Busca dados civis separadamente para garantir campos completos
+      let dadosCivil: any = {};
+      if (militar.dados_civil) {
+        const civilId = typeof militar.dados_civil === 'object' ? militar.dados_civil.Id : militar.dados_civil;
+        try {
+          dadosCivil = await nocoRequest(`/tables/${TBL_CIVIL}/records/${civilId}`);
+        } catch {}
+      }
+
+      // Comentário de organização: Busca endereço
+      let endereco: any = {};
+      if (militar.endereco) {
+        const enderecoId = typeof militar.endereco === 'object' ? militar.endereco.Id : militar.endereco;
+        try {
+          endereco = await nocoRequest(`/tables/${TBL_ENDERECO}/records/${enderecoId}`);
+        } catch {}
+      }
+
+      // Comentário de organização: Busca formas de contato
+      let contato: any = {};
+      if (militar.formas_contato) {
+        const contatoId = typeof militar.formas_contato === 'object' ? militar.formas_contato.Id : militar.formas_contato;
+        try {
+          contato = await nocoRequest(`/tables/${TBL_CONTATO}/records/${contatoId}`);
+        } catch {}
+      }
+
+      // Comentário de organização: Busca redes sociais
+      let redesSociais: any = {};
+      if (militar.redes_sociai) {
+        const redesId = typeof militar.redes_sociai === 'object' ? militar.redes_sociai.Id : militar.redes_sociai;
+        try {
+          redesSociais = await nocoRequest(`/tables/${TBL_REDES_SOCIAIS}/records/${redesId}`);
+        } catch {}
+      }
+
+      // Comentário de organização: Busca especialidades militares
+      let especialidades: any = {};
+      if (militar.especialidades_militar) {
+        const espId = typeof militar.especialidades_militar === 'object' ? militar.especialidades_militar.Id : militar.especialidades_militar;
+        try {
+          especialidades = await nocoRequest(`/tables/${TBL_ESPECIALIDADES_MILITAR}/records/${espId}`);
+        } catch {}
+      }
+
+      // Formata o retorno consolidado para o frontend
+      const perfil = {
+        id: militar.Id,
+        // Dados militares
+        nomeGuerra: militar.nome_guerra || '',
+        postoGraduacao: militar.posto_graduacao || '',
+        idtMilitar: militar.idt_militar || '',
+        numeroCampoBasico: militar.numero_campo_basico || '',
+        numeroEbca: militar.numero_ebca || '',
+        dataPraca: militar.data_praca || '',
+        turmaFormacao: militar.turma_formacao || '',
+        tipoVinculo: militar.tipo_vinculo || '',
+        periodoObrigatorio: militar.periodo_obrigatorio || '',
+        pelotao: militar.pelotao || '',
+        companhia: militar.companhia?.Companhia || '',
+        // Dados civis
+        dadosCivil: {
+          id: dadosCivil.Id,
+          nomeCompleto: dadosCivil.nome_completo || '',
+          dataNascimento: dadosCivil.data_nascimento || '',
+          cpf: dadosCivil.cpf || '',
+          idtCivil: dadosCivil.idt_civil || '',
+          altura: dadosCivil.altura || '',
+          tipoSanguineo: dadosCivil.tipo_sanquineo || '',
+          fatorRh: dadosCivil.fator_rh || '',
+          cutis: dadosCivil.cutis || '',
+          olhos: dadosCivil.olhos || '',
+          cabelos: dadosCivil.cabelos || '',
+          religiao: dadosCivil.religiao || '',
+          escolaridade: dadosCivil.escolaridade || '',
+          cnhCategoria: dadosCivil.cnh_categoria || [],
+          fotoUrl: dadosCivil.foto_url || ''
+        },
+        // Endereço
+        endereco: {
+          cep: endereco.cep || '',
+          rua: endereco.rua || '',
+          numero: endereco.numero || '',
+          complemento: endereco.complemento || '',
+          bairro: endereco.bairro || '',
+          cidade: endereco.cidade || '',
+          uf: endereco.uf || ''
+        },
+        // Contato
+        contato: {
+          telefone: contato.telefone || '',
+          coabitacao: contato.coabitacao || '',
+          telefoneEmergencia: contato.telefone_emergencia || '',
+          nomeEmergencia: contato.nome_emergencia || '',
+          grauParentesco: contato.grau_parentesco_emergencia || ''
+        },
+        // Redes sociais
+        redesSociais: {
+          instagram: redesSociais.instagram || '',
+          facebook: redesSociais.facebook || '',
+          tiktok: redesSociais.tiktok || '',
+          twitter: redesSociais.twitter || '',
+          outras: redesSociais.outras_redes || ''
+        },
+        // Especialidades
+        especialidades: {
+          cursos: especialidades.cursos_gerais || ''
+        }
+      };
+
+      return res.status(200).json(perfil);
+    } catch (error: any) {
+      console.error('Erro ao buscar perfil do militar:', error);
+      return res.status(500).json({ error: error.message });
+    }
+  }
+
+  // Comentário de organização: Exclui um militar e todos os registros relacionados em cascata
+  static async delete(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const militarId = parseInt(id);
+
+      if (isNaN(militarId)) {
+        return res.status(400).json({ error: 'ID inválido.' });
+      }
+
+      // Busca o militar para obter os IDs dos registros relacionados
+      const militar = await nocoRequest(`/tables/${TBL_MILITAR}/records/${militarId}`);
+
+      if (!militar || !militar.Id) {
+        return res.status(404).json({ error: 'Militar não encontrado.' });
+      }
+
+      const dadosCivilId = typeof militar.dados_civil === 'object' ? militar.dados_civil?.Id : militar.dados_civil;
+      const enderecoId   = typeof militar.endereco === 'object'    ? militar.endereco?.Id    : militar.endereco;
+      const contatoId    = typeof militar.formas_contato === 'object' ? militar.formas_contato?.Id : militar.formas_contato;
+      const redesId      = typeof militar.redes_sociai === 'object' ? militar.redes_sociai?.Id : militar.redes_sociai;
+      const espId        = typeof militar.especialidades_militar === 'object' ? militar.especialidades_militar?.Id : militar.especialidades_militar;
+
+      // 1. Deleta o registro principal do militar
+      await nocoRequest(`/tables/${TBL_MILITAR}/records`, {
+        method: 'DELETE',
+        body: JSON.stringify([{ Id: militarId }])
+      });
+
+      // 2. Deleta registros relacionados em paralelo (ignora erros individuais)
+      await Promise.allSettled([
+        dadosCivilId ? nocoRequest(`/tables/${TBL_CIVIL}/records`,    { method: 'DELETE', body: JSON.stringify([{ Id: dadosCivilId }]) }) : Promise.resolve(),
+        enderecoId   ? nocoRequest(`/tables/${TBL_ENDERECO}/records`, { method: 'DELETE', body: JSON.stringify([{ Id: enderecoId }]) })   : Promise.resolve(),
+        contatoId    ? nocoRequest(`/tables/${TBL_CONTATO}/records`,  { method: 'DELETE', body: JSON.stringify([{ Id: contatoId }]) })    : Promise.resolve(),
+        redesId      ? nocoRequest(`/tables/${TBL_REDES_SOCIAIS}/records`,          { method: 'DELETE', body: JSON.stringify([{ Id: redesId }]) })   : Promise.resolve(),
+        espId        ? nocoRequest(`/tables/${TBL_ESPECIALIDADES_MILITAR}/records`, { method: 'DELETE', body: JSON.stringify([{ Id: espId }]) })     : Promise.resolve(),
+      ]);
+
+      return res.status(200).json({ message: 'Militar excluído com sucesso.' });
+    } catch (error: any) {
+      console.error('Erro ao excluir militar:', error);
+      return res.status(500).json({ error: error.message });
+    }
+  }
+
+  // Comentário de organização: Atualiza dados básicos do militar (nome de guerra, posto, companhia, pelotão, tipo de vínculo)
+  static async update(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const militarId = parseInt(id);
+
+      if (isNaN(militarId)) {
+        return res.status(400).json({ error: 'ID inválido.' });
+      }
+
+      const body = req.body;
+
+      // Monta objeto de atualização apenas com campos enviados
+      const militarUpdate: Record<string, any> = { Id: militarId };
+
+      if (body.nomeGuerra !== undefined)     militarUpdate.nome_guerra      = toTitleCase(body.nomeGuerra || '');
+      if (body.postoGraduacao !== undefined) militarUpdate.posto_graduacao  = mapPostoGraduacao(body.postoGraduacao) || body.postoGraduacao;
+      if (body.pelotao !== undefined)        militarUpdate.pelotao           = body.pelotao;
+      if (body.tipoVinculo !== undefined) {
+        let tv = body.tipoVinculo;
+        if (tv === 'temporario')  tv = 'Militar Temporário';
+        if (tv === 'carreira')    tv = 'Militar de Carreira';
+        militarUpdate.tipo_vinculo = tv;
+      }
+      if (body.companhia !== undefined) {
+        const compId = parseInt(body.companhia);
+        militarUpdate.companhia = isNaN(compId) ? mapCompanhiaId(body.companhia) : compId;
+      }
+      if (body.dataPraca !== undefined)      militarUpdate.data_praca        = body.dataPraca;
+      if (body.turmaFormacao !== undefined)  militarUpdate.turma_formacao    = body.turmaFormacao ? parseInt(body.turmaFormacao) : null;
+
+      await nocoRequest(`/tables/${TBL_MILITAR}/records`, {
+        method: 'PATCH',
+        body: JSON.stringify(militarUpdate)
+      });
+
+      // Atualiza nome completo nos dados civis se enviado
+      if (body.nomeCompleto !== undefined) {
+        const militar = await nocoRequest(`/tables/${TBL_MILITAR}/records/${militarId}`);
+        const civilId = typeof militar.dados_civil === 'object' ? militar.dados_civil?.Id : militar.dados_civil;
+        if (civilId) {
+          await nocoRequest(`/tables/${TBL_CIVIL}/records`, {
+            method: 'PATCH',
+            body: JSON.stringify({ Id: civilId, nome_completo: toTitleCase(body.nomeCompleto) })
+          });
+        }
+      }
+
+      return res.status(200).json({ message: 'Militar atualizado com sucesso.' });
+    } catch (error: any) {
+      console.error('Erro ao atualizar militar:', error);
+      return res.status(500).json({ error: error.message });
     }
   }
 }
