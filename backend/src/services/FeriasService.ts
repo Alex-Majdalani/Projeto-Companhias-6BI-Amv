@@ -11,7 +11,7 @@ const api = axios.create({
 // IDs das tabelas de férias no NocoDB
 const PERIODOS_TABLE_ID = 'my58sjyxf1tjlij'; // Tabela: periodos_ferias
 const PLANOS_TABLE_ID = 'merte6jebbddnb1'; // Tabela: planos_ferias
-const MILITAR_LINK_COL_ID = 'cpkbthmraha5uxc'; // Coluna de link com militares
+const MILITAR_LINK_COL_ID = 'c99qdk2rrvhch2g'; // Coluna de link com militares
 const PERIODO_LINK_COL_ID = 'cdq9e4v7a1mzuvq'; // Coluna de link com periodos_ferias
 
 export interface PeriodoRecord {
@@ -122,7 +122,7 @@ export class FeriasService {
       });
       
       return response.data.list.map((p: any) => {
-        const militar = p.militares;
+        const militar = p.militar;
         const periodosList = p.periodos_ferias || [];
         const pIds = periodosList.map((po: any) => po.Id);
         const parcelasCount = Number(p.parcelas || periodosList.length || 1);
@@ -202,7 +202,7 @@ export class FeriasService {
       // 4. Busca o registro completo para retornar formatado
       const fetchResponse = await api.get(`/api/v2/tables/${PLANOS_TABLE_ID}/records/${newPlanId}`);
       const p = fetchResponse.data;
-      const militar = p.militares;
+      const militar = p.militar;
       const periodosList = p.periodos_ferias || [];
       const pIds = periodosList.map((po: any) => po.Id);
 
@@ -266,7 +266,7 @@ export class FeriasService {
       const currentPlan = currentRes.data;
 
       // 2. Gerencia o relacionamento do militar se mudou
-      const currentMilitarId = currentPlan.militares?.Id || null;
+      const currentMilitarId = currentPlan.militar?.Id || currentPlan.militar?.id || null;
       if (militarId !== currentMilitarId) {
         if (currentMilitarId) {
           try {
@@ -302,7 +302,7 @@ export class FeriasService {
       // 4. Busca o registro completo atualizado
       const fetchResponse = await api.get(`/api/v2/tables/${PLANOS_TABLE_ID}/records/${id}`);
       const p = fetchResponse.data;
-      const militar = p.militares;
+      const militar = p.militar;
       const periodosList = p.periodos_ferias || [];
       const pIds = periodosList.map((po: any) => po.Id);
 

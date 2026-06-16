@@ -320,15 +320,47 @@ export function PlanoFerias() {
       return;
     }
 
+    // 1. Um militar não pode ter dois planos de férias com o mesmo ano de referência
+    const anoRefNum = Number(anoReferencia);
+    const jaPossuiPlanoNoAno = plans.some(
+      p => p.militarId === militarId && p.id !== editingPlanId && Number(p.anoReferencia) === anoRefNum
+    );
+    if (jaPossuiPlanoNoAno) {
+      alert(`Erro: Este militar já possui um plano de férias cadastrado para o ano ${anoReferencia}.`);
+      return;
+    }
+
+    // 2. Se o militar colocou um período em um plano, ele não pode selecionar para outros planos
+    const selectedPeriodIds = parcelaPeriodos.map(Number);
+    const planosDoMesmoMilitar = plans.filter(p => p.militarId === militarId && p.id !== editingPlanId);
+    
+    const periodosUsados: number[] = [];
+    planosDoMesmoMilitar.forEach(p => {
+      if (Array.isArray(p.periodoIdList)) {
+        p.periodoIdList.forEach(id => {
+          if (id) periodosUsados.push(Number(id));
+        });
+      } else if (p.periodoId) {
+        periodosUsados.push(Number(p.periodoId));
+      }
+    });
+
+    const periodoDuplicado = selectedPeriodIds.find(id => periodosUsados.includes(id));
+    if (periodoDuplicado) {
+      const periodName = periods.find(pr => pr.id === periodoDuplicado)?.nome || `ID ${periodoDuplicado}`;
+      alert(`Erro: O período "${periodName}" já foi selecionado em outro plano de férias deste militar.`);
+      return;
+    }
+
     try {
       setSavingPlan(true);
       const payload = {
         militarId,
-        periodoIds: parcelaPeriodos.map(Number),
+        periodoIds: selectedPeriodIds,
         parcelas: numParcelas,
         status,
         obs,
-        anoReferencia: Number(anoReferencia)
+        anoReferencia: anoRefNum
       };
 
       if (editingPlanId) {
