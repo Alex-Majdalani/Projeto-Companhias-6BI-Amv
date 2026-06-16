@@ -106,6 +106,15 @@ export function QuadroOrganizacoes() {
   const [novoTipoSaving, setNovoTipoSaving] = useState(false);
   const [novoTipoError, setNovoTipoError] = useState<string | null>(null);
 
+  // ── ESTADO PARA EDIÇÃO INLINE DE TIPO EXISTENTE ───────────────────────────
+  const [editingTipoId, setEditingTipoId] = useState<number | null>(null);
+  const [editingTipoNome, setEditingTipoNome] = useState('');
+  const [editingTipoSaving, setEditingTipoSaving] = useState(false);
+
+  // ── CONFIRMAÇÃO DE EXCLUSÃO DE TIPO ──────────────────────────────────────
+  const [deletingTipoId, setDeletingTipoId] = useState<number | null>(null);
+  const [deletingTipo, setDeletingTipo] = useState(false);
+
   // ── MENSAGEM DE ERRO PARA OPERAÇÃO DE EXCLUSÃO ───────────────────────
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
@@ -263,7 +272,7 @@ export function QuadroOrganizacoes() {
         colorMapById[newTipo.Id] = COLOR_PALETTE[(novosTipos.length - 1) % COLOR_PALETTE.length];
         return novosTipos;
       });
-      setIsNovoTipoOpen(false);
+      setNovoTipoNome('');
     } catch (err: any) {
       console.error('[QuadroOrganizacoes] Erro ao criar tipo:', err);
       // Exibe mensagem de erro dentro do modal de novo tipo
@@ -271,6 +280,41 @@ export function QuadroOrganizacoes() {
       setNovoTipoError(msg);
     } finally {
       setNovoTipoSaving(false);
+    }
+  };
+
+  /** Comentário de organização: Salva edição inline de um tipo existente */
+  const handleSaveEditTipo = async () => {
+    if (!editingTipoId || !editingTipoNome.trim()) return;
+    setEditingTipoSaving(true);
+    try {
+      await api.put(`/agenda/tipos/${editingTipoId}`, { tipos: editingTipoNome.trim() });
+      setTipos((prev) =>
+        prev.map((t) => t.Id === editingTipoId ? { ...t, tipos: editingTipoNome.trim() } : t)
+      );
+      setEditingTipoId(null);
+      setEditingTipoNome('');
+    } catch (err: any) {
+      console.error('[QuadroOrganizacoes] Erro ao editar tipo:', err);
+      setNovoTipoError('Não foi possível editar o tipo. Tente novamente.');
+    } finally {
+      setEditingTipoSaving(false);
+    }
+  };
+
+  /** Comentário de organização: Exclui um tipo de atividade após confirmação */
+  const handleConfirmDeleteTipo = async () => {
+    if (!deletingTipoId) return;
+    setDeletingTipo(true);
+    try {
+      await api.delete(`/agenda/tipos/${deletingTipoId}`);
+      setTipos((prev) => prev.filter((t) => t.Id !== deletingTipoId));
+      setDeletingTipoId(null);
+    } catch (err: any) {
+      console.error('[QuadroOrganizacoes] Erro ao excluir tipo:', err);
+      setNovoTipoError('Não foi possível excluir o tipo. Tente novamente.');
+    } finally {
+      setDeletingTipo(false);
     }
   };
 
@@ -859,35 +903,168 @@ export function QuadroOrganizacoes() {
         </div>
       </Modal>
 
-      {/* ── MODAL DE CRIAÇÃO DE NOVO TIPO ─────────────────────────────────────── */}
+      {/* ── MODAL GERENCIADOR DE TIPOS DE ATIVIDADE (CRUD completo) ───────────── */}
       <Modal
         isOpen={isNovoTipoOpen}
-        onClose={() => !novoTipoSaving && setIsNovoTipoOpen(false)}
-        title="Novo Tipo de Atividade"
+        onClose={() => {
+          if (!novoTipoSaving && !editingTipoSaving && !deletingTipo) {
+            setIsNovoTipoOpen(false);
+            setNovoTipoError(null);
+            setEditingTipoId(null);
+            setDeletingTipoId(null);
+          }
+        }}
+        title="Tipos de Atividade"
       >
-        <div className="space-y-4">
-          <Input
-            label="Nome do Tipo"
-            placeholder="Ex: Instrução, Exercício, Reunião..."
-            value={novoTipoNome}
-            onChange={(e) => setNovoTipoNome(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleConfirmNovoTipo()}
-            autoFocus
-          />
+        <div className="space-y-5">
 
-          {/* Mensagem de erro caso a criação do tipo falhe */}
+          {/* ── Lista de tipos existentes ──────────────────────────────────── */}
+          <div>
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">
+              Tipos Cadastrados ({tipos.length})
+            </p>
+
+            {tipos.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-4">Nenhum tipo cadastrado ainda.</p>
+            ) : (
+              <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                {tipos.map((tipo, idx) => {
+                  // Comentário de organização: Cor dinâmica baseada no índice do tipo na paleta
+                  const color = COLOR_PALETTE[idx % COLOR_PALETTE.length];
+                  const isEditingThis = editingTipoId === tipo.Id;
+                  const isDeletingThis = deletingTipoId === tipo.Id;
+
+                  return (
+                    <div key={tipo.Id} className="flex items-center gap-2 p-2.5 bg-gray-50 rounded-xl border border-gray-100">
+                      {/* Badge colorido do tipo */}
+                      {!isEditingThis && !isDeletingThis && (
+                        <>
+                          <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold flex-1 ${color.bg} ${color.text}`}>
+                            <span className={`w-2 h-2 rounded-full ${color.dot}`} />
+                            {tipo.tipos || '—'}
+                          </span>
+                          {/* Botão editar */}
+                          <button
+                            title="Editar tipo"
+                            onClick={() => { setEditingTipoId(tipo.Id); setEditingTipoNome(tipo.tipos || ''); setNovoTipoError(null); }}
+                            className="p-1.5 text-gray-400 hover:text-militar-main hover:bg-white rounded-lg transition-all"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                          </button>
+                          {/* Botão excluir */}
+                          <button
+                            title="Excluir tipo"
+                            onClick={() => { setDeletingTipoId(tipo.Id); setNovoTipoError(null); }}
+                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </>
+                      )}
+
+                      {/* Modo edição inline */}
+                      {isEditingThis && (
+                        <div className="flex items-center gap-2 flex-1">
+                          <input
+                            autoFocus
+                            value={editingTipoNome}
+                            onChange={(e) => setEditingTipoNome(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleSaveEditTipo()}
+                            className="flex-1 text-sm border border-militar-main/40 rounded-lg px-2 py-1.5 focus:outline-none focus:border-militar-main bg-white"
+                            placeholder="Nome do tipo..."
+                          />
+                          <button
+                            onClick={handleSaveEditTipo}
+                            disabled={editingTipoSaving || !editingTipoNome.trim()}
+                            className="px-3 py-1.5 bg-militar-main hover:bg-militar-dark text-white text-xs font-semibold rounded-lg disabled:opacity-50 transition-all"
+                          >
+                            {editingTipoSaving ? '...' : 'Salvar'}
+                          </button>
+                          <button
+                            onClick={() => { setEditingTipoId(null); setEditingTipoNome(''); }}
+                            className="px-3 py-1.5 text-gray-500 hover:text-gray-800 text-xs font-semibold rounded-lg border border-gray-200 hover:bg-gray-100 transition-all"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Modo confirmação de exclusão */}
+                      {isDeletingThis && (
+                        <div className="flex items-center gap-2 flex-1">
+                          <span className="text-xs text-red-700 font-semibold flex-1">
+                            Excluir <strong>"{tipo.tipos}"</strong>?
+                          </span>
+                          <button
+                            onClick={handleConfirmDeleteTipo}
+                            disabled={deletingTipo}
+                            className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-lg disabled:opacity-50 transition-all flex items-center gap-1"
+                          >
+                            <Trash2 size={12} />
+                            {deletingTipo ? '...' : 'Confirmar'}
+                          </button>
+                          <button
+                            onClick={() => setDeletingTipoId(null)}
+                            disabled={deletingTipo}
+                            className="px-3 py-1.5 text-gray-500 hover:text-gray-800 text-xs font-semibold rounded-lg border border-gray-200 hover:bg-gray-100 transition-all"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* ── Divisor ──────────────────────────────────────────────────────── */}
+          <div className="border-t border-gray-100 pt-4">
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">
+              Adicionar Novo Tipo
+            </p>
+
+            {/* Campo de criação de novo tipo */}
+            <div className="flex gap-2">
+              <input
+                value={novoTipoNome}
+                onChange={(e) => setNovoTipoNome(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleConfirmNovoTipo()}
+                placeholder="Ex: Instrução, Exercício, Reunião..."
+                className="flex-1 text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-militar-main bg-white transition-all"
+              />
+              <button
+                onClick={handleConfirmNovoTipo}
+                disabled={novoTipoSaving || !novoTipoNome.trim()}
+                className="px-4 py-2.5 bg-militar-main hover:bg-militar-dark text-white text-sm font-semibold rounded-xl disabled:opacity-50 flex items-center gap-2 transition-all"
+              >
+                <Plus size={15} />
+                {novoTipoSaving ? 'Salvando...' : 'Adicionar'}
+              </button>
+            </div>
+          </div>
+
+          {/* Mensagem de erro global do modal */}
           {novoTipoError && (
             <div className="text-xs text-red-700 bg-red-50 border border-red-200 px-3 py-2 rounded-lg">
               ⚠️ {novoTipoError}
             </div>
           )}
 
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => { setIsNovoTipoOpen(false); setNovoTipoError(null); }} disabled={novoTipoSaving}>
-              Cancelar
-            </Button>
-            <Button onClick={handleConfirmNovoTipo} disabled={novoTipoSaving || !novoTipoNome.trim()}>
-              {novoTipoSaving ? 'Salvando...' : 'Criar Tipo'}
+          <div className="flex justify-end pt-1">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsNovoTipoOpen(false);
+                setNovoTipoError(null);
+                setEditingTipoId(null);
+                setDeletingTipoId(null);
+                setNovoTipoNome('');
+              }}
+              disabled={novoTipoSaving || editingTipoSaving || deletingTipo}
+            >
+              Fechar
             </Button>
           </div>
         </div>
