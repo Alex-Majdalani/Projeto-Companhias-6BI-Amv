@@ -25,10 +25,13 @@ interface Punicao {
   nomeParticipante: string;
   pgParticipante: string;
   documentoFatdUrl?: string;
+  arroladoId?: number | null;
+  participanteId?: number | null;
 }
 
 export function Punicoes() {
   const [punicoes, setPunicoes] = useState<Punicao[]>([]);
+  const [militares, setMilitares] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedPunicaoId, setSelectedPunicaoId] = useState<string | null>(null);
@@ -48,10 +51,16 @@ export function Punicoes() {
   // Participante Form State
   const [nomeParticipante, setNomeParticipante] = useState('');
   const [pgParticipante, setPgParticipante] = useState('');
+  const [arroladoId, setArroladoId] = useState<number | null>(null);
+  const [participanteId, setParticipanteId] = useState<number | null>(null);
 
   // Carregar dados iniciais do banco de dados
   const loadData = async () => {
     try {
+      // Carrega militares primeiro para fazer a correspondência de nomes destacados
+      const milRes = await api.get('/militares');
+      setMilitares(milRes.data || []);
+
       const res = await api.get('/fatd');
       const list = (res.data || []).map((f: any) => ({
         id: String(f.id),
@@ -66,7 +75,9 @@ export function Punicoes() {
         quantidadeDias: f.punicao?.dias || '',
         nomeParticipante: f.nomeParticipante,
         pgParticipante: f.pgParticipante,
-        documentoFatdUrl: f.documentoFatdUrl
+        documentoFatdUrl: f.documentoFatdUrl,
+        arroladoId: f.arroladoId,
+        participanteId: f.participanteId
       }));
       setPunicoes(list);
     } catch (err) {
@@ -92,6 +103,8 @@ export function Punicoes() {
     setQuantidadeDias(p.quantidadeDias);
     setNomeParticipante(p.nomeParticipante || '');
     setPgParticipante(p.pgParticipante || '');
+    setArroladoId(p.arroladoId || null);
+    setParticipanteId(p.participanteId || null);
     setIsModalOpen(true);
   };
 
@@ -127,6 +140,72 @@ export function Punicoes() {
         alert('Erro ao excluir o registro.');
       }
     }
+  };
+
+  // Máscara do BI (xxx/xxxx)
+  const handleBiPublicacaoChange = (val: string) => {
+    let cleaned = val.replace(/[^0-9]/g, '');
+    if (cleaned.length > 7) {
+      cleaned = cleaned.slice(0, 7);
+    }
+    let formatted = cleaned;
+    if (cleaned.length > 3) {
+      formatted = `${cleaned.slice(0, 3)}/${cleaned.slice(3)}`;
+    }
+    setBiPublicacao(formatted);
+  };
+
+  // Helper para destacar nome de guerra
+  function renderMilitarName(militar: any) {
+    const nomeCompleto = militar.nome_completo || militar.nome || '';
+    const nomeGuerra = militar.nome_guerra || '';
+
+    if (!nomeGuerra) {
+      return <span className="font-bold text-gray-900">{nomeCompleto}</span>;
+    }
+
+    const words = nomeGuerra.split(/\s+/).filter((w: string) => w.trim().length > 0);
+    if (words.length === 0) {
+      return <span className="font-bold text-gray-900">{nomeCompleto}</span>;
+    }
+
+    const escapedWords = words.map((w: string) => w.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'));
+    const regex = new RegExp(`(${escapedWords.join('|')})`, 'gi');
+    const parts = nomeCompleto.split(regex);
+
+    return (
+      <span>
+        {parts.map((part: string, index: number) => 
+          regex.test(part) ? (
+            <strong key={index} className="font-bold text-militar-main underline decoration-2 decoration-militar-light">
+              {part}
+            </strong>
+          ) : (
+            <span key={index} className="font-bold text-gray-500">
+              {part}
+            </span>
+          )
+        )}
+      </span>
+    );
+  }
+
+  // Componente de display não-editável do militar
+  const RenderMilitarDisplay = ({ label, pg, militarId, fallbackName }: { label: string, pg: string, militarId?: number | null, fallbackName: string }) => {
+    const mil = militarId ? militares.find(m => m.id === militarId) : null;
+    return (
+      <div className="space-y-1">
+        <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider">{label}</label>
+        <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-lg p-2.5 min-h-[42px]">
+          <div className="bg-militar-main/10 text-militar-main px-2 py-1 rounded text-xs font-bold uppercase">
+            {mil ? mil.posto : (pg || 'N/A')}
+          </div>
+          <div className="text-sm font-medium text-gray-800">
+            {mil ? renderMilitarName(mil) : <span className="font-bold text-gray-950">{fallbackName}</span>}
+          </div>
+        </div>
+      </div>
+    );
   };
 
   // Filtros
@@ -240,7 +319,7 @@ export function Punicoes() {
       <div className="md:col-span-1 border-r border-gray-200 pr-4 space-y-4">
         <div>
           <span className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-            Militar Participante (Quem reportou)
+            Militar Participante
           </span>
           <span className="text-sm text-gray-800 font-semibold flex items-center gap-1.5">
             <ShieldCheck size={16} className="text-militar-main" />
@@ -362,6 +441,7 @@ export function Punicoes() {
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
         title={isEditMode ? "Atualizar / Publicar Punição" : "Lançar Punição Manual"}
+        size="lg"
       >
         <form onSubmit={handleSave} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -381,44 +461,22 @@ export function Punicoes() {
             />
           </div>
 
-          <div className="border-t border-gray-100 pt-3 space-y-3">
-            <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Militar Arrolado (Transgressor)</h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="md:col-span-2">
-                <Input 
-                  label="Nome do Militar"
-                  disabled
-                  value={nomeMilitarBusca}
-                  className="bg-gray-100 cursor-not-allowed"
-                />
-              </div>
-              <Input 
-                label="Posto/Graduação"
-                disabled
-                value={pgMilitar}
-                className="bg-gray-100 cursor-not-allowed"
-              />
-            </div>
+          <div className="border-t border-gray-100 pt-3">
+            <RenderMilitarDisplay
+              label="Militar Arrolado (Transgressor)"
+              pg={pgMilitar}
+              militarId={arroladoId}
+              fallbackName={nomeMilitarBusca}
+            />
           </div>
 
-          <div className="border-t border-gray-100 pt-3 space-y-3">
-            <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Militar Participante (Quem reportou)</h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="md:col-span-2">
-                <Input 
-                  label="Nome do Participante"
-                  disabled
-                  value={nomeParticipante}
-                  className="bg-gray-100 cursor-not-allowed"
-                />
-              </div>
-              <Input 
-                label="Posto/Graduação"
-                disabled
-                value={pgParticipante}
-                className="bg-gray-100 cursor-not-allowed"
-              />
-            </div>
+          <div className="border-t border-gray-100 pt-3">
+            <RenderMilitarDisplay
+              label="Militar Participante"
+              pg={pgParticipante}
+              militarId={participanteId}
+              fallbackName={nomeParticipante}
+            />
           </div>
 
           <div className="border-t border-gray-100 pt-3">
@@ -439,10 +497,10 @@ export function Punicoes() {
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Input 
-                label="BI de Publicação"
-                placeholder="Ex: BI nº 12/2026"
+                label="BI Nº:"
+                placeholder="Ex: 012/2026"
                 value={biPublicacao}
-                onChange={(e) => setBiPublicacao(e.target.value)}
+                onChange={(e) => handleBiPublicacaoChange(e.target.value)}
               />
               <Select 
                 label="Tipo de Punição"
@@ -469,7 +527,7 @@ export function Punicoes() {
             <div className="flex items-center gap-2 text-xs text-gray-500 bg-gray-50 p-2.5 rounded border border-gray-100">
               <AlertCircle size={14} className="text-gray-400 flex-shrink-0" />
               <span>
-                Preencher os campos de <strong>BI de Publicação</strong> e <strong>Tipo de Punição</strong> alterará automaticamente o status do registro para <strong>Publicado em BI</strong>.
+                Preencher os campos de <strong>BI Nº:</strong> e <strong>Tipo de Punição</strong> alterará automaticamente o status do registro para <strong>Publicado em BI</strong>.
               </span>
             </div>
           </div>
