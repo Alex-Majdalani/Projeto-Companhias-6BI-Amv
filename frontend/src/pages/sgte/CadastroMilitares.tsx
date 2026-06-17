@@ -285,7 +285,7 @@ export function CadastroMilitares() {
         const res = await api.get(`/militares/${m.id}`);
         perfis.push(res.data);
       }
-      exportarLotePerfisPDF(perfis);
+      await exportarLotePerfisPDF(perfis);
     } catch (err) {
       console.error('Erro ao exportar PDFs', err);
       alert('Houve um erro ao exportar os PDFs.');
@@ -301,9 +301,8 @@ export function CadastroMilitares() {
     try {
       for (const m of listToExport) {
         const res = await api.get(`/militares/${m.id}`);
-        import('../../utils/exportarPDF').then((module) => {
-          module.exportarPerfilPDF(res.data);
-        });
+        const module = await import('../../utils/exportarPDF');
+        await module.exportarPerfilPDF(res.data);
       }
     } catch (err) {
       console.error('Erro ao exportar PDFs separados', err);
@@ -714,7 +713,7 @@ export function CadastroMilitares() {
                             { label: 'Situação', value: m.situacao || 'Ativo' },
                             { label: 'Função Principal', value: m.funcoesEfetivo?.length > 0 ? m.funcoesEfetivo.map((f: any) => f.funcao).join(', ') : 'Sem função' },
                             { label: 'Seu Substituto', value: m.funcoesEfetivo?.filter((f: any) => f.substituto).map((f: any) => f.substituto).join(', ') || 'Nenhum' },
-                            { label: 'É Substituto De', value: m.funcoesSubstituto?.length > 0 ? m.funcoesSubstituto.map((f: any) => f.efetivo).join(', ') : 'Não' },
+                            { label: 'É Substituto De', value: m.funcoesSubstituto?.length > 0 ? m.funcoesSubstituto.map((f: any) => f.efetivo).join(', ') : '—' },
                             { label: 'Status da Função', value: m.funcoesEfetivo?.some((f: any) => f.ativa) ? 'Ativa' : (m.funcoesEfetivo?.length > 0 ? 'Inativa' : '—') },
                           ].map(f => (
                             <div key={f.label} className="bg-gray-50 rounded-lg p-2">

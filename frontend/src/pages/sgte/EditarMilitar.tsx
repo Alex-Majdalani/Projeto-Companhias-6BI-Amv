@@ -523,7 +523,7 @@ export function EditarMilitar() {
     }
 
     // Preparar payload normalizando campos e incluindo a URL da foto
-    const payload = {
+    const payload: any = {
       ...formData,
       nomeCompleto: toTitleCase(formData.nomeCompleto),
       nomeGuerra: toTitleCase(formData.nomeGuerra),
@@ -538,9 +538,11 @@ export function EditarMilitar() {
       olhos: formData.olhos,
       cabelos: formData.cabelos,
       resideCom: formData.resideCom.join(', '),
-      // Comentário de organização: URL da foto no S3 para salvar em dados_civil.foto_url
-      fotoUrl: uploadedFotoUrl
     };
+
+    if (uploadedFotoUrl) {
+      payload.fotoUrl = uploadedFotoUrl;
+    }
 
     try {
       await api.patch(`/militares/${id}`, payload);

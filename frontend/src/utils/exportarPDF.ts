@@ -2,20 +2,17 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Comentário de organização: Utilitário de geração de PDF para perfil do militar.
+// Utilitário de geração de PDF para perfil do militar.
 // Usa jsPDF + jspdf-autotable para gerar um documento formatado com estilo militar.
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Comentário de organização: Cor verde militar principal usada como destaque no PDF
 const COR_MILITAR_R = 22;
 const COR_MILITAR_G = 101;
 const COR_MILITAR_B = 52;
 
-// Comentário de organização: Cor cinza escuro para textos secundários
 const COR_TEXTO_LABEL = [120, 120, 120] as [number, number, number];
 const COR_TEXTO_VALOR = [30, 30, 30] as [number, number, number];
 
-/** Comentário de organização: Formata datas ISO para DD/MM/AAAA */
 function formatarData(d: string): string {
   if (!d) return '—';
   const p = d.split('T')[0].split('-');
@@ -23,13 +20,11 @@ function formatarData(d: string): string {
   return `${p[2]}/${p[1]}/${p[0]}`;
 }
 
-/** Comentário de organização: Formata altura com vírgula */
 function formatarAltura(a: any): string {
   if (!a && a !== 0) return '—';
   return String(a).replace('.', ',') + ' m';
 }
 
-/** Comentário de organização: Calcula idade */
 function calcularIdade(data: string): string {
   if (!data) return '—';
   const nasc = new Date(data);
@@ -40,20 +35,32 @@ function calcularIdade(data: string): string {
   return age >= 0 ? `${age} anos` : '—';
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Função principal: gera e faz download do PDF do perfil do militar
-// ─────────────────────────────────────────────────────────────────────────────
-export function exportarPerfilPDF(perfil: any): void {
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  const pw = doc.internal.pageSize.getWidth();  // 210mm
-  const ph = doc.internal.pageSize.getHeight(); // 297mm
+async function getBase64ImageFromUrl(imageUrl: string): Promise<string | null> {
+  if (!imageUrl) return null;
+  try {
+    const res = await fetch(imageUrl, { mode: 'cors' });
+    const blob = await res.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (err) {
+    console.error('Erro ao buscar imagem para PDF:', err);
+    return null;
+  }
+}
+
+async function renderPerfilPage(doc: any, perfil: any) {
+  const pw = doc.internal.pageSize.getWidth();
+  const ph = doc.internal.pageSize.getHeight();
   let y = 0;
 
   // ── CABEÇALHO VERDE ────────────────────────────────────────────────────────
   doc.setFillColor(COR_MILITAR_R, COR_MILITAR_G, COR_MILITAR_B);
   doc.rect(0, 0, pw, 38, 'F');
 
-  // Título do documento
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
@@ -69,23 +76,39 @@ export function exportarPerfilPDF(perfil: any): void {
 
   y = 45;
 
-  // ── IDENTIFICAÇÃO PRINCIPAL ────────────────────────────────────────────────
-  // Nome completo em destaque
-  const nomeCompleto = perfil.dadosCivil?.nomeCompleto || perfil.nomeGuerra || '—';
+  const nomeCompleto = perfil.dadosCivil?.nomeCompleto || perfil.nome || '—';
   const nomeGuerra = perfil.nomeGuerra || '';
 
+  // Foto do Militar
+  const fotoUrl = perfil.dadosCivil?.fotoUrl || perfil.fotoUrl;
+  let textX = 14;
+
+  if (fotoUrl) {
+    const base64Img = await getBase64ImageFromUrl(fotoUrl);
+    if (base64Img) {
+      doc.addImage(base64Img, 'JPEG', 14, y, 25, 33);
+      textX = 45;
+    }
+  }
+
+  // ── IDENTIFICAÇÃO PRINCIPAL ────────────────────────────────────────────────
   doc.setTextColor(COR_MILITAR_R, COR_MILITAR_G, COR_MILITAR_B);
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
-  doc.text(nomeCompleto, 14, y);
-  y += 6;
-
+  doc.text(nomeCompleto, textX, y + 4);
+  
   doc.setTextColor(...COR_TEXTO_LABEL);
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  const subTitulo = [perfil.postoGraduacao, nomeGuerra].filter(Boolean).join(' · ');
-  doc.text(subTitulo, 14, y);
-  y += 8;
+  const subTitulo = [perfil.postoGraduacao || perfil.posto, nomeGuerra].filter(Boolean).join(' · ');
+  doc.text(subTitulo, textX, y + 12);
+  
+  doc.setFontSize(9);
+  doc.text(`Identidade Militar: ${perfil.idtMilitar || perfil.identidade || '—'}`, textX, y + 18);
+  doc.text(`CPF: ${perfil.dadosCivil?.cpf || perfil.cpf || '—'}`, textX, y + 24);
+  doc.text(`Situação: ${perfil.situacao || 'Ativo'}`, textX, y + 30);
+
+  y = Math.max(y + 33, y + 38);
 
   // Linha divisória
   doc.setDrawColor(COR_MILITAR_R, COR_MILITAR_G, COR_MILITAR_B);
@@ -107,23 +130,18 @@ export function exportarPerfilPDF(perfil: any): void {
     styles: { fontSize: 8.5, cellPadding: 2.5 },
     headStyles: { fillColor: [248, 250, 248], textColor: COR_TEXTO_LABEL, fontStyle: 'bold', fontSize: 7.5, halign: 'left' },
     bodyStyles: { textColor: COR_TEXTO_VALOR },
-    columnStyles: { 0: { cellWidth: 42 }, 1: { cellWidth: 'auto' } },
+    columnStyles: { 0: { cellWidth: 42 }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 42 }, 3: { cellWidth: 'auto' } },
     body: [
-      ['Posto/Graduação', perfil.postoGraduacao || '—'],
-      ['Nome de Guerra', perfil.nomeGuerra || '—'],
-      ['Identidade Militar (IDT)', perfil.idtMilitar || '—'],
-      ['Nº Campo Básico', perfil.numeroCampoBasico || '—'],
-      ['Nº EBCA', perfil.numeroEbca || '—'],
-      ['Data de Praça', formatarData(perfil.dataPraca)],
-      ['Turma de Formação', perfil.turmaFormacao || '—'],
-      ['Tipo de Vínculo', perfil.tipoVinculo || '—'],
-      ['Companhia', perfil.companhia || '—'],
-      ['Pelotão', perfil.pelotao || '—'],
+      ['Nº Campo Básico', perfil.numeroCampoBasico || '—', 'Nº EBCA', perfil.numeroEbca || '—'],
+      ['Prec-CP', perfil.precCP || '—', 'Data de Praça', formatarData(perfil.dataPraca)],
+      ['Turma de Formação', perfil.turmaFormacao || '—', 'Tipo de Vínculo', perfil.tipoVinculo || '—'],
+      ['Companhia', perfil.companhia || '—', 'Pelotão', perfil.pelotao || '—'],
     ],
-    // Comentário de organização: Zebra listrada para melhor leitura
-    didParseCell: (data) => {
-      if (data.row.index % 2 === 0) {
-        data.cell.styles.fillColor = [248, 250, 248];
+    didParseCell: (data: any) => {
+      if (data.row.index % 2 === 0) data.cell.styles.fillColor = [248, 250, 248];
+      if (data.column.index === 0 || data.column.index === 2) {
+        data.cell.styles.fontStyle = 'bold';
+        data.cell.styles.textColor = COR_TEXTO_LABEL;
       }
     },
   });
@@ -144,26 +162,22 @@ export function exportarPerfilPDF(perfil: any): void {
     margin: { left: 14, right: 14 },
     tableWidth: pw - 28,
     styles: { fontSize: 8.5, cellPadding: 2.5 },
-    headStyles: { fillColor: [248, 250, 248], textColor: COR_TEXTO_LABEL, fontStyle: 'bold', fontSize: 7.5 },
     bodyStyles: { textColor: COR_TEXTO_VALOR },
-    columnStyles: { 0: { cellWidth: 42 }, 1: { cellWidth: 'auto' } },
+    columnStyles: { 0: { cellWidth: 42 }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 42 }, 3: { cellWidth: 'auto' } },
     body: [
-      ['Nome Completo', perfil.dadosCivil?.nomeCompleto || '—'],
-      ['Data de Nascimento', formatarData(perfil.dadosCivil?.dataNascimento)],
-      ['Idade', calcularIdade(perfil.dadosCivil?.dataNascimento)],
-      ['CPF', perfil.dadosCivil?.cpf || '—'],
-      ['Identidade Civil', perfil.dadosCivil?.idtCivil || '—'],
-      ['Altura', formatarAltura(perfil.dadosCivil?.altura)],
-      ['Tipo Sanguíneo / Fator RH', `${perfil.dadosCivil?.tipoSanguineo || '—'} ${perfil.dadosCivil?.fatorRh || ''}`],
-      ['Cutis', perfil.dadosCivil?.cutis || '—'],
-      ['Olhos', perfil.dadosCivil?.olhos || '—'],
-      ['Cabelos', perfil.dadosCivil?.cabelos || '—'],
-      ['Religião', perfil.dadosCivil?.religiao || '—'],
-      ['Escolaridade', perfil.dadosCivil?.escolaridade || '—'],
+      ['Nome do Pai', perfil.dadosCivil?.nomePai || '—', 'Nome da Mãe', perfil.dadosCivil?.nomeMae || '—'],
+      ['Nascimento', formatarData(perfil.dadosCivil?.dataNascimento), 'Idade', calcularIdade(perfil.dadosCivil?.dataNascimento)],
+      ['Identidade Civil', perfil.dadosCivil?.idtCivil || '—', 'CNH', perfil.dadosCivil?.cnhCategoria || '—'],
+      ['Altura', formatarAltura(perfil.dadosCivil?.altura), 'Tipo Sanguíneo', `${perfil.dadosCivil?.tipoSanguineo || '—'} ${perfil.dadosCivil?.fatorRh || ''}`],
+      ['Cutis', perfil.dadosCivil?.cutis || '—', 'Olhos', perfil.dadosCivil?.olhos || '—'],
+      ['Cabelos', perfil.dadosCivil?.cabelos || '—', 'Escolaridade', perfil.dadosCivil?.escolaridade || '—'],
+      ['Religião', perfil.dadosCivil?.religiao || '—', 'Estado Civil', perfil.dadosCivil?.estadoCivil || '—'],
     ],
-    didParseCell: (data) => {
-      if (data.row.index % 2 === 0) {
-        data.cell.styles.fillColor = [248, 250, 248];
+    didParseCell: (data: any) => {
+      if (data.row.index % 2 === 0) data.cell.styles.fillColor = [248, 250, 248];
+      if (data.column.index === 0 || data.column.index === 2) {
+        data.cell.styles.fontStyle = 'bold';
+        data.cell.styles.textColor = COR_TEXTO_LABEL;
       }
     },
   });
@@ -184,66 +198,31 @@ export function exportarPerfilPDF(perfil: any): void {
     margin: { left: 14, right: 14 },
     tableWidth: pw - 28,
     styles: { fontSize: 8.5, cellPadding: 2.5 },
-    headStyles: { fillColor: [248, 250, 248], textColor: COR_TEXTO_LABEL, fontStyle: 'bold', fontSize: 7.5 },
     bodyStyles: { textColor: COR_TEXTO_VALOR },
     columnStyles: { 0: { cellWidth: 42 }, 1: { cellWidth: 'auto' } },
     body: [
-      ['CEP', perfil.endereco?.cep || '—'],
       ['Logradouro', `${perfil.endereco?.rua || '—'}, ${perfil.endereco?.numero || 'S/N'}${perfil.endereco?.complemento ? ' — ' + perfil.endereco.complemento : ''}`],
       ['Bairro', perfil.endereco?.bairro || '—'],
       ['Cidade / UF', `${perfil.endereco?.cidade || '—'} / ${perfil.endereco?.uf || '—'}`],
+      ['CEP', perfil.endereco?.cep || '—'],
       ['Telefone', perfil.contato?.telefone || '—'],
-      ['Contato de Emergência', `${perfil.contato?.nomeEmergencia || '—'} (${perfil.contato?.grauParentesco || '—'}) — ${perfil.contato?.telefoneEmergencia || '—'}`],
+      ['Emergência', `${perfil.contato?.nomeEmergencia || '—'} (${perfil.contato?.grauParentesco || '—'}) — ${perfil.contato?.telefoneEmergencia || '—'}`],
       ['Reside com', perfil.contato?.coabitacao || '—'],
     ],
-    didParseCell: (data) => {
-      if (data.row.index % 2 === 0) {
-        data.cell.styles.fillColor = [248, 250, 248];
+    didParseCell: (data: any) => {
+      if (data.row.index % 2 === 0) data.cell.styles.fillColor = [248, 250, 248];
+      if (data.column.index === 0) {
+        data.cell.styles.fontStyle = 'bold';
+        data.cell.styles.textColor = COR_TEXTO_LABEL;
       }
     },
   });
+}
 
-  y = (doc as any).lastAutoTable.finalY + 8;
-
-  // ── SEÇÃO 4: REDES SOCIAIS ─────────────────────────────────────────────────
-  const temRedeSocial = Object.values(perfil.redesSociais || {}).some(v => v);
-  if (temRedeSocial) {
-    if (y > ph - 40) { doc.addPage(); y = 20; }
-
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(COR_MILITAR_R, COR_MILITAR_G, COR_MILITAR_B);
-    doc.text('REDES SOCIAIS', 14, y);
-    y += 4;
-
-    const redesBody = [
-      ['Instagram', perfil.redesSociais?.instagram || '—'],
-      ['Facebook', perfil.redesSociais?.facebook || '—'],
-      ['TikTok', perfil.redesSociais?.tiktok || '—'],
-      ['Twitter / X', perfil.redesSociais?.twitter || '—'],
-    ].filter(r => r[1] !== '—');
-
-    if (redesBody.length > 0) {
-      autoTable(doc, {
-        startY: y,
-        margin: { left: 14, right: 14 },
-        tableWidth: pw - 28,
-        styles: { fontSize: 8.5, cellPadding: 2.5 },
-        bodyStyles: { textColor: COR_TEXTO_VALOR },
-        columnStyles: { 0: { cellWidth: 42 }, 1: { cellWidth: 'auto' } },
-        body: redesBody,
-        didParseCell: (data) => {
-          if (data.row.index % 2 === 0) {
-            data.cell.styles.fillColor = [248, 250, 248];
-          }
-        },
-      });
-      y = (doc as any).lastAutoTable.finalY + 8;
-    }
-  }
-
-  // ── RODAPÉ em todas as páginas ──────────────────────────────────────────────
+function addFooters(doc: any) {
   const numPages = doc.getNumberOfPages();
+  const pw = doc.internal.pageSize.getWidth();
+  const ph = doc.internal.pageSize.getHeight();
   for (let i = 1; i <= numPages; i++) {
     doc.setPage(i);
     doc.setFillColor(COR_MILITAR_R, COR_MILITAR_G, COR_MILITAR_B);
@@ -254,41 +233,52 @@ export function exportarPerfilPDF(perfil: any): void {
     doc.text('6º BI INF — Sistema de Gestão de Tropas (SGTE)', 14, ph - 4);
     doc.text(`Página ${i} de ${numPages}`, pw - 14, ph - 4, { align: 'right' });
   }
-
-  // Comentário de organização: Faz o download com nome baseado no nome de guerra do militar
-  const nomeArquivo = `perfil_${(perfil.nomeGuerra || 'militar').toLowerCase().replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`;
-  doc.save(nomeArquivo);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Comentário de organização: Gera um PDF resumido de múltiplos militares
-// para exportação em lote a partir da listagem de militares.
-// ─────────────────────────────────────────────────────────────────────────────
-export function exportarListaMilitaresPDF(militares: any[]): void {
+export async function exportarPerfilPDF(perfil: any): Promise<void> {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  await renderPerfilPage(doc, perfil);
+  addFooters(doc);
+  const nomeGuerra = perfil.nomeGuerra || perfil.nome || 'militar';
+  const nomeArquivo = `${nomeGuerra.toLowerCase().replace(/\s+/g, '_')}.pdf`;
+  doc.save(nomeArquivo);
+}
+
+export async function exportarLotePerfisPDF(perfis: any[]): Promise<void> {
+  if (!perfis || perfis.length === 0) return;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+  for (let i = 0; i < perfis.length; i++) {
+    if (i > 0) doc.addPage();
+    await renderPerfilPage(doc, perfis[i]);
+  }
+  addFooters(doc);
+  doc.save('militares.pdf');
+}
+
+export async function exportarListaMilitaresPDF(militares: any[]): Promise<void> {
   if (!militares || militares.length === 0) return;
 
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-  const pw = doc.internal.pageSize.getWidth();  // 297mm
-  const ph = doc.internal.pageSize.getHeight(); // 210mm
+  const pw = doc.internal.pageSize.getWidth();
+  const ph = doc.internal.pageSize.getHeight();
 
-  // ── CABEÇALHO ──────────────────────────────────────────────────────────────
+  // CABEÇALHO
   doc.setFillColor(COR_MILITAR_R, COR_MILITAR_G, COR_MILITAR_B);
   doc.rect(0, 0, pw, 32, 'F');
-
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
   doc.text('6º BATALHÃO DE INFANTARIA', pw / 2, 9, { align: 'center' });
-
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
   doc.text('LISTAGEM DE MILITARES', pw / 2, 19, { align: 'center' });
-
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
   doc.text(`Emitido em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} — Total: ${militares.length} militar(es)`, pw / 2, 27, { align: 'center' });
 
-  // ── TABELA PRINCIPAL ───────────────────────────────────────────────────────
+  // TABELA PRINCIPAL
   autoTable(doc, {
     startY: 38,
     margin: { left: 10, right: 10 },
@@ -315,8 +305,7 @@ export function exportarListaMilitaresPDF(militares: any[]): void {
       m.tipoVinculo || '—',
       m.situacao || 'Ativo',
     ]),
-    didDrawCell: (data) => {
-      // Comentário de organização: Colorir célula de situação conforme status
+    didDrawCell: (data: any) => {
       if (data.section === 'body' && data.column.index === 8) {
         const val = String(data.cell.raw || '');
         if (val === 'Ativo') {
@@ -330,7 +319,6 @@ export function exportarListaMilitaresPDF(militares: any[]): void {
     },
   });
 
-  // ── RODAPÉ ─────────────────────────────────────────────────────────────────
   const numPages = doc.getNumberOfPages();
   for (let i = 1; i <= numPages; i++) {
     doc.setPage(i);
@@ -343,6 +331,5 @@ export function exportarListaMilitaresPDF(militares: any[]): void {
     doc.text(`Página ${i} de ${numPages}`, pw - 12, ph - 4, { align: 'right' });
   }
 
-  const nomeArquivo = `listagem_militares_${new Date().toISOString().slice(0, 10)}.pdf`;
-  doc.save(nomeArquivo);
+  doc.save('listagem_militares.pdf');
 }
