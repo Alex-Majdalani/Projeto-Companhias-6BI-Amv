@@ -152,6 +152,7 @@ export class MilitarController {
         whereConditions.push(`(tipo_vinculo,eq,${tipoVinculo})`);
       }
 
+      const whereStr = whereConditions.length > 0 ? `&where=${encodeURIComponent(whereConditions.join('~and'))}` : '';
       const nestedStr = `&nested[dados_civil][fields]=Id,nome_completo,cpf,foto_url&nested[funcao_efetivo_cia][fields]=Id,funcao,ativa,substituto&nested[funcao_substituto_cia][fields]=Id,funcao,ativa,efetivo`;
       const data = await nocoRequest(`/tables/${TBL_MILITAR}/records?limit=200${whereStr}${nestedStr}`);
       
@@ -208,7 +209,8 @@ export class MilitarController {
         contatoId: typeof m.formas_contato === 'object' ? m.formas_contato?.Id : m.formas_contato,
         redesSociaisId: typeof m.redes_sociai === 'object' ? m.redes_sociai?.Id : m.redes_sociai,
         especialidadesId: typeof m.especialidades_militar === 'object' ? m.especialidades_militar?.Id : m.especialidades_militar,
-      }});
+        };
+      });
 
       // Filtro por nome (busca parcial no nome completo ou nome de guerra)
       if (nome && nome.trim()) {
