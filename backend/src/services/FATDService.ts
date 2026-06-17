@@ -1,5 +1,6 @@
 import axios from 'axios';
 import FormData from 'form-data';
+import { uploadToS3 } from './s3Service';
 
 const api = axios.create({
   baseURL: process.env.NOCODB_URL,
@@ -37,26 +38,15 @@ export class FATDService {
   }
 
   /**
-   * Faz o upload do PDF para o NocoDB e retorna os dados do attachment.
+   * Faz o upload do PDF para o MinIO S3 (bucket fatd) e retorna o link direto do documento.
    */
-  static async uploadDocumento(file: Express.Multer.File): Promise<any> {
+  static async uploadDocumento(file: Express.Multer.File): Promise<string> {
     try {
-      const formData = new FormData();
-      formData.append('file', file.buffer, {
-        filename: file.originalname,
-        contentType: file.mimetype
-      });
-
-      const response = await api.post('/api/v2/storage/upload', formData, {
-        headers: {
-          ...formData.getHeaders()
-        }
-      });
-
-      return response.data; // Retorna o array de attachment do NocoDB
+      const fileUrl = await uploadToS3(file, 'fatd');
+      return fileUrl;
     } catch (error: any) {
-      console.error('[FATDService] Erro ao carregar PDF no NocoDB:', error?.response?.data || error.message);
-      throw new Error('Falha no upload do documento de FATD para o banco de dados.');
+      console.error('[FATDService] Erro ao carregar PDF no MinIO:', error.message);
+      throw new Error('Falha no upload do documento de FATD para o MinIO.');
     }
   }
 
@@ -159,9 +149,7 @@ export class FATDService {
           dataProcessoFato: r.data_processo_fato || '',
           fatoRelatado: r.fato_relatado || '',
           funcaoParticipante: r.funcao_participante || '',
-          documentoFatdUrl: Array.isArray(r.documento_fatd) && r.documento_fatd[0]?.path 
-            ? `${process.env.NOCODB_URL}/${r.documento_fatd[0].path}`
-            : '',
+          documentoFatdUrl: r.documento_fatd || '',
 
           arroladoId: transgressor?.Id || transgressor?.id || null,
           pgArrolado: transgressor?.posto_graduacao || transgressor?.posto || '',
