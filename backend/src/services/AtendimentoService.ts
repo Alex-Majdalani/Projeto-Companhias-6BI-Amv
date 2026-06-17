@@ -65,15 +65,32 @@ export class AtendimentoService {
 
   static async getVisitas() {
     try {
-      const res = await api.get(`/api/v2/tables/${VISITAS_TABLE_ID}/records`, {
-        params: { limit: 1000 }
+      const [visitasRes, baixadosRes] = await Promise.all([
+        api.get(`/api/v2/tables/${VISITAS_TABLE_ID}/records`, {
+          params: { limit: 1000 }
+        }),
+        api.get(`/api/v2/tables/${BAIXADOS_TABLE_ID}/records`, {
+          params: { limit: 1000 }
+        })
+      ]);
+
+      const visitsList = visitasRes.data.list || [];
+      const baixadosList = baixadosRes.data.list || [];
+
+      // Criar mapa de baixados para busca rápida por ID
+      const baixadosMap = new Map();
+      baixadosList.forEach((b: any) => {
+        baixadosMap.set(b.Id || b.id, b);
       });
-      return (res.data.list || []).map((v: any) => {
+
+      return visitsList.map((v: any) => {
         const mil = v.militar;
         const rawPg = mil?.posto_graduacao || '';
         const formattedPg = PG_FORMAT_MAP[rawPg.toLowerCase()] || rawPg.toUpperCase();
         
-        const bx = v.baixado1;
+        const rawBx = v.baixado1;
+        const bxId = rawBx?.Id || rawBx?.id;
+        const bx = bxId ? baixadosMap.get(bxId) : null;
         
         return {
           id: v.Id || v.id,
@@ -91,7 +108,7 @@ export class AtendimentoService {
             motivo: bx.motivo || '',
             dataInicio: bx.data_inicio || '',
             dataRetorno: bx.data_retorno || '',
-            csd: Array.isArray(bx.csd) ? bx.csd : (bx.csd ? bx.csd.split(',') : [])
+            csd: Array.isArray(bx.csd) ? bx.csd : (bx.csd ? bx.csd.split(',').map((s: string) => s.trim()).filter(Boolean) : [])
           } : null
         };
       });
