@@ -254,7 +254,7 @@ export function PerfilMilitar() {
         </div>
 
         {/* Corpo do hero */}
-        <div className="px-8 pb-6">
+        <div className="px-8 pb-6 relative z-10">
           <div className="flex flex-col md:flex-row md:items-end gap-6 -mt-16">
 
             {/* FOTO — maior */}
@@ -297,8 +297,8 @@ export function PerfilMilitar() {
                 )}
               </div>
 
-              {/* Comentário de organização: Nome completo como título principal do hero card com limitador de linha */}
-              <h1 className="text-xl md:text-2xl font-extrabold text-gray-900 leading-tight truncate" title={nomeTitulo}>
+              {/* Comentário de organização: Nome completo como título principal do hero card */}
+              <h1 className="text-xl md:text-2xl font-extrabold text-gray-900 leading-tight" title={nomeTitulo}>
                 {nomeTitulo}
               </h1>
 
