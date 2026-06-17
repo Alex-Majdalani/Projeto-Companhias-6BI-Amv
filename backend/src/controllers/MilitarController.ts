@@ -611,7 +611,7 @@ export class MilitarController {
     }
   }
 
-  // Comentário de organização: Atualiza dados básicos do militar (nome de guerra, posto, companhia, pelotão, tipo de vínculo)
+  // Comentário de organização: Atualiza todos os dados do militar e seus registros relacionados
   static async update(req: Request, res: Response) {
     try {
       const { id } = req.params;
@@ -623,50 +623,148 @@ export class MilitarController {
 
       const body = req.body;
 
-      // Monta objeto de atualização apenas com campos enviados
+      // ── 1. Atualiza tabela principal: militares ───────────────────────────
       const militarUpdate: Record<string, any> = { Id: militarId };
 
-      if (body.nomeGuerra !== undefined)     militarUpdate.nome_guerra      = toTitleCase(body.nomeGuerra || '');
-      if (body.postoGraduacao !== undefined) militarUpdate.posto_graduacao  = mapPostoGraduacao(body.postoGraduacao) || body.postoGraduacao;
-      if (body.pelotao !== undefined)        militarUpdate.pelotao           = body.pelotao;
-      if (body.situacao !== undefined)       militarUpdate.situacao          = body.situacao;
-      if (body.tipoVinculo !== undefined) {
+      if (body.nomeGuerra !== undefined)        militarUpdate.nome_guerra          = toTitleCase(body.nomeGuerra || '');
+      if (body.idtMil !== undefined)            militarUpdate.idt_militar          = body.idtMil || null;
+      if (body.postoGraduacao !== undefined)    militarUpdate.posto_graduacao      = mapPostoGraduacao(body.postoGraduacao) || body.postoGraduacao;
+      if (body.pelotao !== undefined)           militarUpdate.pelotao              = body.pelotao || null;
+      if (body.situacao !== undefined)          militarUpdate.situacao             = body.situacao || null;
+      if (body.periodoObrigatorio !== undefined) militarUpdate.periodo_obrigatorio = body.periodoObrigatorio || null;
+      if (body.dataPraca !== undefined)         militarUpdate.data_praca           = body.dataPraca || null;
+      if (body.turmaFormacao !== undefined)     militarUpdate.turma_formacao       = body.turmaFormacao ? parseInt(body.turmaFormacao) : null;
+      if (body.numeroCampoBasico !== undefined) militarUpdate.numero_campo_basico  = body.numeroCampoBasico ? parseInt(body.numeroCampoBasico) : null;
+      if (body.numeroEbca !== undefined)        militarUpdate.numero_ebca          = body.numeroEbca ? parseInt(body.numeroEbca) : null;
+      if (body.precCP !== undefined)            militarUpdate.prec_cp              = body.precCP || null;
+
+      if (body.tipoMilitar !== undefined) {
+        let tv = body.tipoMilitar;
+        if (tv === 'temporario' || tv === 'Militar Temporário') tv = 'Militar Temporário';
+        else if (tv === 'carreira' || tv === 'Militar de Carreira') tv = 'Militar de Carreira';
+        militarUpdate.tipo_vinculo = tv;
+      } else if (body.tipoVinculo !== undefined) {
         let tv = body.tipoVinculo;
-        if (tv === 'temporario')  tv = 'Militar Temporário';
-        if (tv === 'carreira')    tv = 'Militar de Carreira';
+        if (tv === 'temporario') tv = 'Militar Temporário';
+        if (tv === 'carreira')   tv = 'Militar de Carreira';
         militarUpdate.tipo_vinculo = tv;
       }
-      if (body.companhia !== undefined) {
-        const compId = parseInt(body.companhia);
-        militarUpdate.companhia = isNaN(compId) ? mapCompanhiaId(body.companhia) : compId;
+
+      if (body.secaoCompanhia !== undefined || body.companhia !== undefined) {
+        const compRaw = body.secaoCompanhia || body.companhia;
+        const compId = parseInt(compRaw);
+        militarUpdate.companhia = isNaN(compId) ? mapCompanhiaId(compRaw) : compId;
       }
-      if (body.dataPraca !== undefined)      militarUpdate.data_praca        = body.dataPraca;
-      if (body.turmaFormacao !== undefined)  militarUpdate.turma_formacao    = body.turmaFormacao ? parseInt(body.turmaFormacao) : null;
-      // Comentário de organização: Atualização dos novos campos prec_cp, numero_campo_basico e numero_ebca no update
-      if (body.numeroCampoBasico !== undefined) militarUpdate.numero_campo_basico = body.numeroCampoBasico ? parseInt(body.numeroCampoBasico) : null;
-      if (body.numeroEbca !== undefined)        militarUpdate.numero_ebca        = body.numeroEbca ? parseInt(body.numeroEbca) : null;
-      if (body.precCP !== undefined)            militarUpdate.prec_cp            = body.precCP || null;
 
       await nocoRequest(`/tables/${TBL_MILITAR}/records`, {
         method: 'PATCH',
         body: JSON.stringify(militarUpdate)
       });
 
-      // Atualiza dados civis vinculados se enviados
-      if (body.nomeCompleto !== undefined || body.nomeMae !== undefined || body.nomePai !== undefined) {
-        const militar = await nocoRequest(`/tables/${TBL_MILITAR}/records/${militarId}`);
-        const civilId = typeof militar.dados_civil === 'object' ? militar.dados_civil?.Id : militar.dados_civil;
-        if (civilId) {
-          const civilUpdate: Record<string, any> = { Id: civilId };
-          if (body.nomeCompleto !== undefined) civilUpdate.nome_completo = toTitleCase(body.nomeCompleto);
-          if (body.nomeMae !== undefined) civilUpdate.nome_mae = toTitleCase(body.nomeMae);
-          if (body.nomePai !== undefined) civilUpdate.nome_pai = toTitleCase(body.nomePai);
+      // Busca o militar para obter IDs relacionados
+      const militarRow = await nocoRequest(`/tables/${TBL_MILITAR}/records/${militarId}`);
 
-          await nocoRequest(`/tables/${TBL_CIVIL}/records`, {
-            method: 'PATCH',
-            body: JSON.stringify(civilUpdate)
-          });
+      // ── 2. Atualiza dados_civil ───────────────────────────────────────────
+      const civilId = typeof militarRow.dados_civil === 'object' ? militarRow.dados_civil?.Id : militarRow.dados_civil;
+      if (civilId) {
+        // Tratamento de altura
+        let alturaNum: number | null = null;
+        if (body.altura !== undefined && body.altura !== null && body.altura !== '') {
+          const alturaStr = String(body.altura).replace(',', '.');
+          alturaNum = parseFloat(alturaStr);
+          if (isNaN(alturaNum)) alturaNum = null;
         }
+
+        // Tratamento de CNH
+        let cnhValue: string[] | null = null;
+        if (body.cnhCategoria !== undefined) {
+          if (Array.isArray(body.cnhCategoria)) {
+            cnhValue = body.cnhCategoria.filter((c: string) => c !== 'Nenhum');
+            if (cnhValue.length === 0) cnhValue = null;
+          }
+        }
+
+        const civilUpdate: Record<string, any> = { Id: civilId };
+        if (body.nomeCompleto  !== undefined) civilUpdate.nome_completo       = toTitleCase(body.nomeCompleto);
+        if (body.nomeMae       !== undefined) civilUpdate.nome_mae            = toTitleCase(body.nomeMae);
+        if (body.nomePai       !== undefined) civilUpdate.nome_pai            = toTitleCase(body.nomePai);
+        if (body.dataNascimento !== undefined) civilUpdate.data_nascimento    = body.dataNascimento || null;
+        if (body.cpf           !== undefined) civilUpdate.cpf                 = body.cpf || null;
+        if (body.idtCivil      !== undefined) civilUpdate.idt_civil           = body.idtCivil || null;
+        if (body.altura        !== undefined) civilUpdate.altura              = alturaNum;
+        if (body.tipoSanguineo !== undefined) civilUpdate.tipo_sanquineo      = mapTipoSanguineo(body.tipoSanguineo);
+        if (body.fatorRh       !== undefined) civilUpdate.fator_rh            = mapFatorRh(body.fatorRh);
+        if (body.cutis         !== undefined) civilUpdate.cutis               = mapCutis(body.cutis);
+        if (body.olhos         !== undefined) civilUpdate.olhos               = mapOlhos(body.olhos);
+        if (body.cabelos       !== undefined) civilUpdate.cabelos             = mapCabelos(body.cabelos);
+        if (body.religiao      !== undefined) civilUpdate.religiao            = body.religiao || null;
+        if (body.escolaridade  !== undefined) civilUpdate.escolaridade        = mapEscolaridade(body.escolaridade) || body.escolaridade || null;
+        if (body.cnhCategoria  !== undefined) civilUpdate.cnh_categoria       = cnhValue;
+        if (body.fotoUrl       !== undefined) civilUpdate.foto_url            = body.fotoUrl;
+
+        await nocoRequest(`/tables/${TBL_CIVIL}/records`, {
+          method: 'PATCH',
+          body: JSON.stringify(civilUpdate)
+        });
+      }
+
+      // ── 3. Atualiza endereço ──────────────────────────────────────────────
+      const enderecoId = typeof militarRow.endereco === 'object' ? militarRow.endereco?.Id : militarRow.endereco;
+      if (enderecoId && (body.cep !== undefined || body.rua !== undefined || body.bairro !== undefined || body.cidade !== undefined || body.uf !== undefined || body.numeroResidencial !== undefined || body.complemento !== undefined)) {
+        const enderecoUpdate: Record<string, any> = { Id: enderecoId };
+        if (body.cep               !== undefined) enderecoUpdate.cep         = body.cep || '';
+        if (body.rua               !== undefined) enderecoUpdate.rua         = toTitleCase(body.rua || '');
+        if (body.numeroResidencial !== undefined) enderecoUpdate.numero      = body.numeroResidencial || '';
+        if (body.complemento       !== undefined) enderecoUpdate.complemento = body.complemento || '';
+        if (body.bairro            !== undefined) enderecoUpdate.bairro      = toTitleCase(body.bairro || '');
+        if (body.cidade            !== undefined) enderecoUpdate.cidade      = toTitleCase(body.cidade || '');
+        if (body.uf                !== undefined) enderecoUpdate.uf          = (body.uf || '').toUpperCase();
+
+        await nocoRequest(`/tables/${TBL_ENDERECO}/records`, {
+          method: 'PATCH',
+          body: JSON.stringify(enderecoUpdate)
+        });
+      }
+
+      // ── 4. Atualiza formas_contato ────────────────────────────────────────
+      const contatoId = typeof militarRow.formas_contato === 'object' ? militarRow.formas_contato?.Id : militarRow.formas_contato;
+      if (contatoId && (body.telefoneCelular !== undefined || body.resideCom !== undefined || body.telefoneEmergencia !== undefined || body.nomeEmergencia !== undefined || body.grauParentesco !== undefined)) {
+        const contatoUpdate: Record<string, any> = { Id: contatoId };
+        if (body.telefoneCelular    !== undefined) contatoUpdate.telefone                    = body.telefoneCelular || '';
+        if (body.resideCom          !== undefined) contatoUpdate.coabitacao                 = Array.isArray(body.resideCom) ? body.resideCom.join(', ') : body.resideCom || '';
+        if (body.telefoneEmergencia !== undefined) contatoUpdate.telefone_emergencia         = body.telefoneEmergencia || '';
+        if (body.nomeEmergencia     !== undefined) contatoUpdate.nome_emergencia             = toTitleCase(body.nomeEmergencia || '');
+        if (body.grauParentesco     !== undefined) contatoUpdate.grau_parentesco_emergencia  = body.grauParentesco || '';
+
+        await nocoRequest(`/tables/${TBL_CONTATO}/records`, {
+          method: 'PATCH',
+          body: JSON.stringify(contatoUpdate)
+        });
+      }
+
+      // ── 5. Atualiza redes_sociais ─────────────────────────────────────────
+      const redesId = typeof militarRow.redes_sociai === 'object' ? militarRow.redes_sociai?.Id : militarRow.redes_sociai;
+      if (redesId && (body.instagram !== undefined || body.facebook !== undefined || body.tiktok !== undefined || body.twitter !== undefined || body.outrasRedes !== undefined)) {
+        const redesUpdate: Record<string, any> = { Id: redesId };
+        if (body.instagram   !== undefined) redesUpdate.instagram    = body.instagram || '';
+        if (body.facebook    !== undefined) redesUpdate.facebook     = body.facebook || '';
+        if (body.tiktok      !== undefined) redesUpdate.tiktok       = body.tiktok || '';
+        if (body.twitter     !== undefined) redesUpdate.twitter      = body.twitter || '';
+        if (body.outrasRedes !== undefined) redesUpdate.outras_redes = body.outrasRedes || '';
+
+        await nocoRequest(`/tables/${TBL_REDES_SOCIAIS}/records`, {
+          method: 'PATCH',
+          body: JSON.stringify(redesUpdate)
+        });
+      }
+
+      // ── 6. Atualiza especialidades_militar ────────────────────────────────
+      const espId = typeof militarRow.especialidades_militar === 'object' ? militarRow.especialidades_militar?.Id : militarRow.especialidades_militar;
+      if (espId && body.cursosProfissionais !== undefined) {
+        await nocoRequest(`/tables/${TBL_ESPECIALIDADES_MILITAR}/records`, {
+          method: 'PATCH',
+          body: JSON.stringify({ Id: espId, cursos_gerais: body.cursosProfissionais || '' })
+        });
       }
 
       return res.status(200).json({ message: 'Militar atualizado com sucesso.' });
@@ -676,3 +774,4 @@ export class MilitarController {
     }
   }
 }
+
