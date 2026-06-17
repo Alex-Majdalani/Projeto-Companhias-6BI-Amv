@@ -676,6 +676,48 @@ export class MilitarController {
 
       const body = req.body;
 
+      // Comentário de organização: Busca dados anteriores para gerar o log com valores exatos antes e depois
+      const militarAntes = await nocoRequest(`/tables/${TBL_MILITAR}/records/${militarId}`);
+      const civilIdAntes = typeof militarAntes.dados_civil === 'object' ? militarAntes.dados_civil?.Id : militarAntes.dados_civil;
+      let civilAntes: any = {};
+      if (civilIdAntes) {
+        try {
+          civilAntes = await nocoRequest(`/tables/${TBL_CIVIL}/records/${civilIdAntes}`);
+        } catch {}
+      }
+
+      const enderecoIdAntes = typeof militarAntes.endereco === 'object' ? militarAntes.endereco?.Id : militarAntes.endereco;
+      let enderecoAntes: any = {};
+      if (enderecoIdAntes) {
+        try {
+          enderecoAntes = await nocoRequest(`/tables/${TBL_ENDERECO}/records/${enderecoIdAntes}`);
+        } catch {}
+      }
+
+      const contatoIdAntes = typeof militarAntes.formas_contato === 'object' ? militarAntes.formas_contato?.Id : militarAntes.formas_contato;
+      let contatoAntes: any = {};
+      if (contatoIdAntes) {
+        try {
+          contatoAntes = await nocoRequest(`/tables/${TBL_CONTATO}/records/${contatoIdAntes}`);
+        } catch {}
+      }
+
+      const redesIdAntes = typeof militarAntes.redes_sociai === 'object' ? militarAntes.redes_sociai?.Id : militarAntes.redes_sociai;
+      let redesAntes: any = {};
+      if (redesIdAntes) {
+        try {
+          redesAntes = await nocoRequest(`/tables/${TBL_REDES_SOCIAIS}/records/${redesIdAntes}`);
+        } catch {}
+      }
+
+      const espIdAntes = typeof militarAntes.especialidades_militar === 'object' ? militarAntes.especialidades_militar?.Id : militarAntes.especialidades_militar;
+      let espAntes: any = {};
+      if (espIdAntes) {
+        try {
+          espAntes = await nocoRequest(`/tables/${TBL_ESPECIALIDADES_MILITAR}/records/${espIdAntes}`);
+        } catch {}
+      }
+
       // ── 1. Atualiza tabela principal: militares ───────────────────────────
       const militarUpdate: Record<string, any> = { Id: militarId };
 
@@ -714,7 +756,7 @@ export class MilitarController {
         body: JSON.stringify(militarUpdate)
       });
 
-      // Busca o militar para obter IDs relacionados
+      // Busca o militar para obter IDs relacionados atuais
       const militarRow = await nocoRequest(`/tables/${TBL_MILITAR}/records/${militarId}`);
 
       // ── 2. Atualiza dados_civil ───────────────────────────────────────────
@@ -821,34 +863,71 @@ export class MilitarController {
       }
 
       // Comentário de organização: Registra log de atualização no historico_logs
-      // Monta descrição legível dos campos que foram modificados
+      // Monta descrição legível dos campos que foram modificados e seus valores de/para
       const nomeGuerraAtual = militarRow.nome_guerra || `ID ${militarId}`;
       const camposAlterados: string[] = [];
-      const mapLabels: Record<string, string> = {
-        nomeGuerra: 'Nome de Guerra', postoGraduacao: 'Posto/Graduação', situacao: 'Situação',
-        pelotao: 'Pelotão', tipoMilitar: 'Tipo de Vínculo', tipoVinculo: 'Tipo de Vínculo',
-        secaoCompanhia: 'Companhia', companhia: 'Companhia', dataPraca: 'Data de Praça',
-        turmaFormacao: 'Turma de Formação', precCP: 'Prec-CP', idtMil: 'Identidade Militar',
-        nomeCompleto: 'Nome Completo', nomeMae: 'Nome da Mãe', nomePai: 'Nome do Pai',
-        dataNascimento: 'Data de Nascimento', cpf: 'CPF', idtCivil: 'Identidade Civil',
-        altura: 'Altura', tipoSanguineo: 'Tipo Sanguíneo', fatorRh: 'Fator RH',
-        cutis: 'Cutis', olhos: 'Olhos', cabelos: 'Cabelos', religiao: 'Religião',
-        escolaridade: 'Escolaridade', cnhCategoria: 'CNH', fotoUrl: 'Foto de Perfil',
-        cep: 'CEP', rua: 'Logradouro', bairro: 'Bairro', cidade: 'Cidade', uf: 'UF',
-        telefoneCelular: 'Telefone', resideCom: 'Reside Com', nomeEmergencia: 'Contato de Emergência',
-        instagram: 'Instagram', facebook: 'Facebook', tiktok: 'TikTok', twitter: 'Twitter',
-        cursosProfissionais: 'Cursos',
+      const valoresAnteriores: string[] = [];
+      const valoresNovos: string[] = [];
+
+      const mapLabels: Record<string, { label: string; getOld: () => any; getNew: () => any }> = {
+        nomeGuerra: { label: 'Nome de Guerra', getOld: () => militarAntes.nome_guerra, getNew: () => body.nomeGuerra },
+        postoGraduacao: { label: 'Posto/Graduação', getOld: () => militarAntes.posto_graduacao, getNew: () => body.postoGraduacao },
+        situacao: { label: 'Situação', getOld: () => militarAntes.situacao, getNew: () => body.situacao },
+        pelotao: { label: 'Pelotão', getOld: () => militarAntes.pelotao, getNew: () => body.pelotao },
+        tipoMilitar: { label: 'Tipo de Vínculo', getOld: () => militarAntes.tipo_vinculo, getNew: () => body.tipoMilitar },
+        tipoVinculo: { label: 'Tipo de Vínculo', getOld: () => militarAntes.tipo_vinculo, getNew: () => body.tipoVinculo },
+        companhia: { label: 'Companhia', getOld: () => militarAntes.companhia?.Companhia, getNew: () => body.companhia },
+        dataPraca: { label: 'Data de Praça', getOld: () => militarAntes.data_praca, getNew: () => body.dataPraca },
+        turmaFormacao: { label: 'Turma de Formação', getOld: () => militarAntes.turma_formacao, getNew: () => body.turmaFormacao },
+        precCP: { label: 'Prec-CP', getOld: () => militarAntes.prec_cp, getNew: () => body.precCP },
+        idtMil: { label: 'Identidade Militar', getOld: () => militarAntes.idt_militar, getNew: () => body.idtMil },
+        nomeCompleto: { label: 'Nome Completo', getOld: () => civilAntes.nome_completo, getNew: () => body.nomeCompleto },
+        nomeMae: { label: 'Nome da Mãe', getOld: () => civilAntes.nome_mae, getNew: () => body.nomeMae },
+        nomePai: { label: 'Nome do Pai', getOld: () => civilAntes.nome_pai, getNew: () => body.nomePai },
+        dataNascimento: { label: 'Data de Nascimento', getOld: () => civilAntes.data_nascimento, getNew: () => body.dataNascimento },
+        cpf: { label: 'CPF', getOld: () => civilAntes.cpf, getNew: () => body.cpf },
+        idtCivil: { label: 'Identidade Civil', getOld: () => civilAntes.idt_civil, getNew: () => body.idtCivil },
+        altura: { label: 'Altura', getOld: () => civilAntes.altura, getNew: () => body.altura },
+        tipoSanguineo: { label: 'Tipo Sanguíneo', getOld: () => civilAntes.tipo_sanquineo, getNew: () => body.tipoSanguineo },
+        fatorRh: { label: 'Fator RH', getOld: () => civilAntes.fator_rh, getNew: () => body.fatorRh },
+        cutis: { label: 'Cutis', getOld: () => civilAntes.cutis, getNew: () => body.cutis },
+        olhos: { label: 'Olhos', getOld: () => civilAntes.olhos, getNew: () => body.olhos },
+        cabelos: { label: 'Cabelos', getOld: () => civilAntes.cabelos, getNew: () => body.cabelos },
+        religiao: { label: 'Religião', getOld: () => civilAntes.religiao, getNew: () => body.religiao },
+        escolaridade: { label: 'Escolaridade', getOld: () => civilAntes.escolaridade, getNew: () => body.escolaridade },
+        cnhCategoria: { label: 'CNH', getOld: () => civilAntes.cnh_categoria, getNew: () => Array.isArray(body.cnhCategoria) ? body.cnhCategoria.join(', ') : body.cnhCategoria },
+        fotoUrl: { label: 'Foto de Perfil', getOld: () => 'Foto anterior', getNew: () => 'Nova foto enviada' },
+        cep: { label: 'CEP', getOld: () => enderecoAntes.cep, getNew: () => body.cep },
+        rua: { label: 'Logradouro', getOld: () => enderecoAntes.rua, getNew: () => body.rua },
+        bairro: { label: 'Bairro', getOld: () => enderecoAntes.bairro, getNew: () => body.bairro },
+        cidade: { label: 'Cidade', getOld: () => enderecoAntes.cidade, getNew: () => body.cidade },
+        uf: { label: 'UF', getOld: () => enderecoAntes.uf, getNew: () => body.uf },
+        telefoneCelular: { label: 'Telefone', getOld: () => contatoAntes.telefone, getNew: () => body.telefoneCelular },
+        resideCom: { label: 'Reside Com', getOld: () => contatoAntes.coabitacao, getNew: () => Array.isArray(body.resideCom) ? body.resideCom.join(', ') : body.resideCom },
+        nomeEmergencia: { label: 'Contato de Emergência', getOld: () => contatoAntes.nome_emergencia, getNew: () => body.nomeEmergencia },
+        instagram: { label: 'Instagram', getOld: () => redesAntes.instagram, getNew: () => body.instagram },
+        cursosProfissionais: { label: 'Cursos', getOld: () => espAntes.cursos_gerais, getNew: () => body.cursosProfissionais },
       };
+
       Object.keys(body).forEach(k => {
-        if (mapLabels[k] && body[k] !== undefined) camposAlterados.push(mapLabels[k]);
+        if (mapLabels[k] && body[k] !== undefined) {
+          const cfg = mapLabels[k];
+          const oldVal = cfg.getOld() || '—';
+          const newVal = cfg.getNew() || '—';
+          if (String(oldVal).trim() !== String(newVal).trim()) {
+            camposAlterados.push(cfg.label);
+            valoresAnteriores.push(`${cfg.label}: ${oldVal}`);
+            valoresNovos.push(`${cfg.label}: ${newVal}`);
+          }
+        }
       });
 
       if (camposAlterados.length > 0) {
         await registrarLog({
           tipo_alteracao: 'Atualização',
           campo_alteracao: camposAlterados.join(', '),
-          valor_anterior: '',
-          valor_novo: '',
+          valor_anterior: valoresAnteriores.join(' | '),
+          valor_novo: valoresNovos.join(' | '),
           usuario_responsavel: body.usuarioResponsavel || req.headers['x-usuario'] as string || 'Sistema',
           militar_envolvido: nomeGuerraAtual,
         });
