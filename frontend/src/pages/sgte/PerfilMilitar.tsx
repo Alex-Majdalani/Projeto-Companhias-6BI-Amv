@@ -82,6 +82,37 @@ function StaticDataWarning() {
   );
 }
 
+// Comentário de organização: Barra de progresso para notas
+function ProgressBar({ label, value, max = 100, colorClass = "bg-militar-main" }: { label: string, value: number, max?: number, colorClass?: string }) {
+  const percentage = Math.min(100, Math.max(0, (value / max) * 100));
+  return (
+    <div className="w-full">
+      <div className="flex justify-between text-xs font-bold mb-1">
+        <span className="text-gray-700 uppercase tracking-wider text-[10px]">{label}</span>
+        <span className="text-gray-900">{value}</span>
+      </div>
+      <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+        <div className={`h-full ${colorClass} rounded-full transition-all duration-1000`} style={{ width: `${percentage}%` }}></div>
+      </div>
+    </div>
+  );
+}
+
+// Comentário de organização: Mini Card de Estatística
+function StatCard({ title, value, subtitle, trend }: { title: string, value: string | number, subtitle: string, trend?: 'up' | 'down' | 'neutral' }) {
+  return (
+    <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 flex flex-col">
+      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">{title}</span>
+      <div className="flex items-end gap-2">
+        <span className="text-2xl font-black text-gray-800 leading-none">{value}</span>
+        {trend === 'up' && <span className="text-xs font-bold text-green-600 bg-green-100 px-1.5 rounded mb-0.5">↑</span>}
+        {trend === 'down' && <span className="text-xs font-bold text-red-600 bg-red-100 px-1.5 rounded mb-0.5">↓</span>}
+      </div>
+      <span className="text-xs font-medium text-gray-500 mt-1">{subtitle}</span>
+    </div>
+  );
+}
+
 export function PerfilMilitar() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -260,8 +291,8 @@ export function PerfilMilitar() {
                 )}
               </div>
 
-              {/* Comentário de organização: Nome completo como título principal do hero card */}
-              <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900 leading-tight">
+              {/* Comentário de organização: Nome completo como título principal do hero card com limitador de linha */}
+              <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900 leading-tight line-clamp-1" title={nomeTitulo}>
                 {nomeTitulo}
               </h1>
 
@@ -355,6 +386,8 @@ export function PerfilMilitar() {
                 <DetailField label="Posto/Graduação" value={perfil.postoGraduacao} />
                 <DetailField label="Nome de Guerra" value={perfil.nomeGuerra} />
                 <DetailField label="IDT Militar" value={perfil.idtMilitar} />
+                {/* Comentário de organização: Adicionando exibição de precCP no resumo */}
+                <DetailField label="Prec CP" value={perfil.precCP} />
                 <DetailField label="Tipo de Vínculo" value={perfil.tipoVinculo} />
                 <DetailField label="Companhia" value={perfil.companhia} />
                 <DetailField label="Pelotão" value={perfil.pelotao} />
@@ -414,6 +447,8 @@ export function PerfilMilitar() {
               <DetailField label="Posto/Graduação" value={perfil.postoGraduacao} />
               <DetailField label="Nome de Guerra" value={perfil.nomeGuerra} />
               <DetailField label="IDT Militar" value={perfil.idtMilitar} />
+              {/* Comentário de organização: Adicionando exibição de precCP nos dados militares */}
+              <DetailField label="Prec CP" value={perfil.precCP} />
               <DetailField label="Nº Campo Básico" value={perfil.numeroCampoBasico} />
               <DetailField label="Número EBCA" value={perfil.numeroEbca} />
               <DetailField label="Data de Praça" value={formatDate(perfil.dataPraca)} />
@@ -663,8 +698,29 @@ export function PerfilMilitar() {
       {/* ====== ABA: TAF / TIRO ====== */}
       {activeTab === 'taf' && (
         <div className="grid grid-cols-1 gap-5">
-          <Section title="Teste de Aptidão Física (TAF)" icon={<Target size={15} />}>
-            <div className="overflow-x-auto">
+          <Section title="Estatísticas e Teste de Aptidão Física (TAF)" icon={<Target size={15} />}>
+            
+            {/* Comentário de organização: Dashboard com gráficos simplificados para o TAF */}
+            <div className="mb-8">
+              <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Evolução do Desempenho Físico</h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <StatCard title="Última Nota TAF" value={tafStatic[0]?.nota || '—'} subtitle={`Em ${tafStatic[0]?.data || '—'}`} trend={tafStatic[0]?.nota > (tafStatic[1]?.nota || 0) ? 'up' : 'down'} />
+                <StatCard title="Média de Flexões" value={Math.round(tafStatic.reduce((acc, t) => acc + t.flexao, 0) / (tafStatic.length || 1))} subtitle="Últimos testes" />
+                <StatCard title="Média de Abdominais" value={Math.round(tafStatic.reduce((acc, t) => acc + t.abdominal, 0) / (tafStatic.length || 1))} subtitle="Últimos testes" />
+              </div>
+              
+              <div className="bg-gray-50 border border-gray-200 rounded-xl p-5">
+                <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-4">Comparativo: Último TAF</h4>
+                <div className="space-y-4">
+                  <ProgressBar label="Desempenho Geral (Nota)" value={tafStatic[0]?.nota || 0} max={100} colorClass="bg-militar-main" />
+                  <ProgressBar label="Flexões de Braço" value={tafStatic[0]?.flexao || 0} max={50} colorClass="bg-blue-500" />
+                  <ProgressBar label="Abdominais" value={tafStatic[0]?.abdominal || 0} max={60} colorClass="bg-green-500" />
+                </div>
+              </div>
+            </div>
+
+            <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Histórico de TAF</h4>
+            <div className="overflow-x-auto border rounded-xl border-gray-100">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b-2 border-gray-100">
