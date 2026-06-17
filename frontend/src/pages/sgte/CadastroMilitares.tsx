@@ -89,7 +89,7 @@ export function CadastroMilitares() {
 
   // ── Filtros do Histórico ──────────────────────────────────────────────────
   const [filtroHistoricoMilitar, setFiltroHistoricoMilitar] = useState('');
-  const [filtroHistoricoTipo, setFiltroHistoricoTipo] = useState('');
+  const [filtroHistoricoTipo, setFiltroHistoricoTipo] = useState('Todos');
 
   // ── Estado de ações CRUD ──────────────────────────────────────────────────
   const [deletandoId, setDeletandoId] = useState<number | null>(null);
@@ -165,6 +165,19 @@ export function CadastroMilitares() {
   useEffect(() => {
     api.get('/militares/companhias').then(r => setCompanhias(r.data)).catch(() => {});
   }, []);
+
+  // Comentário de organização: Carrega o histórico do backend apenas quando a aba histórico é ativada
+  useEffect(() => {
+    if (activeTab !== 'historico') return;
+    setLoadingHistorico(true);
+    const params = new URLSearchParams();
+    if (filtroHistoricoMilitar) params.set('militar', filtroHistoricoMilitar);
+    if (filtroHistoricoTipo && filtroHistoricoTipo !== 'Todos') params.set('tipo', filtroHistoricoTipo);
+    api.get(`/historico${params.toString() ? '?' + params.toString() : ''}`)
+      .then(r => setHistorico(r.data))
+      .catch(() => setHistorico([]))
+      .finally(() => setLoadingHistorico(false));
+  }, [activeTab, filtroHistoricoMilitar, filtroHistoricoTipo]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Handlers de filtros
@@ -314,15 +327,15 @@ export function CadastroMilitares() {
   };
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Filtro do Histórico
-  // ─────────────────────────────────────────────────────────────────────────
+  // Comentário de organização: Filtro local — os dados já chegam filtrados do backend, isso é uma camada adicional
   const historicoFiltrado = historico.filter(h => {
     const militar = (h.militar_envolvido || '').toLowerCase();
     const tipo = (h.tipo_alteracao || '').toLowerCase();
     const matchMilitar = !filtroHistoricoMilitar || militar.includes(filtroHistoricoMilitar.toLowerCase());
-    const matchTipo = !filtroHistoricoTipo || tipo.includes(filtroHistoricoTipo.toLowerCase());
+    const matchTipo = !filtroHistoricoTipo || filtroHistoricoTipo === 'Todos' || tipo === filtroHistoricoTipo.toLowerCase();
     return matchMilitar && matchTipo;
   });
+
 
   // ─────────────────────────────────────────────────────────────────────────
   // Seção de filtros (reutilizada em todas as abas)
@@ -839,32 +852,37 @@ export function CadastroMilitares() {
           {/* ====== ABA: HISTÓRICO ====== */}
           {activeTab === 'historico' && (
             <div>
+              {/* Filtros do histórico */}
               <div className="flex flex-wrap gap-3 mb-5">
                 <div className="flex-1 min-w-[200px]">
-                  <label className="block text-xs font-semibold text-gray-600 mb-1.5">Militar</label>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1.5">Buscar por Militar</label>
                   <div className="relative">
                     <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                     <input
                       className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-militar-main bg-white"
-                      placeholder="Buscar por militar..."
+                      placeholder="Nome de guerra ou nome completo..."
                       value={filtroHistoricoMilitar}
                       onChange={e => setFiltroHistoricoMilitar(e.target.value)}
                     />
                   </div>
                 </div>
-                <div className="w-44">
-                  <label className="block text-xs font-semibold text-gray-600 mb-1.5">Tipo de Alteração</label>
-                  <input
+                <div className="w-48">
+                  <label className="block text-xs font-semibold text-gray-600 mb-1.5">Tipo de Ação</label>
+                  <select
                     className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-militar-main bg-white"
-                    placeholder="Ex: atualização..."
                     value={filtroHistoricoTipo}
                     onChange={e => setFiltroHistoricoTipo(e.target.value)}
-                  />
+                  >
+                    <option value="Todos">Todas as ações</option>
+                    <option value="Criação">Criação</option>
+                    <option value="Atualização">Atualização</option>
+                    <option value="Exclusão">Exclusão</option>
+                  </select>
                 </div>
-                {(filtroHistoricoMilitar || filtroHistoricoTipo) && (
+                {(filtroHistoricoMilitar || (filtroHistoricoTipo && filtroHistoricoTipo !== 'Todos')) && (
                   <div className="flex items-end">
                     <button
-                      onClick={() => { setFiltroHistoricoMilitar(''); setFiltroHistoricoTipo(''); }}
+                      onClick={() => { setFiltroHistoricoMilitar(''); setFiltroHistoricoTipo('Todos'); }}
                       className="flex items-center gap-1 px-3 py-2.5 text-sm text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50 transition-all"
                     >
                       <X size={14} /> Limpar
@@ -878,43 +896,60 @@ export function CadastroMilitares() {
               ) : historicoFiltrado.length === 0 ? (
                 <div className="text-center py-16 text-gray-400">
                   <History size={40} className="mx-auto mb-3 opacity-30" />
-                  <p className="text-sm font-medium">Nenhum registro de alteração encontrado.</p>
+                  <p className="text-sm font-medium">Nenhum registro encontrado.</p>
+                  <p className="text-xs mt-1">As ações realizadas nos militares aparecerão aqui.</p>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {historicoFiltrado.map((h, i) => (
-                    <div key={h.id || i} className="flex gap-4 p-4 bg-gray-50 rounded-xl border border-gray-100 hover:bg-gray-100/50 transition-colors">
-                      <div className="flex-shrink-0 mt-0.5">
-                        <div className="w-7 h-7 rounded-full bg-militar-main/10 flex items-center justify-center">
-                          <History size={13} className="text-militar-main" />
+                  {historicoFiltrado.map((h, i) => {
+                    // Define cor e rótulo do badge pelo tipo de ação
+                    const tipoCfg: Record<string, { bg: string; text: string; label: string }> = {
+                      'Criação':    { bg: 'bg-green-100',  text: 'text-green-700',  label: 'Criação' },
+                      'Atualização': { bg: 'bg-blue-100',   text: 'text-blue-700',   label: 'Atualização' },
+                      'Exclusão':    { bg: 'bg-red-100',    text: 'text-red-700',    label: 'Exclusão' },
+                    };
+                    const cfg = tipoCfg[h.tipo_alteracao] || { bg: 'bg-gray-100', text: 'text-gray-600', label: h.tipo_alteracao };
+                    return (
+                      <div key={h.id || i} className="flex gap-3 p-4 bg-gray-50 rounded-xl border border-gray-100 hover:bg-gray-100/60 transition-colors">
+                        {/* Ícone com cor por tipo */}
+                        <div className="flex-shrink-0 mt-0.5">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${cfg.bg}`}>
+                            <History size={14} className={cfg.text} />
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-gray-800 leading-snug">
-                          <span className="font-bold text-militar-main">
-                            {h.data ? new Date(h.data).toLocaleString('pt-BR') : '—'}
-                          </span>
-                          {' — '}
-                          <span className="font-semibold">{h.usuario_responsavel || 'Usuário'}</span>
-                          {' alterou o campo '}
-                          <span className="font-bold text-gray-900">"{h.campo_alterado || '—'}"</span>
-                          {h.militar_envolvido ? <> do militar <span className="font-semibold">{h.militar_envolvido}</span></> : ''}
-                          {h.valor_anterior && <> de <span className="italic text-gray-600">"{h.valor_anterior}"</span></>}
-                          {h.valor_novo && <> para <span className="italic text-gray-900 font-semibold">"{h.valor_novo}"</span></>}.
-                        </p>
-                        <div className="flex items-center gap-2 mt-2">
-                          {h.tipo_alteracao && (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-militar-main/10 text-militar-main capitalize">
-                              {h.tipo_alteracao}
+                        <div className="flex-1 min-w-0">
+                          {/* Linha principal */}
+                          <div className="flex flex-wrap items-center gap-2 mb-1">
+                            <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.text}`}>
+                              {cfg.label}
                             </span>
-                          )}
-                          {h.observacao && (
-                            <span className="text-xs text-gray-500 italic">{h.observacao}</span>
+                            {h.militar_envolvido && (
+                              <span className="text-sm font-semibold text-gray-900">{h.militar_envolvido}</span>
+                            )}
+                            <span className="text-xs text-gray-400">
+                              {h.data ? new Date(h.data).toLocaleString('pt-BR') : '—'}
+                            </span>
+                          </div>
+                          {/* Descrição da ação */}
+                          <p className="text-sm text-gray-700 leading-snug">
+                            {h.campo_alteracao && (
+                              <>
+                                Campo(s): <span className="font-semibold text-gray-900">{h.campo_alteracao}</span>
+                                {h.valor_anterior && <> &bull; Anterior: <span className="italic text-gray-500">{h.valor_anterior}</span></>}
+                                {h.valor_novo     && <> &bull; Novo: <span className="italic font-medium text-gray-800">{h.valor_novo}</span></>}
+                              </>
+                            )}
+                          </p>
+                          {/* Rodapé */}
+                          {h.usuario_responsavel && (
+                            <p className="text-xs text-gray-400 mt-1">
+                              Realizado por: <span className="font-medium text-gray-600">{h.usuario_responsavel}</span>
+                            </p>
                           )}
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
