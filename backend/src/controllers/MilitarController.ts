@@ -169,7 +169,7 @@ export class MilitarController {
         pelotao: m.pelotao || '',
         tipoVinculo: m.tipo_vinculo || '',
         turmaFormacao: m.turma_formacao || '',
-        situacao: 'Ativo',
+        situacao: m.situacao || 'Ativo',
         tipo: m.tipo_vinculo || 'Militar Temporário',
         cursosProfissionais: m.especialidades_militar?.cursos_gerais || '',
         // IDs relacionados para operações de exclusão
