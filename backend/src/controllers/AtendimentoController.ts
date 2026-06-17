@@ -17,7 +17,23 @@ export class AtendimentoController {
       if (!nomeCompleto || !crm) {
         return res.status(400).json({ error: 'Nome completo e CRM são obrigatórios.' });
       }
-      const newMedico = await AtendimentoService.createMedico({ nomeCompleto, crm });
+
+      // Normaliza o nome completo para que todas as palavras comecem com letra maiúscula
+      const normalizedNome = nomeCompleto
+        .trim()
+        .toLowerCase()
+        .split(/\s+/)
+        .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+
+      // Valida se o CRM possui exatamente 6 dígitos numéricos
+      const cleanedCrm = crm.trim();
+      const crmRegex = /^\d{6}$/;
+      if (!crmRegex.test(cleanedCrm)) {
+        return res.status(400).json({ error: 'O CRM deve conter exatamente 6 números.' });
+      }
+
+      const newMedico = await AtendimentoService.createMedico({ nomeCompleto: normalizedNome, crm: cleanedCrm });
       return res.status(201).json({ message: 'Médico cadastrado com sucesso!', data: newMedico });
     } catch (error: any) {
       return res.status(500).json({ error: error.message });

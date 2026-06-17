@@ -172,15 +172,31 @@ export function Atendimentos() {
 
   const handleSaveMedico = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!medicoNome.trim() || !medicoCrm.trim()) {
+    
+    const formattedNome = medicoNome
+      .trim()
+      .toLowerCase()
+      .split(/\s+/)
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+
+    const formattedCrm = medicoCrm.trim();
+
+    if (!formattedNome || !formattedCrm) {
       alert('Nome completo e CRM são obrigatórios.');
       return;
     }
+
+    if (!/^\d{6}$/.test(formattedCrm)) {
+      alert('O CRM deve conter exatamente 6 números.');
+      return;
+    }
+
     setIsSavingMedico(true);
     try {
       await api.post('/atendimentos/medicos', {
-        nomeCompleto: medicoNome,
-        crm: medicoCrm
+        nomeCompleto: formattedNome,
+        crm: formattedCrm
       });
       alert('Médico cadastrado com sucesso!');
       setMedicoNome('');
@@ -189,7 +205,7 @@ export function Atendimentos() {
       loadData();
     } catch (err: any) {
       console.error(err);
-      alert('Erro ao cadastrar médico.');
+      alert(err.response?.data?.error || 'Erro ao cadastrar médico.');
     } finally {
       setIsSavingMedico(false);
     }
@@ -462,9 +478,10 @@ export function Atendimentos() {
           />
           <Input 
             label="CRM" 
-            placeholder="Ex: 123456/SP" 
+            placeholder="Ex: 123456" 
             value={medicoCrm} 
-            onChange={(e) => setMedicoCrm(e.target.value)} 
+            maxLength={6}
+            onChange={(e) => setMedicoCrm(e.target.value.replace(/\D/g, ''))} 
           />
           <div className="flex justify-end gap-2 pt-4 border-t border-gray-100">
             <Button type="button" variant="outline" onClick={() => setIsMedicoModalOpen(false)}>Cancelar</Button>
