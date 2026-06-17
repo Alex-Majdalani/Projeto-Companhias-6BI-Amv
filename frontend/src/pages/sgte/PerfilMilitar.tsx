@@ -355,7 +355,7 @@ export function PerfilMilitar() {
               </div>
             </div>
           </div>
-        </div>
+
 
         {/* Abas de navegação */}
         <div className="border-t border-gray-100 flex overflow-x-auto bg-gray-50/50">
