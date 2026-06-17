@@ -188,4 +188,29 @@ export class AtendimentoService {
       throw new Error('Não foi possível excluir o atendimento médico.');
     }
   }
+
+  static async updateMedico(id: number, data: { nomeCompleto: string; crm: string }) {
+    try {
+      const res = await api.patch(`/api/v2/tables/${MEDICOS_TABLE_ID}/records`, {
+        Id: id,
+        nome_completo: data.nomeCompleto,
+        crm: data.crm
+      });
+      return res.data;
+    } catch (error: any) {
+      console.error('[AtendimentoService] Erro ao atualizar médico:', error?.response?.data || error.message);
+      throw new Error('Não foi possível atualizar o médico.');
+    }
+  }
+
+  static async deleteMedico(id: number) {
+    try {
+      await api.delete(`/api/v2/tables/${MEDICOS_TABLE_ID}/records`, {
+        data: [{ Id: id }]
+      });
+    } catch (error: any) {
+      console.error('[AtendimentoService] Erro ao excluir médico:', error?.response?.data || error.message);
+      throw new Error('Não foi possível excluir o médico.');
+    }
+  }
 }

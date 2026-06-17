@@ -40,6 +40,53 @@ export class AtendimentoController {
     }
   }
 
+  static async updateMedico(req: Request, res: Response) {
+    try {
+      const id = Number(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'ID inválido.' });
+      }
+
+      const { nomeCompleto, crm } = req.body;
+      if (!nomeCompleto || !crm) {
+        return res.status(400).json({ error: 'Nome completo e CRM são obrigatórios.' });
+      }
+
+      // Normaliza o nome completo para que todas as palavras comecem com letra maiúscula
+      const normalizedNome = nomeCompleto
+        .trim()
+        .toLowerCase()
+        .split(/\s+/)
+        .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+
+      // Valida se o CRM possui exatamente 6 dígitos numéricos
+      const cleanedCrm = crm.trim();
+      const crmRegex = /^\d{6}$/;
+      if (!crmRegex.test(cleanedCrm)) {
+        return res.status(400).json({ error: 'O CRM deve conter exatamente 6 números.' });
+      }
+
+      const updated = await AtendimentoService.updateMedico(id, { nomeCompleto: normalizedNome, crm: cleanedCrm });
+      return res.status(200).json({ message: 'Médico atualizado com sucesso!', data: updated });
+    } catch (error: any) {
+      return res.status(500).json({ error: error.message });
+    }
+  }
+
+  static async deleteMedico(req: Request, res: Response) {
+    try {
+      const id = Number(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'ID inválido.' });
+      }
+      await AtendimentoService.deleteMedico(id);
+      return res.status(204).send();
+    } catch (error: any) {
+      return res.status(500).json({ error: error.message });
+    }
+  }
+
   static async listVisitas(req: Request, res: Response) {
     try {
       const visitas = await AtendimentoService.getVisitas();

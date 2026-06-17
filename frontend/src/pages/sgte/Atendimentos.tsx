@@ -6,7 +6,7 @@ import { DataTable } from '../../components/ui/DataTable';
 import type { Column } from '../../components/ui/DataTable';
 import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
-import { Plus, Search, Trash2, HeartPulse, ShieldAlert, AlertCircle } from 'lucide-react';
+import { Plus, Search, Trash2, HeartPulse, ShieldAlert, AlertCircle, Edit2 } from 'lucide-react';
 import { api } from '../../services/api';
 
 interface Medico {
@@ -34,6 +34,23 @@ interface VisitaMedica {
     csd: string[];
   } | null;
 }
+
+const PG_FORMAT_MAP: Record<string, string> = {
+  'cel': 'CEL',
+  'tc': 'TC',
+  'maj': 'MAJ',
+  'cap': 'CAP',
+  '1ten': '1º TEN',
+  '2ten': '2º TEN',
+  'asp': 'ASP',
+  'st': 'ST',
+  '1sgt': '1º SGT',
+  '2sgt': '2º SGT',
+  '3sgt': '3º SGT',
+  'cb': 'CB',
+  'sdep': 'SD EP',
+  'sdev': 'SD EV'
+};
 
 function normalizeText(text: string): string {
   if (!text) return '';
@@ -100,6 +117,7 @@ export function Atendimentos() {
   const [medicoNome, setMedicoNome] = useState('');
   const [medicoCrm, setMedicoCrm] = useState('');
   const [isSavingMedico, setIsSavingMedico] = useState(false);
+  const [editingMedicoId, setEditingMedicoId] = useState<number | null>(null);
 
   // Form Visita
   const [militarId, setMilitarId] = useState<number | null>(null);
@@ -235,20 +253,52 @@ export function Atendimentos() {
 
     setIsSavingMedico(true);
     try {
-      await api.post('/atendimentos/medicos', {
-        nomeCompleto: formattedNome,
-        crm: formattedCrm
-      });
-      alert('Médico cadastrado com sucesso!');
+      if (editingMedicoId) {
+        await api.patch(`/atendimentos/medicos/${editingMedicoId}`, {
+          nomeCompleto: formattedNome,
+          crm: formattedCrm
+        });
+        alert('Médico atualizado com sucesso!');
+      } else {
+        await api.post('/atendimentos/medicos', {
+          nomeCompleto: formattedNome,
+          crm: formattedCrm
+        });
+        alert('Médico cadastrado com sucesso!');
+      }
       setMedicoNome('');
       setMedicoCrm('');
-      setIsMedicoModalOpen(false);
+      setEditingMedicoId(null);
       loadData();
     } catch (err: any) {
       console.error(err);
-      alert(err.response?.data?.error || 'Erro ao cadastrar médico.');
+      alert(err.response?.data?.error || 'Erro ao salvar médico.');
     } finally {
       setIsSavingMedico(false);
+    }
+  };
+
+  const handleStartEditMedico = (medico: Medico) => {
+    setEditingMedicoId(medico.id);
+    setMedicoNome(medico.nomeCompleto);
+    setMedicoCrm(medico.crm);
+  };
+
+  const handleCancelEditMedico = () => {
+    setEditingMedicoId(null);
+    setMedicoNome('');
+    setMedicoCrm('');
+  };
+
+  const handleDeleteMedico = async (id: number) => {
+    if (!confirm('Deseja realmente excluir este médico?')) return;
+    try {
+      await api.delete(`/atendimentos/medicos/${id}`);
+      alert('Médico excluído com sucesso!');
+      loadData();
+    } catch (err: any) {
+      console.error(err);
+      alert(err.response?.data?.error || 'Erro ao excluir médico.');
     }
   };
 
@@ -343,11 +393,17 @@ export function Atendimentos() {
   const columns: Column<VisitaMedica>[] = [
     { 
       header: 'P/G NOME COMPLETO', 
-      accessor: (row: VisitaMedica) => (
-        <span className="font-semibold text-gray-900">
-          {row.pgMilitar} {row.nomeCompletoMilitar}
-        </span>
-      )
+      accessor: (row: VisitaMedica) => {
+        const mil = militares.find(m => m.id === row.militarId);
+        const rawPg = mil ? mil.posto : row.pgMilitar;
+        const formattedPg = PG_FORMAT_MAP[rawPg.toLowerCase()] || rawPg.toUpperCase();
+        const nomeCompleto = mil ? (mil.nome_completo || mil.nome) : row.nomeCompletoMilitar;
+        return (
+          <span className="font-semibold text-gray-900">
+            {formattedPg} {nomeCompleto}
+          </span>
+        );
+      }
     },
     { 
       header: 'Data da Visita', 
@@ -509,13 +565,14 @@ export function Atendimentos() {
       </div>
 
       {/* Modal: Novo Médico */}
-      <Modal isOpen={isMedicoModalOpen} onClose={() => setIsMedicoModalOpen(false)} title="Cadastrar Novo Médico" size="md">
+      <Modal isOpen={isMedicoModalOpen} onClose={() => { setIsMedicoModalOpen(false); handleCancelEditMedico(); }} title={editingMedicoId ? "Editar Médico" : "Cadastrar Novo Médico"} size="md">
         <form onSubmit={handleSaveMedico} className="space-y-4">
           <Input 
             label="Nome Completo" 
             placeholder="Ex: Dr. Roberto Silva" 
             value={medicoNome} 
             onChange={(e) => setMedicoNome(e.target.value)} 
+            disabled={isSavingMedico}
           />
           <Input 
             label="CRM" 
@@ -523,18 +580,66 @@ export function Atendimentos() {
             value={medicoCrm} 
             maxLength={6}
             onChange={(e) => setMedicoCrm(e.target.value.replace(/\D/g, ''))} 
+            disabled={isSavingMedico}
           />
           <div className="flex justify-end gap-2 pt-4 border-t border-gray-100">
-            <Button type="button" variant="outline" onClick={() => setIsMedicoModalOpen(false)}>Cancelar</Button>
+            {editingMedicoId ? (
+              <Button type="button" variant="outline" onClick={handleCancelEditMedico} disabled={isSavingMedico}>
+                Cancelar Edição
+              </Button>
+            ) : (
+              <Button type="button" variant="outline" onClick={() => setIsMedicoModalOpen(false)} disabled={isSavingMedico}>
+                Cancelar
+              </Button>
+            )}
             <Button type="submit" disabled={isSavingMedico}>
-              {isSavingMedico ? 'Salvando...' : 'Salvar Médico'}
+              {isSavingMedico ? 'Salvando...' : (editingMedicoId ? 'Atualizar Médico' : 'Salvar Médico')}
             </Button>
+          </div>
+          
+          {/* Tabela/Lista de Médicos Cadastrados */}
+          <div className="pt-4 border-t border-gray-200 mt-6">
+            <h3 className="text-sm font-semibold text-gray-800 mb-3">Médicos Cadastrados</h3>
+            <div className="max-h-48 overflow-y-auto border border-gray-100 rounded-lg divide-y divide-gray-100">
+              {medicos.length === 0 ? (
+                <div className="p-3 text-center text-xs text-gray-500">Nenhum médico cadastrado.</div>
+              ) : (
+                medicos.map(m => (
+                  <div key={m.id} className="p-3 flex justify-between items-center text-sm hover:bg-gray-50">
+                    <div>
+                      <div className="font-medium text-gray-900">{m.nomeCompleto}</div>
+                      <div className="text-xs text-gray-500">CRM: {m.crm}</div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button 
+                        type="button"
+                        onClick={() => handleStartEditMedico(m)}
+                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        disabled={isSavingMedico}
+                        title="Editar"
+                      >
+                        <Edit2 size={14} />
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => handleDeleteMedico(m.id)}
+                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        disabled={isSavingMedico}
+                        title="Excluir"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </form>
       </Modal>
 
       {/* Modal: Nova Visita */}
-      <Modal isOpen={isVisitaModalOpen} onClose={() => setIsVisitaModalOpen(false)} title="Registrar Nova Visita Médica" size="lg">
+      <Modal isOpen={isVisitaModalOpen} onClose={() => !isSavingVisita && setIsVisitaModalOpen(false)} title="Registrar Nova Visita Médica" size="lg">
         <form onSubmit={handleSaveVisita} className="space-y-4">
           <div className="grid grid-cols-3 gap-4">
             {/* Combobox de P/G */}
@@ -544,12 +649,13 @@ export function Atendimentos() {
                 <Input
                   readOnly
                   value={selectedPG || 'Todos'}
-                  onClick={() => setShowPGScroll(!showPGScroll)}
-                  className="cursor-pointer pr-10 text-sm"
+                  onClick={() => !isSavingVisita && setShowPGScroll(!showPGScroll)}
+                  className={`pr-10 text-sm ${isSavingVisita ? 'cursor-not-allowed bg-gray-50' : 'cursor-pointer'}`}
+                  disabled={isSavingVisita}
                 />
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 text-xs">▼</div>
               </div>
-              {showPGScroll && (
+              {!isSavingVisita && showPGScroll && (
                 <>
                   <div className="fixed inset-0 z-[90]" onClick={() => setShowPGScroll(false)} />
                   <div className="absolute z-[100] w-full mt-1 max-h-48 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
@@ -572,10 +678,11 @@ export function Atendimentos() {
                   handleMilitarSearchChange(e.target.value);
                   setShowMilitarSuggestions(true);
                 }}
-                onFocus={() => setShowMilitarSuggestions(true)}
+                onFocus={() => !isSavingVisita && setShowMilitarSuggestions(true)}
                 onBlur={() => setTimeout(() => setShowMilitarSuggestions(false), 250)}
+                disabled={isSavingVisita}
               />
-              {showMilitarSuggestions && (
+              {!isSavingVisita && showMilitarSuggestions && (
                 <div className="absolute z-[100] w-full mt-1 max-h-48 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
                   {militares
                     .filter(m => {
@@ -613,12 +720,14 @@ export function Atendimentos() {
               placeholder="Ex: Dor de cabeça, Inspeção de saúde" 
               value={motivoVisita} 
               onChange={(e) => setMotivoVisita(e.target.value)} 
+              disabled={isSavingVisita}
             />
             <Input 
               label="Data da Visita" 
               type="date" 
               value={dataVisita} 
               onChange={(e) => setDataVisita(e.target.value)} 
+              disabled={isSavingVisita}
             />
           </div>
 
@@ -627,6 +736,7 @@ export function Atendimentos() {
               label="Médico Responsável" 
               value={medicoResponsavel} 
               onChange={(e) => setMedicoResponsavel(e.target.value)}
+              disabled={isSavingVisita}
             >
               <option value="">Selecione o médico...</option>
               {medicos.map(m => (
@@ -637,6 +747,7 @@ export function Atendimentos() {
               label="Militar será Baixado?" 
               value={baixado} 
               onChange={(e) => setBaixado(e.target.value as any)}
+              disabled={isSavingVisita}
             >
               <option value="Não">Não</option>
               <option value="Sim">Sim</option>
@@ -647,10 +758,11 @@ export function Atendimentos() {
             <label className="block text-sm font-semibold text-gray-700 mb-1">Parecer Médico (Long Text)</label>
             <textarea
               rows={4}
-              className="w-full bg-white border border-gray-300 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-militar-light focus:border-transparent transition-all"
+              className={`w-full bg-white border border-gray-300 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-militar-light focus:border-transparent transition-all ${isSavingVisita ? 'cursor-not-allowed bg-gray-50' : ''}`}
               placeholder="Digite o parecer detalhado do médico..."
               value={parecerMedico}
               onChange={(e) => setParecerMedico(e.target.value)}
+              disabled={isSavingVisita}
             />
           </div>
 
@@ -659,6 +771,7 @@ export function Atendimentos() {
             placeholder="Ex: Retorno em caso de novos sintomas" 
             value={obs} 
             onChange={(e) => setObs(e.target.value)} 
+            disabled={isSavingVisita}
           />
 
           {/* Campos condicionais para Baixado = Sim */}
@@ -676,6 +789,7 @@ export function Atendimentos() {
                     placeholder="Ex: CID X10" 
                     value={motivoBaixa} 
                     onChange={(e) => setMotivoBaixa(e.target.value)} 
+                    disabled={isSavingVisita}
                   />
                 </div>
                 <div className="col-span-1">
@@ -685,6 +799,7 @@ export function Atendimentos() {
                     min={1} 
                     value={diasBaixado} 
                     onChange={(e) => setDiasBaixado(e.target.value)} 
+                    disabled={isSavingVisita}
                   />
                 </div>
                 <div className="col-span-1">
@@ -693,6 +808,7 @@ export function Atendimentos() {
                     type="date" 
                     value={dataRetorno} 
                     onChange={(e) => handleDataRetornoChange(e.target.value)} 
+                    disabled={isSavingVisita}
                   />
                 </div>
               </div>
@@ -707,8 +823,9 @@ export function Atendimentos() {
                         <input
                           type="checkbox"
                           checked={isChecked}
-                          onChange={() => handleCsdToggle(item)}
-                          className="w-4 h-4 text-militar-main border-gray-300 rounded focus:ring-militar-light focus:ring-2"
+                          onChange={() => !isSavingVisita && handleCsdToggle(item)}
+                          className="w-4 h-4 text-militar-main border-gray-300 rounded focus:ring-militar-light focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          disabled={isSavingVisita}
                         />
                         {item}
                       </label>
@@ -720,7 +837,7 @@ export function Atendimentos() {
           )}
 
           <div className="flex justify-end gap-2 pt-4 border-t border-gray-100">
-            <Button type="button" variant="outline" onClick={() => { setIsVisitaModalOpen(false); resetVisitaForm(); }}>Cancelar</Button>
+            <Button type="button" variant="outline" onClick={() => { setIsVisitaModalOpen(false); resetVisitaForm(); }} disabled={isSavingVisita}>Cancelar</Button>
             <Button type="submit" disabled={isSavingVisita}>
               {isSavingVisita ? 'Gravando...' : 'Gravar Atendimento'}
             </Button>

@@ -5,6 +5,8 @@ const atendimentoRoutes = Router();
 
 atendimentoRoutes.get('/medicos', AtendimentoController.listMedicos);
 atendimentoRoutes.post('/medicos', AtendimentoController.createMedico);
+atendimentoRoutes.patch('/medicos/:id', AtendimentoController.updateMedico);
+atendimentoRoutes.delete('/medicos/:id', AtendimentoController.deleteMedico);
 atendimentoRoutes.get('/visitas', AtendimentoController.listVisitas);
 atendimentoRoutes.post('/visitas', AtendimentoController.createVisita);
 atendimentoRoutes.delete('/visitas/:id', AtendimentoController.deleteVisita);
