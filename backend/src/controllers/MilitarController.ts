@@ -152,11 +152,15 @@ export class MilitarController {
         whereConditions.push(`(tipo_vinculo,eq,${tipoVinculo})`);
       }
 
-      const whereStr = whereConditions.length > 0 ? `&where=${encodeURIComponent(whereConditions.join('~and'))}` : '';
-
-      const data = await nocoRequest(`/tables/${TBL_MILITAR}/records?limit=200${whereStr}`);
+      const nestedStr = `&nested[dados_civil][fields]=Id,nome_completo,cpf,foto_url&nested[funcao_efetivo_cia][fields]=Id,funcao,ativa,substituto&nested[funcao_substituto_cia][fields]=Id,funcao,ativa,efetivo`;
+      const data = await nocoRequest(`/tables/${TBL_MILITAR}/records?limit=200${whereStr}${nestedStr}`);
       
-      let formatados = (data.list || []).map((m: any) => ({
+      let formatados = (data.list || []).map((m: any) => {
+        // Formatar funções
+        const funcoesEfetivo = Array.isArray(m.funcao_efetivo_cia) ? m.funcao_efetivo_cia : [];
+        const funcoesSubstituto = Array.isArray(m.funcao_substituto_cia) ? m.funcao_substituto_cia : [];
+        
+        return {
         id: m.Id,
         posto: m.posto_graduacao || 'SD EP',
         nome: m.dados_civil?.nome_completo || m.nome_guerra || 'Sem Nome',
@@ -176,6 +180,18 @@ export class MilitarController {
         numeroCampoBasico: m.numero_campo_basico || '',
         numeroEbca: m.numero_ebca || '',
         dataPraca: m.data_praca || '',
+        funcoesEfetivo: funcoesEfetivo.map((f: any) => ({
+          id: f.Id,
+          funcao: f.funcao,
+          ativa: f.ativa,
+          substituto: f.substituto?.nome_guerra || ''
+        })),
+        funcoesSubstituto: funcoesSubstituto.map((f: any) => ({
+          id: f.Id,
+          funcao: f.funcao,
+          ativa: f.ativa,
+          efetivo: f.efetivo?.nome_guerra || ''
+        })),
         fotoUrl: Array.isArray(m.dados_civil?.foto_url) && m.dados_civil.foto_url.length > 0
           ? m.dados_civil.foto_url[0].url || m.dados_civil.foto_url[0].signedUrl || ''
           : (typeof m.dados_civil?.foto_url === 'string' && m.dados_civil.foto_url.startsWith('[')
@@ -192,7 +208,7 @@ export class MilitarController {
         contatoId: typeof m.formas_contato === 'object' ? m.formas_contato?.Id : m.formas_contato,
         redesSociaisId: typeof m.redes_sociai === 'object' ? m.redes_sociai?.Id : m.redes_sociai,
         especialidadesId: typeof m.especialidades_militar === 'object' ? m.especialidades_militar?.Id : m.especialidades_militar,
-      }));
+      }});
 
       // Filtro por nome (busca parcial no nome completo ou nome de guerra)
       if (nome && nome.trim()) {
