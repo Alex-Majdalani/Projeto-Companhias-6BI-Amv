@@ -3,10 +3,11 @@ import type { Request, Response } from 'express';
 // ─────────────────────────────────────────────────────────────────────────────
 // Configuração do cliente NocoDB para comunicação com a API
 // ─────────────────────────────────────────────────────────────────────────────
-const NOCODB_URL   = process.env.NOCODB_API_URL  || process.env.NOCODB_URL  || '';
-const NOCODB_TOKEN = process.env.NOCODB_API_TOKEN || process.env.NOCODB_TOKEN || '';
+const NOCODB_URL   = process.env.NOCODB_API_URL  || 'https://nocodb.alexdatawise.cloud';
+const NOCODB_TOKEN = process.env.NOCODB_API_TOKEN || 'nc_pat_GdZStg4K7cJMNMf32gyh3FArJc3kkwGeVie1v1Hi';
 
 // Comentário de organização: ID da tabela de histórico de alterações no NocoDB
+// Colunas: campo_alteracao, valor_anterior, valor_novo, tipo_alteracao, data, usuario_responsavel, militar_envolvido
 const TBL_HISTORICO = 'ml7fddu63zljsta';
 
 // Comentário de organização: Helper para realizar requisições autenticadas ao NocoDB V2
@@ -29,45 +30,42 @@ async function nocoRequest(path: string, opts: RequestInit = {}): Promise<any> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// HistoricoController — endpoints para leitura do histórico de alterações
+// HistoricoController — endpoints para leitura e criação do histórico
+// Apenas registros de ações relacionadas ao militar são expostos
 // ─────────────────────────────────────────────────────────────────────────────
 export class HistoricoController {
 
   /**
    * GET /api/historico
-   * Retorna todos os registros do histórico de alterações, do mais recente ao mais antigo.
-   * Suporta filtros opcionais via query params: militarId, usuarioId, tipoAlteracao.
+   * Retorna todos os registros do histórico ordenados do mais recente ao mais antigo.
+   * Suporta filtros opcionais via query params: militar (busca por nome), tipo.
    */
   static async list(req: Request, res: Response): Promise<void> {
     try {
-      const { militarId, usuarioId, tipoAlteracao, limit = '200' } = req.query as Record<string, string>;
+      const { militar, tipo, limit = '300' } = req.query as Record<string, string>;
 
-      // Monta filtros NocoDB
+      // Comentário de organização: Monta filtros NocoDB conforme os nomes reais das colunas
       const where: string[] = [];
-      if (militarId)       where.push(`(militar_id,eq,${militarId})`);
-      if (usuarioId)       where.push(`(usuario_id,eq,${usuarioId})`);
-      if (tipoAlteracao)   where.push(`(tipo_alteracao,like,${tipoAlteracao}%)`);
+      if (militar) where.push(`(militar_envolvido,like,%${militar}%)`);
+      if (tipo && tipo !== 'Todos') where.push(`(tipo_alteracao,eq,${tipo})`);
 
       const whereStr = where.length > 0 ? `&where=${encodeURIComponent(where.join('~and'))}` : '';
 
-      // Comentário de organização: Ordena por data decrescente (mais recente primeiro)
+      // Comentário de organização: Ordena por campo "data" decrescente (mais recente primeiro)
       const data = await nocoRequest(
-        `/${TBL_HISTORICO}/records?limit=${limit}&sort=-criado_em${whereStr}`
+        `/${TBL_HISTORICO}/records?limit=${limit}&sort=-data${whereStr}`
       );
 
+      // Comentário de organização: Mapeia as colunas reais do banco para o formato do frontend
       const registros = (data.list || []).map((h: any) => ({
         id: h.Id,
-        militarId: h.militar_id,
-        usuarioId: h.usuario_id,
-        campoAlterado: h.campo_alterado || '',
-        valorAnterior: h.valor_anterior || '',
-        valorNovo: h.valor_novo || '',
-        tipoAlteracao: h.tipo_alteracao || '',
-        observacao: h.observacao || '',
-        data: h.criado_em || '',
-        // Campos de link (nomes resolvidos pelo NocoDB, se houver)
-        militar_envolvido: h.militar_envolvido?.nome_guerra || h.militar_envolvido?.Title || h.militar_id || '',
-        usuario_responsavel: h.usuario_responsavel?.Title || h.usuario_id || '',
+        campo_alteracao: h.campo_alteracao || h.campo_alterado || '—',
+        valor_anterior: h.valor_anterior || '',
+        valor_novo: h.valor_novo || '',
+        tipo_alteracao: h.tipo_alteracao || '',
+        data: h.data || h.criado_em || '',
+        usuario_responsavel: h.usuario_responsavel || '',
+        militar_envolvido: h.militar_envolvido || '',
       }));
 
       res.status(200).json(registros);
@@ -80,25 +78,23 @@ export class HistoricoController {
   /**
    * POST /api/historico
    * Registra uma nova entrada no histórico de alterações.
-   * Chamado internamente por outros controllers quando há uma alteração de dado.
    */
   static async create(req: Request, res: Response): Promise<void> {
     try {
       const {
-        militar_id, usuario_id, campo_alterado,
-        valor_anterior, valor_novo, tipo_alteracao, observacao
+        campo_alteracao, valor_anterior, valor_novo,
+        tipo_alteracao, usuario_responsavel, militar_envolvido
       } = req.body;
 
-      // Comentário de organização: Cria o registro com a data/hora atual
+      // Comentário de organização: Cria o registro usando os nomes reais das colunas do banco
       const body = {
-        militar_id:     militar_id    || null,
-        usuario_id:     usuario_id    || null,
-        campo_alterado: campo_alterado || '',
-        valor_anterior: valor_anterior || '',
-        valor_novo:     valor_novo     || '',
-        tipo_alteracao: tipo_alteracao || 'atualização',
-        observacao:     observacao     || '',
-        criado_em:      new Date().toISOString(),
+        campo_alteracao:     campo_alteracao     || '',
+        valor_anterior:      valor_anterior      || '',
+        valor_novo:          valor_novo          || '',
+        tipo_alteracao:      tipo_alteracao      || 'Atualização',
+        usuario_responsavel: usuario_responsavel || '',
+        militar_envolvido:   militar_envolvido   || '',
+        data:                new Date().toISOString(),
       };
 
       const created = await nocoRequest(`/${TBL_HISTORICO}/records`, {

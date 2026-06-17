@@ -10,6 +10,7 @@ const TBL_CONTATO = 'm2xy5pm7hw68n2f';
 const TBL_MILITAR = 'm5bfeui27vdb3rx';
 const TBL_REDES_SOCIAIS = 'mw1va9kecnl1c16';
 const TBL_ESPECIALIDADES_MILITAR = 'mbfumyosimeqpa6';
+const TBL_HISTORICO_LOGS = 'ml7fddu63zljsta';
 
 // Helper para chamadas fetch no NocoDB
 async function nocoRequest(path: string, options: RequestInit = {}) {
@@ -29,6 +30,36 @@ async function nocoRequest(path: string, options: RequestInit = {}) {
     throw new Error(data.msg || data.message || `Erro na chamada NocoDB: ${response.status}`);
   }
   return data;
+}
+
+// Comentário de organização: Helper para registrar log de ações no historico_logs.
+// Apenas ações relacionadas ao militar são registradas (criação, atualização, exclusão).
+// Erros de log não interrompem o fluxo principal.
+async function registrarLog(opts: {
+  tipo_alteracao: 'Criação' | 'Atualização' | 'Exclusão';
+  campo_alteracao: string;
+  valor_anterior?: string;
+  valor_novo?: string;
+  usuario_responsavel?: string;
+  militar_envolvido?: string;
+}) {
+  try {
+    await nocoRequest(`/tables/${TBL_HISTORICO_LOGS}/records`, {
+      method: 'POST',
+      body: JSON.stringify({
+        tipo_alteracao: opts.tipo_alteracao,
+        campo_alteracao: opts.campo_alteracao,
+        valor_anterior: opts.valor_anterior || '',
+        valor_novo: opts.valor_novo || '',
+        usuario_responsavel: opts.usuario_responsavel || 'Sistema',
+        militar_envolvido: opts.militar_envolvido || '',
+        data: new Date().toISOString(),
+      })
+    });
+  } catch (logErr) {
+    // Log de historico nunca deve quebrar o fluxo principal
+    console.warn('Aviso: Falha ao registrar historico_log:', logErr);
+  }
 }
 
 // Comentário de organização: Helpers para mapear opções do frontend para o NocoDB.
@@ -407,6 +438,17 @@ export class MilitarController {
         body: JSON.stringify(militarBody)
       });
 
+      // Comentário de organização: Registra log de criação do militar no historico_logs
+      const nomeGuerra = toTitleCase(body.nomeGuerra || '') || `ID ${militar.Id}`;
+      await registrarLog({
+        tipo_alteracao: 'Criação',
+        campo_alteracao: 'Cadastro completo',
+        valor_anterior: '',
+        valor_novo: `Militar cadastrado com posto ${mapPostoGraduacao(body.postoGraduacao) || body.postoGraduacao || '—'} e nome de guerra ${nomeGuerra}`,
+        usuario_responsavel: body.usuarioResponsavel || req.headers['x-usuario'] as string || 'Sistema',
+        militar_envolvido: nomeGuerra,
+      });
+
       return res.status(201).json({
         message: 'Militar registrado com sucesso!',
         militarId: militar.Id
@@ -604,6 +646,17 @@ export class MilitarController {
         espId        ? nocoRequest(`/tables/${TBL_ESPECIALIDADES_MILITAR}/records`, { method: 'DELETE', body: JSON.stringify([{ Id: espId }]) })     : Promise.resolve(),
       ]);
 
+      // Comentário de organização: Registra log de exclusão no historico_logs
+      const nomeGuerraExcluido = militar.nome_guerra || `ID ${militarId}`;
+      await registrarLog({
+        tipo_alteracao: 'Exclusão',
+        campo_alteracao: 'Cadastro completo',
+        valor_anterior: `Militar ${nomeGuerraExcluido} (${militar.posto_graduacao || ''})`,
+        valor_novo: '',
+        usuario_responsavel: req.headers['x-usuario'] as string || 'Sistema',
+        militar_envolvido: nomeGuerraExcluido,
+      });
+
       return res.status(200).json({ message: 'Militar excluído com sucesso.' });
     } catch (error: any) {
       console.error('Erro ao excluir militar:', error);
@@ -764,6 +817,40 @@ export class MilitarController {
         await nocoRequest(`/tables/${TBL_ESPECIALIDADES_MILITAR}/records`, {
           method: 'PATCH',
           body: JSON.stringify({ Id: espId, cursos_gerais: body.cursosProfissionais || '' })
+        });
+      }
+
+      // Comentário de organização: Registra log de atualização no historico_logs
+      // Monta descrição legível dos campos que foram modificados
+      const nomeGuerraAtual = militarRow.nome_guerra || `ID ${militarId}`;
+      const camposAlterados: string[] = [];
+      const mapLabels: Record<string, string> = {
+        nomeGuerra: 'Nome de Guerra', postoGraduacao: 'Posto/Graduação', situacao: 'Situação',
+        pelotao: 'Pelotão', tipoMilitar: 'Tipo de Vínculo', tipoVinculo: 'Tipo de Vínculo',
+        secaoCompanhia: 'Companhia', companhia: 'Companhia', dataPraca: 'Data de Praça',
+        turmaFormacao: 'Turma de Formação', precCP: 'Prec-CP', idtMil: 'Identidade Militar',
+        nomeCompleto: 'Nome Completo', nomeMae: 'Nome da Mãe', nomePai: 'Nome do Pai',
+        dataNascimento: 'Data de Nascimento', cpf: 'CPF', idtCivil: 'Identidade Civil',
+        altura: 'Altura', tipoSanguineo: 'Tipo Sanguíneo', fatorRh: 'Fator RH',
+        cutis: 'Cutis', olhos: 'Olhos', cabelos: 'Cabelos', religiao: 'Religião',
+        escolaridade: 'Escolaridade', cnhCategoria: 'CNH', fotoUrl: 'Foto de Perfil',
+        cep: 'CEP', rua: 'Logradouro', bairro: 'Bairro', cidade: 'Cidade', uf: 'UF',
+        telefoneCelular: 'Telefone', resideCom: 'Reside Com', nomeEmergencia: 'Contato de Emergência',
+        instagram: 'Instagram', facebook: 'Facebook', tiktok: 'TikTok', twitter: 'Twitter',
+        cursosProfissionais: 'Cursos',
+      };
+      Object.keys(body).forEach(k => {
+        if (mapLabels[k] && body[k] !== undefined) camposAlterados.push(mapLabels[k]);
+      });
+
+      if (camposAlterados.length > 0) {
+        await registrarLog({
+          tipo_alteracao: 'Atualização',
+          campo_alteracao: camposAlterados.join(', '),
+          valor_anterior: '',
+          valor_novo: '',
+          usuario_responsavel: body.usuarioResponsavel || req.headers['x-usuario'] as string || 'Sistema',
+          militar_envolvido: nomeGuerraAtual,
         });
       }
 
