@@ -11,7 +11,7 @@ import {
   Shield, Phone, MapPin
 } from 'lucide-react';
 import { api } from '../../services/api';
-import { exportarListaMilitaresPDF } from '../../utils/exportarPDF';
+import { exportarLotePerfisPDF } from '../../utils/exportarPDF';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constantes: opções de filtro
@@ -33,19 +33,7 @@ const TIPOS_VINCULO = ['Todos', 'Militar Temporário', 'Militar de Carreira'];
 // Dados estáticos para as abas sem integração real
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Comentário de organização: Dados estáticos de situação funcional por militar (demonstração visual) */
-function situacaoFuncionalStatic(militar: any) {
-  return {
-    funcao: 'Atirador',
-    cargo: 'Soldado de 2ª Classe',
-    companhia: militar.companhia || '—',
-    pelotao: militar.pelotao || '—',
-    setor: '2ª Seção de Combate',
-    escala: 'Escala de Guarda',
-    ultimaPromocao: '01/03/2026',
-    situacaoFuncional: 'Ativo',
-  };
-}
+
 
 /** Comentário de organização: Documentos estáticos por militar (demonstração visual) */
 const documentosStatic = [
@@ -111,6 +99,18 @@ export function CadastroMilitares() {
   const [editForm, setEditForm] = useState<Record<string, string>>({});
   const [salvandoEdicao, setSalvandoEdicao] = useState(false);
   const [editError, setEditError] = useState('');
+  const [dependenteSelecionado, setDependenteSelecionado] = useState<any | null>(null);
+  const [modalExportacaoAberto, setModalExportacaoAberto] = useState(false);
+  const [exportandoVarios, setExportandoVarios] = useState(false);
+
+  // Paginação centralizada
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  // Reseta a página ao mudar os filtros
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filtroNome, filtroCompanhia, filtroPelotao, filtroTipoVinculo, filtroSituacao]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Abas de navegação
@@ -147,36 +147,28 @@ export function CadastroMilitares() {
     }
   }, []);
 
-  // Comentário de organização: Carrega companhias e militares ao montar o componente
+  // Comentário de organização: Busca dinâmica ao alterar os filtros
   useEffect(() => {
-    loadMilitares();
-    api.get('/militares/companhias').then(r => setCompanhias(r.data)).catch(() => {});
-  }, [loadMilitares]);
+    const timer = setTimeout(() => {
+      loadMilitares({
+        nome: filtroNome,
+        postoGraduacao: filtroPostoGraduacao,
+        companhia: filtroCompanhia,
+        pelotao: filtroPelotao,
+        tipoVinculo: filtroTipoVinculo,
+      });
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [filtroNome, filtroPostoGraduacao, filtroCompanhia, filtroPelotao, filtroTipoVinculo, loadMilitares]);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Carrega histórico quando a aba for selecionada
-  // ─────────────────────────────────────────────────────────────────────────
+  // Carrega companhias apenas uma vez ao montar
   useEffect(() => {
-    if (activeTab === 'historico') {
-      setLoadingHistorico(true);
-      api.get('/historico').then(r => setHistorico(r.data || [])).catch(() => setHistorico([])).finally(() => setLoadingHistorico(false));
-    }
-  }, [activeTab]);
+    api.get('/militares/companhias').then(r => setCompanhias(r.data)).catch(() => {});
+  }, []);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Handlers de filtros
   // ─────────────────────────────────────────────────────────────────────────
-  const handleFiltrar = () => {
-    loadMilitares({
-      nome: filtroNome,
-      postoGraduacao: filtroPostoGraduacao,
-      situacao: filtroSituacao,
-      companhia: filtroCompanhia,
-      pelotao: filtroPelotao,
-      tipoVinculo: filtroTipoVinculo,
-    });
-  };
-
   const handleLimpar = () => {
     setFiltroNome('');
     setFiltroPostoGraduacao('Todos');
@@ -184,7 +176,6 @@ export function CadastroMilitares() {
     setFiltroCompanhia('Todas');
     setFiltroPelotao('Todos');
     setFiltroTipoVinculo('Todos');
-    loadMilitares();
   };
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -254,11 +245,74 @@ export function CadastroMilitares() {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  // Seleção de múltiplos militares
+  // ─────────────────────────────────────────────────────────────────────────
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+
+  const toggleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedIds(militaresFiltrados.map(m => m.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const toggleSelectMilitar = (id: number) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(mId => mId !== id) : [...prev, id]
+    );
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
   // Filtro local por situação (feito no frontend pois o campo é estático por ora)
   // ─────────────────────────────────────────────────────────────────────────
   const militaresFiltrados = filtroSituacao === 'Todas'
     ? militares
     : militares.filter(m => (m.situacao || 'Ativo') === filtroSituacao);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Paginação centralizada (Depende de militaresFiltrados)
+  // ─────────────────────────────────────────────────────────────────────────
+  const totalPages = Math.ceil(militaresFiltrados.length / itemsPerPage);
+  const paginatedMilitares = militaresFiltrados.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  const handleExportarPerfisJuntos = async () => {
+    const listToExport = selectedIds.length > 0 ? militaresFiltrados.filter(m => selectedIds.includes(m.id)) : militaresFiltrados;
+    setExportandoVarios(true);
+    try {
+      const perfis = [];
+      for (const m of listToExport) {
+        const res = await api.get(`/militares/${m.id}`);
+        perfis.push(res.data);
+      }
+      exportarLotePerfisPDF(perfis);
+    } catch (err) {
+      console.error('Erro ao exportar PDFs', err);
+      alert('Houve um erro ao exportar os PDFs.');
+    } finally {
+      setExportandoVarios(false);
+      setModalExportacaoAberto(false);
+    }
+  };
+
+  const handleExportarPerfisSeparados = async () => {
+    const listToExport = selectedIds.length > 0 ? militaresFiltrados.filter(m => selectedIds.includes(m.id)) : militaresFiltrados;
+    setExportandoVarios(true);
+    try {
+      for (const m of listToExport) {
+        const res = await api.get(`/militares/${m.id}`);
+        import('../../utils/exportarPDF').then((module) => {
+          module.exportarPerfilPDF(res.data);
+        });
+      }
+    } catch (err) {
+      console.error('Erro ao exportar PDFs separados', err);
+      alert('Houve um erro ao exportar os PDFs.');
+    } finally {
+      setExportandoVarios(false);
+      setModalExportacaoAberto(false);
+    }
+  };
 
   // ─────────────────────────────────────────────────────────────────────────
   // Filtro do Histórico
@@ -279,45 +333,18 @@ export function CadastroMilitares() {
       {/* Filtros principais */}
       <div className="flex flex-wrap items-end gap-3">
         {/* Filtro Nome */}
-        <div className="flex-1 min-w-[200px]">
-          <label className="block text-xs font-semibold text-gray-600 mb-1.5">Nome</label>
+        <div className="flex-1 min-w-[300px]">
+          <label className="block text-xs font-semibold text-gray-600 mb-1.5">Buscar por Nome</label>
           <div className="relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               id="filtro-nome"
               className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-militar-main bg-white transition-all"
-              placeholder="Buscar por nome..."
+              placeholder="Digite o nome de guerra ou nome completo..."
               value={filtroNome}
               onChange={e => setFiltroNome(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleFiltrar()}
             />
           </div>
-        </div>
-
-        {/* Filtro Posto/Graduação */}
-        <div className="w-44">
-          <label className="block text-xs font-semibold text-gray-600 mb-1.5">Posto/Graduação</label>
-          <select
-            id="filtro-posto"
-            value={filtroPostoGraduacao}
-            onChange={e => setFiltroPostoGraduacao(e.target.value)}
-            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-militar-main bg-white transition-all"
-          >
-            {POSTOS_GRADUACOES.map(p => <option key={p}>{p}</option>)}
-          </select>
-        </div>
-
-        {/* Filtro Situação */}
-        <div className="w-40">
-          <label className="block text-xs font-semibold text-gray-600 mb-1.5">Situação</label>
-          <select
-            id="filtro-situacao"
-            value={filtroSituacao}
-            onChange={e => setFiltroSituacao(e.target.value)}
-            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-militar-main bg-white transition-all"
-          >
-            {SITUACOES.map(s => <option key={s}>{s}</option>)}
-          </select>
         </div>
 
         {/* Ações */}
@@ -325,36 +352,51 @@ export function CadastroMilitares() {
           <button
             id="btn-mais-filtros"
             onClick={() => setMaisFiltrosAberto(v => !v)}
-            className={`flex items-center gap-1.5 px-3 py-2.5 text-sm font-semibold rounded-xl border transition-all ${
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold rounded-xl border transition-all ${
               maisFiltrosAberto
-                ? 'bg-militar-main text-white border-militar-main'
+                ? 'bg-gray-100 text-gray-900 border-gray-200'
                 : 'border-gray-200 text-gray-600 hover:border-gray-300 bg-white'
             }`}
           >
             <Filter size={14} />
-            Mais filtros
+            Mais opções
             {maisFiltrosAberto ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </button>
-          <button
-            onClick={handleLimpar}
-            className="px-3 py-2.5 text-sm font-semibold rounded-xl border border-gray-200 text-gray-600 hover:border-gray-300 bg-white transition-all"
-          >
-            Limpar
-          </button>
-          <button
-            id="btn-filtrar"
-            onClick={handleFiltrar}
-            className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold rounded-xl bg-militar-main hover:bg-militar-dark text-white transition-all"
-          >
-            <Search size={14} />
-            Filtrar
-          </button>
+          
+          {(filtroNome || filtroPostoGraduacao !== 'Todos' || filtroSituacao !== 'Todas' || filtroCompanhia !== 'Todas' || filtroPelotao !== 'Todos' || filtroTipoVinculo !== 'Todos') && (
+            <button
+              onClick={handleLimpar}
+              className="px-4 py-2.5 text-sm font-semibold rounded-xl border border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50 bg-white transition-all"
+            >
+              Limpar Filtros
+            </button>
+          )}
         </div>
       </div>
 
       {/* Painel de Mais Filtros */}
       {maisFiltrosAberto && (
         <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 flex flex-wrap gap-4">
+          <div className="w-40">
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">Posto/Graduação</label>
+            <select
+              value={filtroPostoGraduacao}
+              onChange={e => setFiltroPostoGraduacao(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-militar-main bg-white"
+            >
+              {POSTOS_GRADUACOES.map(p => <option key={p}>{p}</option>)}
+            </select>
+          </div>
+          <div className="w-40">
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">Situação</label>
+            <select
+              value={filtroSituacao}
+              onChange={e => setFiltroSituacao(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-militar-main bg-white"
+            >
+              {SITUACOES.map(s => <option key={s}>{s}</option>)}
+            </select>
+          </div>
           <div className="w-44">
             <label className="block text-xs font-semibold text-gray-600 mb-1.5">Companhia</label>
             <select
@@ -443,14 +485,14 @@ export function CadastroMilitares() {
                 <span className="text-sm text-gray-600">
                   Total de <strong className="text-gray-900">{militaresFiltrados.length}</strong> militares encontrados
                 </span>
-                {/* Comentário de organização: Botão de exportação da listagem em PDF (todos os militares filtrados) */}
+                {/* Comentário de organização: Botão de exportação da listagem em PDF */}
                 <button
-                  onClick={() => exportarListaMilitaresPDF(militaresFiltrados)}
-                  disabled={militaresFiltrados.length === 0}
+                  onClick={() => setModalExportacaoAberto(true)}
+                  disabled={militaresFiltrados.length === 0 || exportandoVarios}
                   className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white bg-militar-main hover:bg-militar-dark border border-militar-main rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  <Download size={14} />
-                  Exportar PDF
+                  {exportandoVarios ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                  Exportar
                 </button>
               </div>
 
@@ -469,6 +511,14 @@ export function CadastroMilitares() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b-2 border-gray-100">
+                        <th className="py-3 px-3 w-10 text-center">
+                          <input 
+                            type="checkbox" 
+                            onChange={toggleSelectAll} 
+                            checked={selectedIds.length === militaresFiltrados.length && militaresFiltrados.length > 0} 
+                            className="w-4 h-4 rounded border-gray-300 text-militar-main focus:ring-militar-main cursor-pointer" 
+                          />
+                        </th>
                         {['POSTO/GRAD.', 'NOME DE GUERRA', 'IDENTIDADE MIL.', 'CPF', 'SUBUNIDADE', 'SITUAÇÃO', 'AÇÕES'].map(h => (
                           <th key={h} className="text-left py-3 px-3 text-[11px] font-bold text-militar-main uppercase tracking-wider">
                             {h}
@@ -477,11 +527,18 @@ export function CadastroMilitares() {
                       </tr>
                     </thead>
                     <tbody>
-                      {militaresFiltrados.map(row => (
-                        <tr key={row.id} className="border-b border-gray-50 hover:bg-gray-50/70 transition-colors">
+                      {paginatedMilitares.map(row => (
+                        <tr key={row.id} className={`border-b border-gray-50 hover:bg-gray-50/70 transition-colors ${selectedIds.includes(row.id) ? 'bg-militar-main/5' : ''}`}>
+                          <td className="py-3 px-3 text-center">
+                            <input 
+                              type="checkbox" 
+                              checked={selectedIds.includes(row.id)} 
+                              onChange={() => toggleSelectMilitar(row.id)} 
+                              className="w-4 h-4 rounded border-gray-300 text-militar-main focus:ring-militar-main cursor-pointer" 
+                            />
+                          </td>
                           <td className="py-3 px-3 font-medium uppercase text-gray-700">{row.posto}</td>
                           <td className="py-3 px-3">
-                            {/* Comentário de organização: Nome clicável navega para o perfil completo */}
                             <button
                               onClick={() => navigate(`/sgte/militares/${row.id}`)}
                               className="text-militar-main font-semibold hover:underline text-left"
@@ -495,7 +552,6 @@ export function CadastroMilitares() {
                           <td className="py-3 px-3"><SituacaoBadge situacao={row.situacao} /></td>
                           <td className="py-3 px-3">
                             <div className="flex gap-1.5 text-gray-400">
-                              {/* Ver perfil */}
                               <button
                                 title="Ver perfil"
                                 onClick={() => navigate(`/sgte/militares/${row.id}`)}
@@ -503,15 +559,13 @@ export function CadastroMilitares() {
                               >
                                 <Eye size={14} />
                               </button>
-                              {/* Editar */}
                               <button
                                 title="Editar"
-                                onClick={() => handleAbrirEdicao(row)}
+                                onClick={() => navigate(`/sgte/cadastro-militares/editar/${row.id}`)}
                                 className="p-1.5 hover:text-militar-main transition-colors border border-gray-200 rounded-lg hover:border-militar-main/30"
                               >
                                 <Edit2 size={14} />
                               </button>
-                              {/* Excluir */}
                               <button
                                 title="Excluir"
                                 onClick={() => { setDeletandoId(row.id); setDeleteError(''); }}
@@ -540,56 +594,80 @@ export function CadastroMilitares() {
               {loading ? (
                 <div className="flex justify-center py-12"><Loader2 size={20} className="animate-spin text-gray-400" /></div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                  {militaresFiltrados.map(m => (
-                    <div key={m.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-                      {/* Header card verde */}
-                      <div className="bg-gradient-to-r from-militar-dark to-militar-main px-4 py-3 flex items-center justify-between">
-                        <span className="text-white text-xs font-bold uppercase tracking-wider">{m.posto}</span>
-                        <SituacaoBadge situacao={m.situacao} />
-                      </div>
-                      <div className="p-4 space-y-3">
-                        {/* Nome + avatar */}
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-militar-main/10 flex items-center justify-center flex-shrink-0">
-                            <User size={18} className="text-militar-main" />
+                <div className="grid grid-cols-1 gap-4">
+                  {paginatedMilitares.map(m => (
+                    <div key={m.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow flex flex-col md:flex-row">
+                      {/* Comentário de organização: Coluna da foto — exibe imagem ou silhueta */}
+                      <div className="md:w-48 bg-gray-100 flex-shrink-0 relative flex flex-col">
+                        {m.fotoUrl ? (
+                          <img
+                            src={m.fotoUrl}
+                            alt={m.nome}
+                            className="w-full h-full object-cover min-h-[160px] md:min-h-full"
+                            onError={(e) => {
+                              // Comentário de organização: Fallback visual quando a URL da foto é inválida ou inacessível
+                              (e.target as HTMLImageElement).style.display = 'none';
+                              const parent = (e.target as HTMLImageElement).parentElement;
+                              if (parent) {
+                                const placeholder = document.createElement('div');
+                                placeholder.className = 'w-full min-h-[160px] md:min-h-full flex items-center justify-center bg-gray-200 text-gray-400';
+                                placeholder.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+                                parent.appendChild(placeholder);
+                              }
+                            }}
+                          />
+                        ) : (
+                          <div className="w-full h-full min-h-[160px] md:min-h-full flex items-center justify-center bg-gray-200 text-gray-400">
+                            <User size={48} />
                           </div>
+                        )}
+                        <div className="absolute top-2 left-2 bg-gradient-to-r from-militar-dark to-militar-main px-2 py-0.5 rounded shadow-sm">
+                          <span className="text-white text-xs font-bold uppercase tracking-wider">{m.posto}</span>
+                        </div>
+                      </div>
+                      
+                      <div className="p-5 flex-1 flex flex-col">
+                        <div className="flex justify-between items-start mb-4">
                           <div>
                             <button
                               onClick={() => navigate(`/sgte/militares/${m.id}`)}
-                              className="font-bold text-gray-900 hover:text-militar-main transition-colors text-left leading-tight"
+                              className="text-xl font-bold text-gray-900 hover:text-militar-main transition-colors text-left leading-tight"
                             >
                               {m.nomeGuerra || m.nome}
                             </button>
-                            <p className="text-xs text-gray-500">{m.tipoVinculo || '—'}</p>
+                            <p className="text-sm text-gray-500 mt-1">{m.nome} · {m.tipoVinculo || '—'}</p>
                           </div>
+                          <SituacaoBadge situacao={m.situacao} />
                         </div>
-                        {/* Dados pessoais */}
-                        <div className="grid grid-cols-2 gap-2 text-xs">
-                          <div className="bg-gray-50 rounded-lg p-2">
-                            <p className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">CPF</p>
-                            <p className="font-semibold text-gray-700 mt-0.5">{m.cpf || '—'}</p>
-                          </div>
-                          <div className="bg-gray-50 rounded-lg p-2">
-                            <p className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">Identidade</p>
-                            <p className="font-semibold text-gray-700 mt-0.5">{m.identidade || '—'}</p>
-                          </div>
-                          <div className="bg-gray-50 rounded-lg p-2">
-                            <p className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">Companhia</p>
-                            <p className="font-semibold text-gray-700 mt-0.5">{m.companhia || '—'}</p>
-                          </div>
-                          <div className="bg-gray-50 rounded-lg p-2">
-                            <p className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">Pelotão</p>
-                            <p className="font-semibold text-gray-700 mt-0.5">{m.pelotao || '—'}</p>
-                          </div>
+                        
+                        {/* Comentário de organização: Grade com dados militares mais usados no dia a dia
+                            Substituiu os dados civis (Nome Pai, Nome Mãe, Religião, Altura, etc.) pelos
+                            campos operacionais: IDT Militar, Nome de Guerra, Prec CP, Nº Campo Básico,
+                            Nº EBCA, Tipo de Vínculo, Data de Praça e Companhia. */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs mb-4 flex-1">
+                          {[
+                            { label: 'IDT Militar',     value: m.identidade || m.idtMilitar },
+                            { label: 'Nome de Guerra',  value: m.nomeGuerra },
+                            { label: 'Prec CP',         value: m.precCP },
+                            { label: 'Nº Campo Básico', value: m.numeroCampoBasico },
+                            { label: 'Nº EBCA',         value: m.numeroEbca },
+                            { label: 'Tipo Vínculo',    value: m.tipoVinculo },
+                            { label: 'Data de Praça',   value: m.dataPraca ? new Date(m.dataPraca).toLocaleDateString('pt-BR') : '—' },
+                            { label: 'Companhia',       value: m.companhia },
+                          ].map(f => (
+                            <div key={f.label} className="bg-gray-50 rounded-lg p-2">
+                              <p className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">{f.label}</p>
+                              <p className="font-semibold text-gray-700 mt-0.5">{f.value || '—'}</p>
+                            </div>
+                          ))}
                         </div>
-                        {/* Ações */}
-                        <div className="flex gap-2 pt-1 border-t border-gray-100">
-                          <button onClick={() => navigate(`/sgte/militares/${m.id}`)} className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold text-militar-main hover:bg-militar-main/5 rounded-lg transition-colors">
-                            <Eye size={12} /> Ver Perfil
+
+                        <div className="flex gap-2 pt-3 border-t border-gray-100 mt-auto justify-end">
+                          <button onClick={() => navigate(`/sgte/militares/${m.id}`)} className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-militar-main bg-militar-main/5 hover:bg-militar-main/10 rounded-xl transition-colors">
+                            <Eye size={14} /> Ver Perfil
                           </button>
-                          <button onClick={() => handleAbrirEdicao(m)} className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold text-gray-500 hover:bg-gray-50 rounded-lg transition-colors">
-                            <Edit2 size={12} /> Editar
+                          <button onClick={() => navigate(`/sgte/cadastro-militares/editar/${m.id}`)} className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-gray-600 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors border border-gray-200">
+                            <Edit2 size={14} /> Editar
                           </button>
                         </div>
                       </div>
@@ -604,30 +682,47 @@ export function CadastroMilitares() {
           {activeTab === 'situacao' && (
             <div>
               {renderFiltros()}
-              <StaticDataWarning />
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mt-4">
-                {militaresFiltrados.map(m => {
-                  const sf = situacaoFuncionalStatic(m);
+              <div className="grid grid-cols-1 gap-4 mt-4">
+                {paginatedMilitares.map(m => {
                   return (
-                    <div key={m.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-                      <div className="bg-gradient-to-r from-militar-dark to-militar-main px-4 py-3">
-                        <p className="text-white font-bold text-sm">{m.nomeGuerra || m.nome}</p>
-                        <p className="text-white/70 text-xs">{m.posto} · {sf.companhia} · {sf.pelotao}</p>
-                      </div>
-                      <div className="p-4 grid grid-cols-2 gap-2">
-                        {[
-                          { label: 'Função Atual', value: sf.funcao },
-                          { label: 'Cargo', value: sf.cargo },
-                          { label: 'Setor', value: sf.setor },
-                          { label: 'Escala', value: sf.escala },
-                          { label: 'Última Promoção', value: sf.ultimaPromocao },
-                          { label: 'Situação', value: sf.situacaoFuncional },
-                        ].map(f => (
-                          <div key={f.label} className="bg-gray-50 rounded-lg p-2">
-                            <p className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">{f.label}</p>
-                            <p className="font-semibold text-gray-700 mt-0.5 text-xs">{f.value}</p>
+                    <div key={m.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow flex flex-col md:flex-row">
+                      <div className="md:w-40 bg-gray-100 flex-shrink-0 relative flex flex-col">
+                        {m.fotoUrl ? (
+                          <img src={m.fotoUrl} alt={m.nome} className="w-full h-full object-cover min-h-[160px] md:min-h-full" />
+                        ) : (
+                          <div className="w-full h-full min-h-[160px] md:min-h-full flex items-center justify-center bg-gray-200 text-gray-400">
+                            <User size={40} />
                           </div>
-                        ))}
+                        )}
+                        <div className="absolute top-2 left-2 bg-gradient-to-r from-militar-dark to-militar-main px-2 py-0.5 rounded shadow-sm">
+                          <span className="text-white text-xs font-bold uppercase tracking-wider">{m.posto}</span>
+                        </div>
+                      </div>
+                      <div className="p-5 flex-1 flex flex-col">
+                        <div className="flex justify-between items-start mb-4">
+                          <div>
+                            <button onClick={() => navigate(`/sgte/militares/${m.id}`)} className="text-xl font-bold text-gray-900 hover:text-militar-main transition-colors text-left leading-tight">
+                              {m.nomeGuerra || m.nome}
+                            </button>
+                            <p className="text-sm text-gray-500 mt-1">{m.companhia || 'Sem Cia'} · {m.pelotao || 'Sem Pel'}</p>
+                          </div>
+                          <SituacaoBadge situacao={m.situacao} />
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                          {[
+                            { label: 'Posto/Grad (Cargo)', value: m.posto },
+                            { label: 'Situação', value: m.situacao || 'Ativo' },
+                            { label: 'Função Principal', value: m.funcoesEfetivo?.length > 0 ? m.funcoesEfetivo.map((f: any) => f.funcao).join(', ') : 'Sem função' },
+                            { label: 'Seu Substituto', value: m.funcoesEfetivo?.filter((f: any) => f.substituto).map((f: any) => f.substituto).join(', ') || 'Nenhum' },
+                            { label: 'É Substituto De', value: m.funcoesSubstituto?.length > 0 ? m.funcoesSubstituto.map((f: any) => f.efetivo).join(', ') : 'Não' },
+                            { label: 'Status da Função', value: m.funcoesEfetivo?.some((f: any) => f.ativa) ? 'Ativa' : (m.funcoesEfetivo?.length > 0 ? 'Inativa' : '—') },
+                          ].map(f => (
+                            <div key={f.label} className="bg-gray-50 rounded-lg p-2">
+                              <p className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">{f.label}</p>
+                              <p className="font-semibold text-gray-700 mt-0.5">{f.value}</p>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   );
@@ -640,30 +735,47 @@ export function CadastroMilitares() {
           {activeTab === 'documentos' && (
             <div>
               {renderFiltros()}
-              <StaticDataWarning />
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mt-4">
-                {militaresFiltrados.map(m => (
-                  <div key={m.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-                    <div className="bg-gradient-to-r from-militar-dark to-militar-main px-4 py-3">
-                      <p className="text-white font-bold text-sm">{m.nomeGuerra || m.nome}</p>
-                      <p className="text-white/70 text-xs">{m.posto}</p>
-                    </div>
-                    <div className="p-4 space-y-2">
-                      {documentosStatic.map(doc => (
-                        <div key={doc.nome} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
-                          <div className="flex items-center gap-2">
-                            <FileText size={13} className="text-militar-main flex-shrink-0" />
-                            <span className="text-xs font-semibold text-gray-700">{doc.nome}</span>
-                          </div>
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                            doc.status === 'Válido' || doc.status === 'Regular' || doc.status === 'Atualizado'
-                              ? 'bg-green-50 text-green-700'
-                              : 'bg-amber-50 text-amber-700'
-                          }`}>
-                            {doc.status}
-                          </span>
+              <div className="grid grid-cols-1 gap-4 mt-4">
+                {paginatedMilitares.map(m => (
+                  <div key={m.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow flex flex-col md:flex-row">
+                    <div className="md:w-40 bg-gray-100 flex-shrink-0 relative flex flex-col">
+                      {m.fotoUrl ? (
+                        <img src={m.fotoUrl} alt={m.nome} className="w-full h-full object-cover min-h-[160px] md:min-h-full" />
+                      ) : (
+                        <div className="w-full h-full min-h-[160px] md:min-h-full flex items-center justify-center bg-gray-200 text-gray-400">
+                          <User size={40} />
                         </div>
-                      ))}
+                      )}
+                      <div className="absolute top-2 left-2 bg-gradient-to-r from-militar-dark to-militar-main px-2 py-0.5 rounded shadow-sm">
+                        <span className="text-white text-xs font-bold uppercase tracking-wider">{m.posto}</span>
+                      </div>
+                    </div>
+                    <div className="p-5 flex-1 flex flex-col">
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <button onClick={() => navigate(`/sgte/militares/${m.id}`)} className="text-xl font-bold text-gray-900 hover:text-militar-main transition-colors text-left leading-tight">
+                            {m.nomeGuerra || m.nome}
+                          </button>
+                        </div>
+                        <SituacaoBadge situacao={m.situacao} />
+                      </div>
+                      
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs mb-4">
+                        {[
+                          { label: 'Identidade Militar', value: m.identidade },
+                          { label: 'CPF', value: m.cpf },
+                          { label: 'Identidade Civil', value: m.idtCivil },
+                          { label: 'CNH Categoria', value: m.cnh },
+                        ].map(doc => (
+                          <div key={doc.label} className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <FileText size={13} className="text-militar-main" />
+                              <p className="text-gray-500 font-bold uppercase tracking-wider text-[10px]">{doc.label}</p>
+                            </div>
+                            <p className="font-semibold text-gray-800">{doc.value || 'Não informado'}</p>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -676,25 +788,48 @@ export function CadastroMilitares() {
             <div>
               {renderFiltros()}
               <StaticDataWarning />
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mt-4">
-                {militaresFiltrados.map(m => (
-                  <div key={m.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-                    <div className="bg-gradient-to-r from-militar-dark to-militar-main px-4 py-3">
-                      <p className="text-white font-bold text-sm">{m.nomeGuerra || m.nome}</p>
-                      <p className="text-white/70 text-xs">{m.posto} · {dependentesStatic.length} dependente(s)</p>
-                    </div>
-                    <div className="p-4 space-y-2">
-                      {dependentesStatic.map((dep, i) => (
-                        <div key={i} className="flex items-center gap-3 p-2.5 bg-gray-50 rounded-xl">
-                          <div className="w-8 h-8 rounded-lg bg-militar-main/10 flex items-center justify-center flex-shrink-0">
-                            <Users size={14} className="text-militar-main" />
-                          </div>
-                          <div>
-                            <p className="text-xs font-bold text-gray-800">{dep.nome}</p>
-                            <p className="text-[10px] text-gray-500">{dep.parentesco} · Nasc: {dep.nascimento}</p>
-                          </div>
+              <div className="grid grid-cols-1 gap-4 mt-4">
+                {paginatedMilitares.map(m => (
+                  <div key={m.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow flex flex-col md:flex-row">
+                    <div className="md:w-40 bg-gray-100 flex-shrink-0 relative flex flex-col">
+                      {m.fotoUrl ? (
+                        <img src={m.fotoUrl} alt={m.nome} className="w-full h-full object-cover min-h-[160px] md:min-h-full" />
+                      ) : (
+                        <div className="w-full h-full min-h-[160px] md:min-h-full flex items-center justify-center bg-gray-200 text-gray-400">
+                          <User size={40} />
                         </div>
-                      ))}
+                      )}
+                      <div className="absolute top-2 left-2 bg-gradient-to-r from-militar-dark to-militar-main px-2 py-0.5 rounded shadow-sm">
+                        <span className="text-white text-xs font-bold uppercase tracking-wider">{m.posto}</span>
+                      </div>
+                    </div>
+                    <div className="p-5 flex-1 flex flex-col">
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <button onClick={() => navigate(`/sgte/militares/${m.id}`)} className="text-xl font-bold text-gray-900 hover:text-militar-main transition-colors text-left leading-tight">
+                            {m.nomeGuerra || m.nome}
+                          </button>
+                          <p className="text-sm text-gray-500 mt-1">{dependentesStatic.length} dependente(s) cadastrado(s)</p>
+                        </div>
+                        <SituacaoBadge situacao={m.situacao} />
+                      </div>
+                      <div className="flex flex-wrap gap-3">
+                        {dependentesStatic.map((dep, i) => (
+                          <button 
+                            key={i} 
+                            onClick={() => setDependenteSelecionado(dep)}
+                            className="flex items-center gap-3 p-3 bg-gray-50 hover:bg-gray-100 transition-colors rounded-xl border border-gray-200 text-left min-w-[200px]"
+                          >
+                            <div className="w-10 h-10 rounded-lg bg-militar-main/10 flex items-center justify-center flex-shrink-0">
+                              <Users size={18} className="text-militar-main" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold text-gray-800">{dep.nome}</p>
+                              <p className="text-[11px] text-gray-500">{dep.parentesco} · Nasc: {dep.nascimento}</p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -705,7 +840,6 @@ export function CadastroMilitares() {
           {/* ====== ABA: HISTÓRICO ====== */}
           {activeTab === 'historico' && (
             <div>
-              {/* Filtros do histórico */}
               <div className="flex flex-wrap gap-3 mb-5">
                 <div className="flex-1 min-w-[200px]">
                   <label className="block text-xs font-semibold text-gray-600 mb-1.5">Militar</label>
@@ -751,14 +885,12 @@ export function CadastroMilitares() {
                 <div className="space-y-2">
                   {historicoFiltrado.map((h, i) => (
                     <div key={h.id || i} className="flex gap-4 p-4 bg-gray-50 rounded-xl border border-gray-100 hover:bg-gray-100/50 transition-colors">
-                      {/* Ícone de linha do tempo */}
                       <div className="flex-shrink-0 mt-0.5">
                         <div className="w-7 h-7 rounded-full bg-militar-main/10 flex items-center justify-center">
                           <History size={13} className="text-militar-main" />
                         </div>
                       </div>
                       <div className="flex-1 min-w-0">
-                        {/* Descrição da alteração */}
                         <p className="text-sm text-gray-800 leading-snug">
                           <span className="font-bold text-militar-main">
                             {h.data ? new Date(h.data).toLocaleString('pt-BR') : '—'}
@@ -771,7 +903,6 @@ export function CadastroMilitares() {
                           {h.valor_anterior && <> de <span className="italic text-gray-600">"{h.valor_anterior}"</span></>}
                           {h.valor_novo && <> para <span className="italic text-gray-900 font-semibold">"{h.valor_novo}"</span></>}.
                         </p>
-                        {/* Tags de tipo e observação */}
                         <div className="flex items-center gap-2 mt-2">
                           {h.tipo_alteracao && (
                             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-militar-main/10 text-militar-main capitalize">
@@ -790,8 +921,81 @@ export function CadastroMilitares() {
             </div>
           )}
 
+          {/* ── PAGINAÇÃO ────────────────────────────────────────────── */}
+          {!loading && totalPages > 1 && (
+            <div className="flex items-center justify-between p-4 border-t border-gray-200 bg-white rounded-b-xl">
+              <span className="text-sm text-gray-500">
+                Página <span className="font-semibold">{currentPage}</span> de <span className="font-semibold">{totalPages}</span>
+              </span>
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  disabled={currentPage === 1} 
+                  onClick={() => setCurrentPage(p => p - 1)}
+                >
+                  Anterior
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  disabled={currentPage === totalPages} 
+                  onClick={() => setCurrentPage(p => p + 1)}
+                >
+                  Próxima
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* ── MODAL DE DEPENDENTES (ESTÁTICO) ─────────────────────────────────── */}
+      <Modal
+        isOpen={dependenteSelecionado !== null}
+        onClose={() => setDependenteSelecionado(null)}
+        title="Detalhes do Dependente"
+      >
+        {dependenteSelecionado && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-4 bg-gray-50 p-4 rounded-xl border border-gray-100">
+              <div className="w-16 h-16 rounded-full bg-militar-main/10 flex items-center justify-center">
+                <Users size={32} className="text-militar-main" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">{dependenteSelecionado.nome}</h3>
+                <p className="text-sm font-medium text-gray-500">{dependenteSelecionado.parentesco}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-white border border-gray-200 rounded-lg p-3">
+                <p className="text-xs font-bold text-gray-400 uppercase">Data de Nascimento</p>
+                <p className="text-sm font-semibold text-gray-800 mt-1">{dependenteSelecionado.nascimento}</p>
+              </div>
+              <div className="bg-white border border-gray-200 rounded-lg p-3">
+                <p className="text-xs font-bold text-gray-400 uppercase">Idade Atual</p>
+                <p className="text-sm font-semibold text-gray-800 mt-1">10 anos (Estático)</p>
+              </div>
+              <div className="bg-white border border-gray-200 rounded-lg p-3 col-span-2">
+                <p className="text-xs font-bold text-gray-400 uppercase">Documentos Cadastrados</p>
+                <div className="mt-2 space-y-2">
+                  <div className="flex items-center justify-between bg-gray-50 p-2 rounded">
+                    <span className="text-xs font-semibold text-gray-700">Certidão de Nascimento</span>
+                    <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">Anexado</span>
+                  </div>
+                  <div className="flex items-center justify-between bg-gray-50 p-2 rounded">
+                    <span className="text-xs font-semibold text-gray-700">CPF do Dependente</span>
+                    <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-bold">Pendente</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end pt-2">
+              <Button onClick={() => setDependenteSelecionado(null)}>Fechar</Button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* ── MODAL DE CONFIRMAÇÃO DE EXCLUSÃO ────────────────────────────────── */}
       <Modal
@@ -821,6 +1025,74 @@ export function CadastroMilitares() {
               <Trash2 size={14} />
               {deletando ? 'Excluindo...' : 'Sim, Excluir'}
             </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ── MODAL OPÇÕES DE EXPORTAÇÃO PDF ────────────────────────────────── */}
+      <Modal
+        isOpen={modalExportacaoAberto}
+        onClose={() => !exportandoVarios && setModalExportacaoAberto(false)}
+        title="Exportar Perfis"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Você está prestes a exportar <strong>{selectedIds.length > 0 ? selectedIds.length : militaresFiltrados.length}</strong> militar(es). Como deseja exportá-los?
+          </p>
+
+          {selectedIds.length > 0 && (
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 max-h-48 overflow-y-auto mb-4">
+              <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Militares Selecionados</p>
+              <ul className="space-y-1">
+                {militaresFiltrados.filter(m => selectedIds.includes(m.id)).map(m => (
+                  <li key={m.id} className="flex justify-between items-center text-sm text-gray-700 bg-white p-1.5 rounded border border-gray-100">
+                    <span className="truncate pr-2">{m.posto} {m.nomeGuerra || m.nome}</span>
+                    <button 
+                      onClick={() => toggleSelectMilitar(m.id)}
+                      className="text-red-500 hover:bg-red-50 p-1 rounded transition-colors"
+                      title="Remover da exportação"
+                    >
+                      <X size={14} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          
+          <div className="flex flex-col gap-3">
+            <button
+              disabled={exportandoVarios || (selectedIds.length === 0 && militaresFiltrados.length === 0)}
+              onClick={handleExportarPerfisJuntos}
+              className="flex items-center gap-3 p-3 bg-gray-50 border border-gray-200 hover:border-militar-main hover:bg-militar-main/5 rounded-xl transition-all text-left group"
+            >
+              <div className="w-10 h-10 rounded-lg bg-white border border-gray-200 flex items-center justify-center group-hover:border-militar-main/30">
+                <FileText size={20} className="text-gray-500 group-hover:text-militar-main transition-colors" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-gray-800 group-hover:text-militar-main">Juntar todos em um único PDF</p>
+                <p className="text-xs text-gray-500">Gera um PDF consolidado com o perfil de todos os selecionados (um por página).</p>
+              </div>
+            </button>
+            
+            <button
+              disabled={exportandoVarios || (selectedIds.length === 0 && militaresFiltrados.length === 0)}
+              onClick={handleExportarPerfisSeparados}
+              className="flex items-center gap-3 p-3 bg-gray-50 border border-gray-200 hover:border-militar-main hover:bg-militar-main/5 rounded-xl transition-all text-left group"
+            >
+              <div className="w-10 h-10 rounded-lg bg-white border border-gray-200 flex items-center justify-center group-hover:border-militar-main/30">
+                <Users size={20} className="text-gray-500 group-hover:text-militar-main transition-colors" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-gray-800 group-hover:text-militar-main">Baixar arquivos separados</p>
+                <p className="text-xs text-gray-500">Gera a ficha completa de cada militar separadamente (Vários PDFs).</p>
+              </div>
+              {exportandoVarios && <Loader2 size={16} className="animate-spin text-militar-main" />}
+            </button>
+          </div>
+
+          <div className="flex justify-end pt-2">
+            <Button variant="outline" onClick={() => setModalExportacaoAberto(false)} disabled={exportandoVarios}>Cancelar</Button>
           </div>
         </div>
       </Modal>
