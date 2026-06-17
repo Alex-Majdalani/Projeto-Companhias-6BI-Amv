@@ -172,6 +172,10 @@ export class MilitarController {
         situacao: m.situacao || 'Ativo',
         tipo: m.tipo_vinculo || 'Militar Temporário',
         cursosProfissionais: m.especialidades_militar?.cursos_gerais || '',
+        precCP: m.prec_cp || '',
+        numeroCampoBasico: m.numero_campo_basico || '',
+        numeroEbca: m.numero_ebca || '',
+        dataPraca: m.data_praca || '',
         // IDs relacionados para operações de exclusão
         dadosCivilId: typeof m.dados_civil === 'object' ? m.dados_civil?.Id : m.dados_civil,
         enderecoId: typeof m.endereco === 'object' ? m.endereco?.Id : m.endereco,
