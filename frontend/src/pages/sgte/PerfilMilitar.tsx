@@ -278,7 +278,13 @@ export function PerfilMilitar() {
             {/* Info principal */}
             <div className="flex-1 pt-2 md:pt-6">
               <div className="flex flex-wrap items-center gap-2 mb-1">
-                <Badge variant="success">Ativo</Badge>
+                <Badge variant={
+                  perfil.situacao === 'Ativo' ? 'success' :
+                  (perfil.situacao === 'Baixado' || perfil.situacao === 'Afastado' ? 'danger' :
+                  (perfil.situacao === 'Transferido' || perfil.situacao === 'Licença' ? 'warning' : 'default'))
+                }>
+                  {perfil.situacao || 'Ativo'}
+                </Badge>
                 {perfil.tipoVinculo && (
                   <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-2.5 py-0.5 rounded-full">
                     {perfil.tipoVinculo}
