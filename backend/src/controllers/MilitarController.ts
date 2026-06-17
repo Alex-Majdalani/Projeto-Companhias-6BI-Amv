@@ -262,6 +262,8 @@ export class MilitarController {
         religiao: body.religiao || null,
         escolaridade: mapEscolaridade(body.escolaridade),
         cnh_categoria: cnhCategorias.includes('Nenhum') ? null : (cnhCategorias.length > 0 ? cnhCategorias : null),
+        nome_mae: toTitleCase(body.nomeMae || '') || null,
+        nome_pai: toTitleCase(body.nomePai || '') || null,
         // Comentário de organização: URL da foto salva no S3, enviada pelo frontend após upload no momento do submit
         foto_url: body.fotoUrl || null
       };
@@ -338,11 +340,13 @@ export class MilitarController {
       });
 
       // 4. Criar militar no NocoDB vinculando tudo
+      // Comentário de organização: Mapeamento dos novos campos prec_cp, numero_campo_basico e numero_ebca no create
       const militarBody: Record<string, any> = {
         nome_guerra: toTitleCase(body.nomeGuerra || '') || null,
         idt_militar: body.idtMil || body.idtMilitar || null,
-        numero_campo_basico: body.numero ? parseInt(body.numero) : null,
-        numero_ebca: body.numero ? parseInt(body.numero) : null,
+        numero_campo_basico: body.numeroCampoBasico ? parseInt(body.numeroCampoBasico) : null,
+        numero_ebca: body.numeroEbca ? parseInt(body.numeroEbca) : null,
+        prec_cp: body.precCP || null,
         data_praca: body.dataPraca || null,
         turma_formacao: body.turmaFormacao ? parseInt(body.turmaFormacao) : null,
         dados_civil: civil.Id,
@@ -354,6 +358,7 @@ export class MilitarController {
         companhia: companhiaId,
         tipo_vinculo: tipoVinculo || null,
         pelotao: body.pelotao || null,
+        situacao: body.situacao || null,
         periodo_obrigatorio: body.periodoObrigatorio || null
       };
 
@@ -448,6 +453,8 @@ export class MilitarController {
         nomeGuerra: militar.nome_guerra || '',
         postoGraduacao: militar.posto_graduacao || '',
         idtMilitar: militar.idt_militar || '',
+        // Comentário de organização: Mapeamento de precCP no getById
+        precCP: militar.prec_cp || '',
         numeroCampoBasico: militar.numero_campo_basico || '',
         numeroEbca: militar.numero_ebca || '',
         dataPraca: militar.data_praca || '',
@@ -470,9 +477,22 @@ export class MilitarController {
           olhos: dadosCivil.olhos || '',
           cabelos: dadosCivil.cabelos || '',
           religiao: dadosCivil.religiao || '',
+          nomeMae: dadosCivil.nome_mae || '',
+          nomePai: dadosCivil.nome_pai || '',
           escolaridade: dadosCivil.escolaridade || '',
-          cnhCategoria: dadosCivil.cnh_categoria || [],
-          fotoUrl: dadosCivil.foto_url || ''
+          cnhCategoria: typeof dadosCivil.cnh_categoria === 'string'
+            ? dadosCivil.cnh_categoria.split(',').map((s: string) => s.trim())
+            : (Array.isArray(dadosCivil.cnh_categoria) ? dadosCivil.cnh_categoria : []),
+          fotoUrl: Array.isArray(dadosCivil.foto_url) && dadosCivil.foto_url.length > 0
+            ? dadosCivil.foto_url[0].url || dadosCivil.foto_url[0].signedUrl || ''
+            : (typeof dadosCivil.foto_url === 'string' && dadosCivil.foto_url.startsWith('[')
+                ? (() => {
+                    try {
+                      const parsed = JSON.parse(dadosCivil.foto_url);
+                      return parsed[0]?.url || parsed[0]?.signedUrl || '';
+                    } catch { return dadosCivil.foto_url; }
+                  })()
+                : dadosCivil.foto_url || '')
         },
         // Endereço
         endereco: {
@@ -576,6 +596,7 @@ export class MilitarController {
       if (body.nomeGuerra !== undefined)     militarUpdate.nome_guerra      = toTitleCase(body.nomeGuerra || '');
       if (body.postoGraduacao !== undefined) militarUpdate.posto_graduacao  = mapPostoGraduacao(body.postoGraduacao) || body.postoGraduacao;
       if (body.pelotao !== undefined)        militarUpdate.pelotao           = body.pelotao;
+      if (body.situacao !== undefined)       militarUpdate.situacao          = body.situacao;
       if (body.tipoVinculo !== undefined) {
         let tv = body.tipoVinculo;
         if (tv === 'temporario')  tv = 'Militar Temporário';
@@ -588,20 +609,29 @@ export class MilitarController {
       }
       if (body.dataPraca !== undefined)      militarUpdate.data_praca        = body.dataPraca;
       if (body.turmaFormacao !== undefined)  militarUpdate.turma_formacao    = body.turmaFormacao ? parseInt(body.turmaFormacao) : null;
+      // Comentário de organização: Atualização dos novos campos prec_cp, numero_campo_basico e numero_ebca no update
+      if (body.numeroCampoBasico !== undefined) militarUpdate.numero_campo_basico = body.numeroCampoBasico ? parseInt(body.numeroCampoBasico) : null;
+      if (body.numeroEbca !== undefined)        militarUpdate.numero_ebca        = body.numeroEbca ? parseInt(body.numeroEbca) : null;
+      if (body.precCP !== undefined)            militarUpdate.prec_cp            = body.precCP || null;
 
       await nocoRequest(`/tables/${TBL_MILITAR}/records`, {
         method: 'PATCH',
         body: JSON.stringify(militarUpdate)
       });
 
-      // Atualiza nome completo nos dados civis se enviado
-      if (body.nomeCompleto !== undefined) {
+      // Atualiza dados civis vinculados se enviados
+      if (body.nomeCompleto !== undefined || body.nomeMae !== undefined || body.nomePai !== undefined) {
         const militar = await nocoRequest(`/tables/${TBL_MILITAR}/records/${militarId}`);
         const civilId = typeof militar.dados_civil === 'object' ? militar.dados_civil?.Id : militar.dados_civil;
         if (civilId) {
+          const civilUpdate: Record<string, any> = { Id: civilId };
+          if (body.nomeCompleto !== undefined) civilUpdate.nome_completo = toTitleCase(body.nomeCompleto);
+          if (body.nomeMae !== undefined) civilUpdate.nome_mae = toTitleCase(body.nomeMae);
+          if (body.nomePai !== undefined) civilUpdate.nome_pai = toTitleCase(body.nomePai);
+
           await nocoRequest(`/tables/${TBL_CIVIL}/records`, {
             method: 'PATCH',
-            body: JSON.stringify({ Id: civilId, nome_completo: toTitleCase(body.nomeCompleto) })
+            body: JSON.stringify(civilUpdate)
           });
         }
       }
