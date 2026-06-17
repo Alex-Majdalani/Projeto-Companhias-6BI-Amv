@@ -943,7 +943,11 @@ export function CadastroMilitares() {
                           {/* Rodapé */}
                           {h.usuario_responsavel && (
                             <p className="text-xs text-gray-400 mt-1">
-                              Realizado por: <span className="font-medium text-gray-600">{h.usuario_responsavel}</span>
+                              Realizado por: <span className="font-medium text-gray-600">
+                                {typeof h.usuario_responsavel === 'object'
+                                  ? (h.usuario_responsavel.email || JSON.stringify(h.usuario_responsavel))
+                                  : h.usuario_responsavel}
+                              </span>
                             </p>
                           )}
                         </div>
