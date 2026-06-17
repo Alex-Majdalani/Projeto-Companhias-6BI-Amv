@@ -92,6 +92,7 @@ export function CadastroMilitares() {
   const [filtroHistoricoTipo, setFiltroHistoricoTipo] = useState('Todos');
 
   // ── Estado de ações CRUD ──────────────────────────────────────────────────
+  const [logSelecionado, setLogSelecionado] = useState<any | null>(null);
   const [deletandoId, setDeletandoId] = useState<number | null>(null);
   const [deletando, setDeletando] = useState(false);
   const [deleteError, setDeleteError] = useState('');
@@ -166,18 +167,28 @@ export function CadastroMilitares() {
     api.get('/militares/companhias').then(r => setCompanhias(r.data)).catch(() => {});
   }, []);
 
-  // Comentário de organização: Carrega o histórico do backend apenas quando a aba histórico é ativada
+  // Comentário de organização: Estado com debounce para a busca por nome de militar no histórico
+  const [filtroHistoricoMilitarDebounced, setFiltroHistoricoMilitarDebounced] = useState('');
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setFiltroHistoricoMilitarDebounced(filtroHistoricoMilitar);
+    }, 450);
+    return () => clearTimeout(handler);
+  }, [filtroHistoricoMilitar]);
+
+  // Comentário de organização: Carrega o histórico do backend apenas quando a aba histórico é ativada ou filtros mudam
   useEffect(() => {
     if (activeTab !== 'historico') return;
     setLoadingHistorico(true);
     const params = new URLSearchParams();
-    if (filtroHistoricoMilitar) params.set('militar', filtroHistoricoMilitar);
+    if (filtroHistoricoMilitarDebounced) params.set('militar', filtroHistoricoMilitarDebounced);
     if (filtroHistoricoTipo && filtroHistoricoTipo !== 'Todos') params.set('tipo', filtroHistoricoTipo);
     api.get(`/historico${params.toString() ? '?' + params.toString() : ''}`)
       .then(r => setHistorico(r.data))
       .catch(() => setHistorico([]))
       .finally(() => setLoadingHistorico(false));
-  }, [activeTab, filtroHistoricoMilitar, filtroHistoricoTipo]);
+  }, [activeTab, filtroHistoricoMilitarDebounced, filtroHistoricoTipo]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Handlers de filtros
@@ -910,40 +921,49 @@ export function CadastroMilitares() {
                     };
                     const cfg = tipoCfg[h.tipo_alteracao] || { bg: 'bg-gray-100', text: 'text-gray-600', label: h.tipo_alteracao };
                     return (
-                      <div key={h.id || i} className="flex gap-3 p-4 bg-gray-50 rounded-xl border border-gray-100 hover:bg-gray-100/60 transition-colors">
+                      <div
+                        key={h.id || i}
+                        onClick={() => setLogSelecionado(h)}
+                        className="flex gap-4 p-4 bg-white rounded-xl border border-gray-150 shadow-sm hover:border-militar-main/30 hover:shadow-md hover:bg-gray-50/50 cursor-pointer transition-all duration-200"
+                      >
                         {/* Ícone com cor por tipo */}
                         <div className="flex-shrink-0 mt-0.5">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${cfg.bg}`}>
-                            <History size={14} className={cfg.text} />
+                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${cfg.bg}`}>
+                            <History size={16} className={cfg.text} />
                           </div>
                         </div>
                         <div className="flex-1 min-w-0">
                           {/* Linha principal */}
-                          <div className="flex flex-wrap items-center gap-2 mb-1">
-                            <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.text}`}>
-                              {cfg.label}
-                            </span>
-                            {h.militar_envolvido && (
-                              <span className="text-sm font-semibold text-gray-900">{h.militar_envolvido}</span>
-                            )}
-                            <span className="text-xs text-gray-400">
+                          <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+                            <div className="flex items-center gap-2">
+                              <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.text}`}>
+                                {cfg.label}
+                              </span>
+                              {h.militar_envolvido && (
+                                <span className="text-sm font-bold text-gray-900">{h.militar_envolvido}</span>
+                              )}
+                            </div>
+                            <span className="text-xs text-gray-400 font-medium">
                               {h.data ? new Date(h.data).toLocaleString('pt-BR') : '—'}
                             </span>
                           </div>
                           {/* Descrição da ação */}
-                          <p className="text-sm text-gray-700 leading-snug">
-                            {h.campo_alteracao && (
-                              <>
-                                Campo(s): <span className="font-semibold text-gray-900">{h.campo_alteracao}</span>
-                                {h.valor_anterior && <> &bull; Anterior: <span className="italic text-gray-500">{h.valor_anterior}</span></>}
-                                {h.valor_novo     && <> &bull; Novo: <span className="italic font-medium text-gray-800">{h.valor_novo}</span></>}
-                              </>
+                          <div className="text-xs text-gray-600 leading-relaxed">
+                            {h.tipo_alteracao === 'Atualização' ? (
+                              <p className="line-clamp-2">
+                                Alterou: <span className="font-semibold text-gray-800 bg-gray-100 px-1.5 py-0.5 rounded text-[11px]">{h.campo_alteracao || 'Campos'}</span>
+                              </p>
+                            ) : h.tipo_alteracao === 'Criação' ? (
+                              <p className="text-green-700 font-medium">Cadastrou este militar no sistema.</p>
+                            ) : (
+                              <p className="text-red-700 font-medium">Excluiu o registro do militar.</p>
                             )}
-                          </p>
+                          </div>
                           {/* Rodapé */}
                           {h.usuario_responsavel && (
-                            <p className="text-xs text-gray-400 mt-1">
-                              Realizado por: <span className="font-medium text-gray-600">
+                            <p className="text-[10px] text-gray-400 mt-2 flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-gray-300"></span>
+                              Responsável: <span className="font-semibold text-gray-500">
                                 {typeof h.usuario_responsavel === 'object'
                                   ? (h.usuario_responsavel.email || JSON.stringify(h.usuario_responsavel))
                                   : h.usuario_responsavel}
@@ -1194,6 +1214,109 @@ export function CadastroMilitares() {
             </Button>
           </div>
         </div>
+      </Modal>
+
+      {/* ── MODAL DE DETALHES DO HISTÓRICO (DINÂMICO) ─────────────────────────────────── */}
+      <Modal
+        isOpen={logSelecionado !== null}
+        onClose={() => setLogSelecionado(null)}
+        title="Detalhes do Registro de Histórico"
+      >
+        {logSelecionado && (() => {
+          const tipoCfg: Record<string, { bg: string; text: string; label: string }> = {
+            'Criação':    { bg: 'bg-green-50 border-green-200',  text: 'text-green-700',  label: 'Criação' },
+            'Atualização': { bg: 'bg-blue-50 border-blue-200',   text: 'text-blue-700',   label: 'Atualização' },
+            'Exclusão':    { bg: 'bg-red-50 border-red-200',    text: 'text-red-700',    label: 'Exclusão' },
+          };
+          const cfg = tipoCfg[logSelecionado.tipo_alteracao] || { bg: 'bg-gray-50 border-gray-200', text: 'text-gray-700', label: logSelecionado.tipo_alteracao };
+          
+          // Comentário de organização: Parseia os campos alterados, valor anterior e valor novo se for do tipo 'Atualização'
+          const parserCampos = (logSelecionado.campo_alteracao || '').split(',').map((c: string) => c.trim()).filter(Boolean);
+          const parserOlds = (logSelecionado.valor_anterior || '').split('|').map((o: string) => o.trim()).filter(Boolean);
+          const parserNews = (logSelecionado.valor_novo || '').split('|').map((n: string) => n.trim()).filter(Boolean);
+
+          const alteracoesGrid = parserCampos.map((campo: string, idx: number) => {
+            // Busca o texto correspondente a esse campo nas strings
+            const rawOld = parserOlds.find((o: string) => o.startsWith(`${campo}:`));
+            const oldVal = rawOld ? rawOld.replace(`${campo}:`, '').trim() : '—';
+            
+            const rawNew = parserNews.find((n: string) => n.startsWith(`${campo}:`));
+            const newVal = rawNew ? rawNew.replace(`${campo}:`, '').trim() : '—';
+
+            return { campo, oldVal, newVal };
+          });
+
+          return (
+            <div className="space-y-4">
+              <div className={`p-4 rounded-xl border flex items-center justify-between ${cfg.bg}`}>
+                <div>
+                  <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white border shadow-sm ${cfg.text}`}>
+                    {cfg.label}
+                  </span>
+                  <h3 className="text-base font-bold text-gray-900 mt-2">{logSelecionado.militar_envolvido || 'Militar não identificado'}</h3>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-gray-400 font-medium">Data / Hora</p>
+                  <p className="text-sm font-semibold text-gray-700 mt-0.5">
+                    {logSelecionado.data ? new Date(logSelecionado.data).toLocaleString('pt-BR') : '—'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 space-y-2.5">
+                <div className="flex justify-between items-center text-xs text-gray-500">
+                  <span>Realizado por:</span>
+                  <span className="font-semibold text-gray-700">
+                    {typeof logSelecionado.usuario_responsavel === 'object'
+                      ? (logSelecionado.usuario_responsavel.email || JSON.stringify(logSelecionado.usuario_responsavel))
+                      : logSelecionado.usuario_responsavel || 'Sistema'}
+                  </span>
+                </div>
+              </div>
+
+              {logSelecionado.tipo_alteracao === 'Atualização' && alteracoesGrid.length > 0 ? (
+                <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm bg-white">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50 border-b border-gray-200 text-gray-600 font-bold">
+                        <th className="p-3">Campo Alterado</th>
+                        <th className="p-3">Valor Anterior</th>
+                        <th className="p-3">Novo Valor</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-150">
+                      {alteracoesGrid.map((item: any, idx: number) => (
+                        <tr key={idx} className="hover:bg-gray-50/50">
+                          <td className="p-3 font-semibold text-gray-800">{item.campo}</td>
+                          <td className="p-3 text-red-600 line-through bg-red-50/20 italic">{item.oldVal}</td>
+                          <td className="p-3 text-green-700 font-semibold bg-green-50/10">{item.newVal}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : logSelecionado.tipo_alteracao === 'Exclusão' ? (
+                <div className="p-4 bg-red-50 border border-red-100 text-red-800 rounded-xl text-xs flex flex-col gap-1.5">
+                  <p className="font-bold">Informações da exclusão:</p>
+                  <p className="leading-relaxed font-medium bg-white/70 p-2.5 rounded border border-red-200/50">
+                    {logSelecionado.valor_anterior || 'Registro completo do militar foi excluído do sistema.'}
+                  </p>
+                </div>
+              ) : (
+                <div className="p-4 bg-green-50 border border-green-100 text-green-800 rounded-xl text-xs flex flex-col gap-1.5">
+                  <p className="font-bold">Informações de criação:</p>
+                  <p className="leading-relaxed font-medium bg-white/70 p-2.5 rounded border border-green-200/50">
+                    Militar cadastrado no sistema com sucesso.
+                  </p>
+                </div>
+              )}
+
+              <div className="flex justify-end pt-3">
+                <Button variant="outline" onClick={() => setLogSelecionado(null)}>Fechar Detalhes</Button>
+              </div>
+            </div>
+          );
+        })()}
       </Modal>
     </div>
   );
