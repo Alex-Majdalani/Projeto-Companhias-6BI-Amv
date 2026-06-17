@@ -46,6 +46,42 @@ function formatShortDate(dateStr: string): string {
   return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : dateStr;
 }
 
+// Função utilitária para renderizar o nome completo do militar destacando em negrito e com sublinhado apenas as palavras do Nome de Guerra
+function renderMilitarName(militar: any) {
+  const nomeCompleto = militar.nome_completo || militar.nome || '';
+  const nomeGuerra = militar.nome_guerra || '';
+
+  if (!nomeGuerra) {
+    return <span className="font-bold text-gray-900">{nomeCompleto}</span>;
+  }
+
+  // Divide o nome de guerra em palavras individuais e escapa caracteres especiais
+  const words = nomeGuerra.split(/\s+/).filter((w: string) => w.trim().length > 0);
+  if (words.length === 0) {
+    return <span className="font-bold text-gray-900">{nomeCompleto}</span>;
+  }
+
+  const escapedWords = words.map((w: string) => w.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'));
+  const regex = new RegExp(`(${escapedWords.join('|')})`, 'gi');
+  const parts = nomeCompleto.split(regex);
+
+  return (
+    <span>
+      {parts.map((part: string, index: number) => 
+        regex.test(part) ? (
+          <strong key={index} className="font-bold text-militar-main underline decoration-2 decoration-militar-light">
+            {part}
+          </strong>
+        ) : (
+          <span key={index} className="font-bold text-gray-500">
+            {part}
+          </span>
+        )
+      )}
+    </span>
+  );
+}
+
 export function Atendimentos() {
   const [visitas, setVisitas] = useState<VisitaMedica[]>([]);
   const [medicos, setMedicos] = useState<Medico[]>([]);
@@ -158,8 +194,13 @@ export function Atendimentos() {
 
   const handlePGChange = (pg: string) => {
     setSelectedPG(pg);
-    setMilitarId(null);
-    setSearchMilitar('');
+    if (militarId) {
+      const selectedMilitar = militares.find(m => m.id === militarId);
+      if (selectedMilitar && selectedMilitar.posto !== pg) {
+        setMilitarId(null);
+        setSearchMilitar('');
+      }
+    }
   };
 
   const handleCsdToggle = (item: string) => {
@@ -550,12 +591,15 @@ export function Atendimentos() {
                         onMouseDown={() => {
                           handleMilitarSearchChange(`${m.posto} ${m.nome}`);
                           setMilitarId(m.id);
+                          setSelectedPG(m.posto);
                           setShowMilitarSuggestions(false);
                         }}
-                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm flex justify-between items-center"
                       >
-                        <span className="text-gray-400 mr-2 text-xs font-semibold">{m.posto}</span>
-                        {m.nome_completo || m.nome}
+                        <span>
+                          <span className="text-gray-400 mr-2 text-xs font-semibold uppercase">{m.posto}</span>
+                          {renderMilitarName(m)}
+                        </span>
                       </div>
                     ))}
                 </div>
