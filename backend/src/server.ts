@@ -8,6 +8,7 @@ import { agendaRoutes } from './routes/agenda.routes';
 import { feriasRoutes } from './routes/ferias.routes';
 import { funcaoRoutes } from './routes/funcao.routes';
 import { fatdRoutes } from './routes/fatd.routes';
+import { atendimentoRoutes } from './routes/atendimento.routes';
 
 const app = express();
 
@@ -32,6 +33,9 @@ app.use('/api/ferias', feriasRoutes);
 
 // Define o prefixo '/api/funcoes' e vincula as rotas de funções da cia
 app.use('/api/funcoes', funcaoRoutes);
+
+// Define o prefixo '/api/atendimentos' e vincula as rotas de atendimentos
+app.use('/api/atendimentos', atendimentoRoutes);
 
 // Define a porta do servidor, priorizando a variável de ambiente PORT ou caindo na 3333 por padrão
 const PORT = process.env.PORT || 3333;

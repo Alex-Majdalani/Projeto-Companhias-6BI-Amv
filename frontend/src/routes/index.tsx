@@ -22,22 +22,10 @@ import { PlanoChamada } from '../pages/sgte/PlanoChamada';
 import { Engajamento } from '../pages/sgte/Engajamento';
 import { EscalaServico } from '../pages/sgte/EscalaServico';
 import { Punicoes } from '../pages/sgte/Punicoes';
+import { Atendimentos } from '../pages/sgte/Atendimentos';
 
 /**
- * AppRoutes — Configuração central de rotas da aplicação.
- *
- * Estrutura:
- *  - Rotas públicas (/login, /cadastro): Acessíveis sem autenticação.
- *    Se o usuário JÁ estiver autenticado e tentar acessar /login,
- *    é redirecionado para / (Home).
- *
- *  - Rotas privadas (/ e todas as subrotas /sgte/*): Protegidas pelo
- *    componente <PrivateRoute />, que redireciona para /login se o usuário
- *    não estiver autenticado ou o token JWT for inválido/expirado.
- *
- * Durante o carregamento inicial (enquanto o AuthContext verifica o token
- * no localStorage), exibe uma tela de carregamento simples para evitar
- * o "flash" de conteúdo redirecionando incorretamente para /login.
+ * AppRoutes — Centraliza a configuração de rotas da aplicação.
  */
 export function AppRoutes() {
   const { signed, loading } = useContext(AuthContext);
@@ -106,6 +94,7 @@ export function AppRoutes() {
           <Route path="/sgte/engajamento" element={<Engajamento />} />
           <Route path="/sgte/escala" element={<EscalaServico />} />
           <Route path="/sgte/punicoes" element={<Punicoes />} />
+          <Route path="/sgte/atendimentos" element={<Atendimentos />} />
         </Route>
       </Route>
 
