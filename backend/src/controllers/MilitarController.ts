@@ -154,7 +154,8 @@ export class MilitarController {
         subunidade: m.companhia?.Companhia || '',
         situacao: 'Ativo',
         tipo: m.tipo_vinculo || 'Militar Temporário',
-        cursosProfissionais: m.especialidades_militar?.cursos_gerais || ''
+        cursosProfissionais: m.especialidades_militar?.cursos_gerais || '',
+        pelotao: m.pelotao || ''
       }));
 
       return res.status(200).json(formatados);

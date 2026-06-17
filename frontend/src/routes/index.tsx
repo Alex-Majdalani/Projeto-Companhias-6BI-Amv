@@ -23,6 +23,7 @@ import { Engajamento } from '../pages/sgte/Engajamento';
 import { EscalaServico } from '../pages/sgte/EscalaServico';
 import { Punicoes } from '../pages/sgte/Punicoes';
 import { Atendimentos } from '../pages/sgte/Atendimentos';
+import { Baixados } from '../pages/sgte/Baixados';
 
 /**
  * AppRoutes — Centraliza a configuração de rotas da aplicação.
@@ -95,6 +96,7 @@ export function AppRoutes() {
           <Route path="/sgte/escala" element={<EscalaServico />} />
           <Route path="/sgte/punicoes" element={<Punicoes />} />
           <Route path="/sgte/atendimentos" element={<Atendimentos />} />
+          <Route path="/sgte/baixados" element={<Baixados />} />
         </Route>
       </Route>
 

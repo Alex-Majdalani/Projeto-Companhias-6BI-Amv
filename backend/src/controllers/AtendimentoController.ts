@@ -108,7 +108,8 @@ export class AtendimentoController {
         baixado,
         motivoBaixa,
         dataRetorno,
-        csd
+        csd,
+        outroCsd
       } = req.body;
 
       if (!militarId || !motivoVisita || !dataVisita || !medicoResponsavel || !baixado) {
@@ -125,7 +126,8 @@ export class AtendimentoController {
         baixado,
         motivoBaixa,
         dataRetorno,
-        csd
+        csd,
+        outroCsd
       });
 
       return res.status(201).json({ message: 'Atendimento médico registrado com sucesso!', data: newVisita });
@@ -142,6 +144,51 @@ export class AtendimentoController {
       }
       await AtendimentoService.deleteVisita(id);
       return res.status(204).send();
+    } catch (error: any) {
+      return res.status(500).json({ error: error.message });
+    }
+  }
+
+  static async updateVisita(req: Request, res: Response) {
+    try {
+      const id = Number(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'ID inválido.' });
+      }
+
+      const {
+        militarId,
+        motivoVisita,
+        dataVisita,
+        medicoResponsavel,
+        parecerMedico,
+        obs,
+        baixado,
+        motivoBaixa,
+        dataRetorno,
+        csd,
+        outroCsd
+      } = req.body;
+
+      if (!militarId || !motivoVisita || !dataVisita || !medicoResponsavel || !baixado) {
+        return res.status(400).json({ error: 'Todos os campos obrigatórios devem ser preenchidos.' });
+      }
+
+      const updated = await AtendimentoService.updateVisita(id, {
+        militarId: Number(militarId),
+        motivoVisita,
+        dataVisita,
+        medicoResponsavel,
+        parecerMedico: parecerMedico || '',
+        obs: obs || '',
+        baixado,
+        motivoBaixa,
+        dataRetorno,
+        csd,
+        outroCsd
+      });
+
+      return res.status(200).json({ message: 'Atendimento médico atualizado com sucesso!', data: updated });
     } catch (error: any) {
       return res.status(500).json({ error: error.message });
     }

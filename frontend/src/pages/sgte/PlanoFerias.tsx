@@ -764,11 +764,11 @@ export function PlanoFerias() {
 
   const columns: any[] = [
     { 
-      header: 'P/G Nome completo', 
+      header: 'P/G Nome de guerra', 
       accessor: (row: VacationPlan) => {
         const mil = militares.find(m => m.id === row.militarId);
         if (mil) {
-          return `${mil.posto} ${mil.nome}`;
+          return `${mil.posto} ${mil.nome_guerra || mil.nome}`;
         }
         return row.nomeMilitar;
       }

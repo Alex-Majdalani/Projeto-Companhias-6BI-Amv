@@ -98,6 +98,7 @@ export class AtendimentoService {
           pgMilitar: formattedPg || 'N/A',
           nomeCompletoMilitar: mil?.nome_completo || mil?.nome_guerra || '',
           nomeGuerraMilitar: mil?.nome_guerra || '',
+          motivoVisita: v.motivo_visita || '',
           dataVisita: v.data_visita || '',
           baixado: v.baixado || 'Não',
           medicoResponsavel: v.medico_responsavel || '',
@@ -108,7 +109,8 @@ export class AtendimentoService {
             motivo: bx.motivo || '',
             dataInicio: bx.data_inicio || '',
             dataRetorno: bx.data_retorno || '',
-            csd: Array.isArray(bx.csd) ? bx.csd : (bx.csd ? bx.csd.split(',').map((s: string) => s.trim()).filter(Boolean) : [])
+            csd: Array.isArray(bx.csd) ? bx.csd : (bx.csd ? bx.csd.split(',').map((s: string) => s.trim()).filter(Boolean) : []),
+            outroCsd: bx.outro_csd || ''
           } : null
         };
       });
@@ -129,6 +131,7 @@ export class AtendimentoService {
     motivoBaixa?: string;
     dataRetorno?: string;
     csd?: string[];
+    outroCsd?: string;
   }) {
     try {
       // 1. Criar a Visita Médica
@@ -142,40 +145,54 @@ export class AtendimentoService {
       });
       const visitaId = visitaRes.data.Id || visitaRes.data.id;
 
-      // 2. Vincular o Militar à Visita Médica
-      if (data.militarId) {
-        await api.post(`/api/v2/tables/${VISITAS_TABLE_ID}/links/${LINK_VISITA_MILITAR}/records/${visitaId}`, {
-          Id: data.militarId
-        });
-      }
-
-      // 3. Se for baixado, cria o registro de baixa e faz os vínculos
-      if (data.baixado === 'Sim') {
-        const baixaRes = await api.post(`/api/v2/tables/${BAIXADOS_TABLE_ID}/records`, {
-          motivo: data.motivoBaixa || '',
-          data_inicio: data.dataVisita,
-          data_retorno: data.dataRetorno || null,
-          csd: data.csd || []
-        });
-        const baixaId = baixaRes.data.Id || baixaRes.data.id;
-
-        // Vincular Militar ao Baixado
+      try {
+        // 2. Vincular o Militar à Visita Médica
         if (data.militarId) {
-          await api.post(`/api/v2/tables/${BAIXADOS_TABLE_ID}/links/${LINK_BAIXADO_MILITAR}/records/${baixaId}`, {
+          await api.post(`/api/v2/tables/${VISITAS_TABLE_ID}/links/${LINK_VISITA_MILITAR}/records/${visitaId}`, {
             Id: data.militarId
           });
         }
 
-        // Vincular Visita ao Baixado
-        await api.post(`/api/v2/tables/${VISITAS_TABLE_ID}/links/${LINK_VISITA_BAIXADO}/records/${visitaId}`, {
-          Id: baixaId
-        });
+        // 3. Se for baixado, cria o registro de baixa e faz os vínculos
+        if (data.baixado === 'Sim') {
+          const baixaRes = await api.post(`/api/v2/tables/${BAIXADOS_TABLE_ID}/records`, {
+            motivo: data.motivoBaixa || '',
+            data_inicio: data.dataVisita,
+            data_retorno: data.dataRetorno || null,
+            csd: data.csd || [],
+            outro_csd: data.outroCsd || '',
+            cuamzdho9faz65j: data.outroCsd || ''
+          });
+          const baixaId = baixaRes.data.Id || baixaRes.data.id;
+
+          // Vincular Militar ao Baixado
+          if (data.militarId) {
+            await api.post(`/api/v2/tables/${BAIXADOS_TABLE_ID}/links/${LINK_BAIXADO_MILITAR}/records/${baixaId}`, {
+              Id: data.militarId
+            });
+          }
+
+          // Vincular Visita ao Baixado
+          await api.post(`/api/v2/tables/${VISITAS_TABLE_ID}/links/${LINK_VISITA_BAIXADO}/records/${visitaId}`, {
+            Id: baixaId
+          });
+        }
+      } catch (innerError: any) {
+        // Remove a visita criada se houver falha subsequente para garantir a atomicidade
+        try {
+          await api.delete(`/api/v2/tables/${VISITAS_TABLE_ID}/records`, {
+            data: [{ Id: visitaId }]
+          });
+        } catch (delError) {
+          console.error('[AtendimentoService] Erro ao deletar visita órfã após falha:', delError);
+        }
+        throw innerError;
       }
 
       return visitaRes.data;
     } catch (error: any) {
       console.error('[AtendimentoService] Erro ao criar visita médica:', error?.response?.data || error.message);
-      throw new Error('Não foi possível salvar o atendimento médico.');
+      throw new Error(error?.response?.data?.msg || error?.response?.data?.message || 'Não foi possível salvar o atendimento médico.');
     }
   }
 
@@ -203,6 +220,122 @@ export class AtendimentoService {
     } catch (error: any) {
       console.error('[AtendimentoService] Erro ao excluir visita médica:', error?.response?.data || error.message);
       throw new Error('Não foi possível excluir o atendimento médico.');
+    }
+  }
+
+  static async updateVisita(id: number, data: {
+    militarId: number;
+    motivoVisita: string;
+    dataVisita: string;
+    medicoResponsavel: string;
+    parecerMedico: string;
+    obs: string;
+    baixado: 'Sim' | 'Não';
+    motivoBaixa?: string;
+    dataRetorno?: string;
+    csd?: string[];
+    outroCsd?: string;
+  }) {
+    try {
+      // 1. Obter a visita atual para ver relações antigas
+      const currentRes = await api.get(`/api/v2/tables/${VISITAS_TABLE_ID}/records/${id}`);
+      const current = currentRes.data;
+      const oldMilitarId = current.militar?.Id || current.militar?.id || null;
+      const oldBaixadoId = current.baixado1?.Id || current.baixado1?.id || null;
+
+      // 2. Atualizar a visita
+      const visitaRes = await api.patch(`/api/v2/tables/${VISITAS_TABLE_ID}/records`, {
+        Id: id,
+        motivo_visita: data.motivoVisita,
+        data_visita: data.dataVisita,
+        baixado: data.baixado,
+        medico_responsavel: data.medicoResponsavel,
+        parecer_medico: data.parecerMedico,
+        obs: data.obs
+      });
+
+      // 3. Atualizar vínculo de militar
+      if (Number(data.militarId) !== Number(oldMilitarId)) {
+        if (oldMilitarId) {
+          try {
+            await api.delete(`/api/v2/tables/${VISITAS_TABLE_ID}/links/${LINK_VISITA_MILITAR}/records/${id}`, {
+              data: { Id: oldMilitarId }
+            });
+          } catch (e) {}
+        }
+        if (data.militarId) {
+          await api.post(`/api/v2/tables/${VISITAS_TABLE_ID}/links/${LINK_VISITA_MILITAR}/records/${id}`, {
+            Id: data.militarId
+          });
+        }
+      }
+
+      // 4. Atualizar afastamento (baixa)
+      if (data.baixado === 'Sim') {
+        if (oldBaixadoId) {
+          // Atualiza baixa existente
+          await api.patch(`/api/v2/tables/${BAIXADOS_TABLE_ID}/records`, {
+            Id: oldBaixadoId,
+            motivo: data.motivoBaixa || '',
+            data_inicio: data.dataVisita,
+            data_retorno: data.dataRetorno || null,
+            csd: data.csd || [],
+            outro_csd: data.outroCsd || '',
+            cuamzdho9faz65j: data.outroCsd || ''
+          });
+
+          // Atualiza vínculo do militar na baixa se mudou
+          if (Number(data.militarId) !== Number(oldMilitarId)) {
+            if (oldMilitarId) {
+              try {
+                await api.delete(`/api/v2/tables/${BAIXADOS_TABLE_ID}/links/${LINK_BAIXADO_MILITAR}/records/${oldBaixadoId}`, {
+                  data: { Id: oldMilitarId }
+                });
+              } catch (e) {}
+            }
+            if (data.militarId) {
+              await api.post(`/api/v2/tables/${BAIXADOS_TABLE_ID}/links/${LINK_BAIXADO_MILITAR}/records/${oldBaixadoId}`, {
+                Id: data.militarId
+              });
+            }
+          }
+        } else {
+          // Cria nova baixa e vincula
+          const baixaRes = await api.post(`/api/v2/tables/${BAIXADOS_TABLE_ID}/records`, {
+            motivo: data.motivoBaixa || '',
+            data_inicio: data.dataVisita,
+            data_retorno: data.dataRetorno || null,
+            csd: data.csd || [],
+            outro_csd: data.outroCsd || '',
+            cuamzdho9faz65j: data.outroCsd || ''
+          });
+          const baixaId = baixaRes.data.Id || baixaRes.data.id;
+
+          if (data.militarId) {
+            await api.post(`/api/v2/tables/${BAIXADOS_TABLE_ID}/links/${LINK_BAIXADO_MILITAR}/records/${baixaId}`, {
+              Id: data.militarId
+            });
+          }
+
+          await api.post(`/api/v2/tables/${VISITAS_TABLE_ID}/links/${LINK_VISITA_BAIXADO}/records/${id}`, {
+            Id: baixaId
+          });
+        }
+      } else {
+        // Se baixado = Não, remove a baixa anterior se existir
+        if (oldBaixadoId) {
+          try {
+            await api.delete(`/api/v2/tables/${BAIXADOS_TABLE_ID}/records`, {
+              data: [{ Id: oldBaixadoId }]
+            });
+          } catch (e) {}
+        }
+      }
+
+      return visitaRes.data;
+    } catch (error: any) {
+      console.error('[AtendimentoService] Erro ao atualizar visita médica:', error?.response?.data || error.message);
+      throw new Error('Não foi possível atualizar o atendimento médico.');
     }
   }
 

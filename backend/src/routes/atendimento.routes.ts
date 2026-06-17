@@ -9,6 +9,7 @@ atendimentoRoutes.patch('/medicos/:id', AtendimentoController.updateMedico);
 atendimentoRoutes.delete('/medicos/:id', AtendimentoController.deleteMedico);
 atendimentoRoutes.get('/visitas', AtendimentoController.listVisitas);
 atendimentoRoutes.post('/visitas', AtendimentoController.createVisita);
+atendimentoRoutes.patch('/visitas/:id', AtendimentoController.updateVisita);
 atendimentoRoutes.delete('/visitas/:id', AtendimentoController.deleteVisita);
 
 export { atendimentoRoutes };

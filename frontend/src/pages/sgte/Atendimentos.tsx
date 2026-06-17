@@ -6,7 +6,7 @@ import { DataTable } from '../../components/ui/DataTable';
 import type { Column } from '../../components/ui/DataTable';
 import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
-import { Plus, Search, Trash2, HeartPulse, ShieldAlert, AlertCircle, Edit2 } from 'lucide-react';
+import { Plus, Search, Trash2, HeartPulse, ShieldAlert, AlertCircle, Edit2, XCircle } from 'lucide-react';
 import { api } from '../../services/api';
 
 interface Medico {
@@ -21,6 +21,7 @@ interface VisitaMedica {
   pgMilitar: string;
   nomeCompletoMilitar: string;
   nomeGuerraMilitar: string;
+  motivoVisita: string;
   dataVisita: string;
   baixado: 'Sim' | 'Não';
   medicoResponsavel: string;
@@ -32,6 +33,7 @@ interface VisitaMedica {
     dataInicio: string;
     dataRetorno: string;
     csd: string[];
+    outroCsd?: string;
   } | null;
 }
 
@@ -134,7 +136,10 @@ export function Atendimentos() {
   const [diasBaixado, setDiasBaixado] = useState<string>('');
   const [dataRetorno, setDataRetorno] = useState('');
   const [csd, setCsd] = useState<string[]>([]);
+  const [outroCsdChecked, setOutroCsdChecked] = useState(false);
+  const [outroCsdText, setOutroCsdText] = useState('');
   const [isSavingVisita, setIsSavingVisita] = useState(false);
+  const [editingVisitaId, setEditingVisitaId] = useState<number | null>(null);
 
   // Exclusão
   const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null);
@@ -314,9 +319,14 @@ export function Atendimentos() {
       return;
     }
 
+    if (baixado === 'Sim' && outroCsdChecked && !outroCsdText.trim()) {
+      alert('Escreva o tipo de dispensa para a opção Outro.');
+      return;
+    }
+
     setIsSavingVisita(true);
     try {
-      await api.post('/atendimentos/visitas', {
+      const payload = {
         militarId,
         motivoVisita,
         dataVisita,
@@ -326,21 +336,86 @@ export function Atendimentos() {
         baixado,
         motivoBaixa,
         dataRetorno,
-        csd
-      });
-      alert('Atendimento médico registrado com sucesso!');
+        csd,
+        outroCsd: outroCsdChecked ? outroCsdText.trim() : ''
+      };
+
+      if (editingVisitaId) {
+        await api.patch(`/atendimentos/visitas/${editingVisitaId}`, payload);
+        alert('Atendimento médico updated com sucesso!');
+      } else {
+        await api.post('/atendimentos/visitas', payload);
+        alert('Atendimento médico registrado com sucesso!');
+      }
       setIsVisitaModalOpen(false);
       resetVisitaForm();
       loadData();
     } catch (err: any) {
       console.error(err);
-      alert('Erro ao registrar atendimento médico.');
+      alert(err.response?.data?.error || 'Erro ao registrar atendimento médico.');
     } finally {
       setIsSavingVisita(false);
     }
   };
 
+  const handleStartEditVisita = (row: VisitaMedica) => {
+    setEditingVisitaId(row.id);
+    setMilitarId(row.militarId);
+    
+    const mil = militares.find(m => m.id === row.militarId);
+    if (mil) {
+      setSearchMilitar(`${mil.posto} ${mil.nome}`);
+      setSelectedPG(mil.posto);
+    } else {
+      setSearchMilitar(row.nomeCompletoMilitar || '');
+      setSelectedPG(row.pgMilitar || '');
+    }
+    
+    setMotivoVisita(row.motivoVisita);
+    setDataVisita(row.dataVisita ? row.dataVisita.split('T')[0] : '');
+    setMedicoResponsavel(row.medicoResponsavel);
+    setParecerMedico(row.parecerMedico);
+    setObs(row.obs);
+    setBaixado(row.baixado);
+    
+    if (row.baixado === 'Sim' && row.baixadoInfo) {
+      setMotivoBaixa(row.baixadoInfo.motivo);
+      setDataRetorno(row.baixadoInfo.dataRetorno ? row.baixadoInfo.dataRetorno.split('T')[0] : '');
+      
+      const savedCsd = row.baixadoInfo.csd || [];
+      const standardOptions = ['TFM', 'Formatura', 'Serviço'];
+      const currentStandard = savedCsd.filter(x => standardOptions.includes(x));
+      const currentOutro = savedCsd.find(x => !standardOptions.includes(x));
+      
+      setCsd(currentStandard);
+      if (currentOutro) {
+        setOutroCsdChecked(true);
+        setOutroCsdText(currentOutro);
+      } else {
+        setOutroCsdChecked(false);
+        setOutroCsdText('');
+      }
+      
+      if (row.baixadoInfo.dataRetorno && row.dataVisita) {
+        const diffTime = new Date(row.baixadoInfo.dataRetorno + 'T12:00:00').getTime() - new Date(row.dataVisita + 'T12:00:00').getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        if (diffDays > 0) {
+          setDiasBaixado(String(diffDays));
+        }
+      }
+    } else {
+      setMotivoBaixa('');
+      setDiasBaixado('');
+      setDataRetorno('');
+      setCsd([]);
+      setOutroCsdChecked(false);
+      setOutroCsdText('');
+    }
+    setIsVisitaModalOpen(true);
+  };
+
   const resetVisitaForm = () => {
+    setEditingVisitaId(null);
     setMilitarId(null);
     setSearchMilitar('');
     setSelectedPG('');
@@ -354,6 +429,8 @@ export function Atendimentos() {
     setDiasBaixado('');
     setDataRetorno('');
     setCsd([]);
+    setOutroCsdChecked(false);
+    setOutroCsdText('');
   };
 
   const handleDelete = async () => {
@@ -373,6 +450,12 @@ export function Atendimentos() {
   };
 
   // Filtros
+  const handleClearFilters = () => {
+    setSearchTerm('');
+    setBaixadoFilter('Todos');
+    setMedicoFilter('Todos');
+  };
+
   const filteredVisitas = visitas.filter(v => {
     const matchesSearch = 
       v.nomeGuerraMilitar.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -392,15 +475,15 @@ export function Atendimentos() {
 
   const columns: Column<VisitaMedica>[] = [
     { 
-      header: 'P/G NOME COMPLETO', 
+      header: 'P/G NOME DE GUERRA', 
       accessor: (row: VisitaMedica) => {
         const mil = militares.find(m => m.id === row.militarId);
         const rawPg = mil ? mil.posto : row.pgMilitar;
         const formattedPg = PG_FORMAT_MAP[rawPg.toLowerCase()] || rawPg.toUpperCase();
-        const nomeCompleto = mil ? (mil.nome_completo || mil.nome) : row.nomeCompletoMilitar;
+        const nomeGuerra = mil ? (mil.nome_guerra || mil.nome) : row.nomeGuerraMilitar;
         return (
           <span className="font-semibold text-gray-900">
-            {formattedPg} {nomeCompleto}
+            {formattedPg} {nomeGuerra}
           </span>
         );
       }
@@ -428,6 +511,13 @@ export function Atendimentos() {
       header: 'Ações',
       accessor: (row: VisitaMedica) => (
         <div className="flex gap-2 text-gray-400" onClick={(e) => e.stopPropagation()}>
+          <button 
+            onClick={() => handleStartEditVisita(row)}
+            className="p-1 hover:text-militar-main transition-colors border border-gray-200 rounded"
+            title="Editar Registro"
+          >
+            <Edit2 size={15} />
+          </button>
           <button 
             onClick={() => setDeleteTargetId(row.id)}
             className="p-1 hover:text-red-500 transition-colors border border-gray-200 rounded"
@@ -481,11 +571,14 @@ export function Atendimentos() {
                   </div>
                   <div className="text-sm">
                     <span className="text-gray-600 font-medium">Dispensa:</span>{' '}
-                    {row.baixadoInfo.csd.length > 0 ? (
+                    {(row.baixadoInfo.csd.length > 0 || row.baixadoInfo.outroCsd) ? (
                       <div className="flex flex-wrap gap-1.5 mt-1">
                         {row.baixadoInfo.csd.map(c => (
                           <Badge key={c} variant="warning">{c}</Badge>
                         ))}
+                        {row.baixadoInfo.outroCsd && (
+                          <Badge variant="warning">{row.baixadoInfo.outroCsd}</Badge>
+                        )}
                       </div>
                     ) : (
                       <strong className="text-gray-400 italic">Nenhuma dispensa selecionada</strong>
@@ -552,6 +645,16 @@ export function Atendimentos() {
               ))}
             </Select>
           </div>
+          {(searchTerm || baixadoFilter !== 'Todos' || medicoFilter !== 'Todos') && (
+            <Button 
+              variant="outline" 
+              onClick={handleClearFilters}
+              className="flex items-center gap-1.5 h-10 border-red-200 hover:border-red-300 text-red-600 hover:text-red-700 hover:bg-red-50/50"
+            >
+              <XCircle size={15} />
+              Limpar Filtros
+            </Button>
+          )}
         </div>
 
         <div className="overflow-x-auto">
@@ -639,7 +742,7 @@ export function Atendimentos() {
       </Modal>
 
       {/* Modal: Nova Visita */}
-      <Modal isOpen={isVisitaModalOpen} onClose={() => !isSavingVisita && setIsVisitaModalOpen(false)} title="Registrar Nova Visita Médica" size="lg">
+      <Modal isOpen={isVisitaModalOpen} onClose={() => !isSavingVisita && setIsVisitaModalOpen(false)} title={editingVisitaId ? "Editar Visita Médica" : "Registrar Nova Visita Médica"} size="lg">
         <form onSubmit={handleSaveVisita} className="space-y-4">
           <div className="grid grid-cols-3 gap-4">
             {/* Combobox de P/G */}
@@ -815,8 +918,8 @@ export function Atendimentos() {
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Convém ser dispensado de:</label>
-                <div className="flex gap-4">
-                  {['TFM', 'Formatura', 'Serviço', 'Atividade Fisica'].map((item) => {
+                <div className="flex flex-wrap gap-4 items-center mb-3">
+                  {['TFM', 'Formatura', 'Serviço'].map((item) => {
                     const isChecked = csd.includes(item);
                     return (
                       <label key={item} className="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-700">
@@ -831,7 +934,28 @@ export function Atendimentos() {
                       </label>
                     );
                   })}
+                  <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={outroCsdChecked}
+                      onChange={() => !isSavingVisita && setOutroCsdChecked(!outroCsdChecked)}
+                      className="w-4 h-4 text-militar-main border-gray-300 rounded focus:ring-militar-light focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      disabled={isSavingVisita}
+                    />
+                    Outro
+                  </label>
                 </div>
+
+                {outroCsdChecked && (
+                  <div className="animate-filters">
+                    <Input 
+                      placeholder="Descreva o tipo de dispensa..." 
+                      value={outroCsdText}
+                      onChange={(e) => setOutroCsdText(e.target.value)}
+                      disabled={isSavingVisita}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -839,7 +963,7 @@ export function Atendimentos() {
           <div className="flex justify-end gap-2 pt-4 border-t border-gray-100">
             <Button type="button" variant="outline" onClick={() => { setIsVisitaModalOpen(false); resetVisitaForm(); }} disabled={isSavingVisita}>Cancelar</Button>
             <Button type="submit" disabled={isSavingVisita}>
-              {isSavingVisita ? 'Gravando...' : 'Gravar Atendimento'}
+              {isSavingVisita ? 'Gravando...' : (editingVisitaId ? 'Salvar Alterações' : 'Gravar Atendimento')}
             </Button>
           </div>
         </form>
