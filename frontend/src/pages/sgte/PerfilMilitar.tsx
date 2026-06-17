@@ -245,17 +245,11 @@ export function PerfilMilitar() {
           <div className="absolute inset-0 opacity-10"
             style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,.05) 10px, rgba(255,255,255,.05) 20px)' }}
           />
-          {/* Label de posto no banner */}
-          <div className="absolute top-4 right-6">
-            <span className="text-white/80 text-xs font-bold uppercase tracking-widest border border-white/30 px-3 py-1 rounded-full bg-white/10">
-              {perfil.postoGraduacao || '—'}
-            </span>
-          </div>
         </div>
 
         {/* Corpo do hero */}
         <div className="px-8 pb-6 relative z-10">
-          <div className="flex flex-col md:flex-row md:items-end gap-6 -mt-16">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 -mt-16">
 
             {/* FOTO — maior */}
             <div className="relative flex-shrink-0">
@@ -270,14 +264,15 @@ export function PerfilMilitar() {
                 )}
               </div>
               {/* Indicador de status ativo */}
-              <span className="absolute -bottom-1.5 -right-1.5 w-6 h-6 rounded-full bg-green-500 border-[3px] border-white shadow-md flex items-center justify-center" title="Ativo">
-                <span className="w-2 h-2 rounded-full bg-white" />
-              </span>
+              {perfil.situacao === 'Ativo' && (
+                <div className="absolute bottom-2 right-2 w-4 h-4 bg-green-500 border-2 border-white rounded-full shadow-sm ring-2 ring-green-100"></div>
+              )}
             </div>
 
-            {/* Info principal */}
-            <div className="flex-1 pt-2 md:pt-6">
-              <div className="flex flex-wrap items-center gap-2 mb-1">
+            {/* Info do lado direito: Posto - Nome de Guerra e Badges */}
+            {/* Info do lado direito: Posto - Nome de Guerra e Badges */}
+            <div className="flex flex-col items-start md:items-end pb-2 mt-4 md:mt-0">
+              <div className="flex flex-wrap items-center gap-2 mb-3 md:justify-end">
                 <Badge variant={
                   perfil.situacao === 'Ativo' ? 'success' :
                   (perfil.situacao === 'Baixado' || perfil.situacao === 'Afastado' ? 'danger' :
@@ -286,29 +281,30 @@ export function PerfilMilitar() {
                   {perfil.situacao || 'Ativo'}
                 </Badge>
                 {perfil.tipoVinculo && (
-                  <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-2.5 py-0.5 rounded-full">
+                  <span className="flex items-center gap-1.5 text-xs font-bold text-gray-700 bg-white border border-gray-200 px-3 py-1 rounded-full shadow-sm">
+                    <Shield size={12} className="text-gray-400" />
                     {perfil.tipoVinculo}
                   </span>
                 )}
                 {perfil.turmaFormacao && (
-                  <span className="text-xs font-semibold text-militar-main bg-green-50 border border-green-200 px-2.5 py-0.5 rounded-full">
+                  <span className="flex items-center gap-1.5 text-xs font-bold text-militar-dark bg-green-50 border border-green-200 px-3 py-1 rounded-full shadow-sm">
+                    <BookOpen size={12} className="text-militar-main" />
                     Turma {perfil.turmaFormacao}
                   </span>
                 )}
               </div>
+              
+              <span className="text-lg md:text-xl font-bold text-gray-800 bg-gray-50/80 backdrop-blur px-4 py-1.5 rounded-xl border border-gray-200 shadow-sm uppercase">
+                {perfil.postoGraduacao} - {perfil.nomeGuerra}
+              </span>
+            </div>
+          </div>
 
-              {/* Comentário de organização: Nome completo como título principal do hero card */}
-              <h1 className="text-xl md:text-2xl font-extrabold text-gray-900 leading-tight" title={nomeTitulo}>
-                {nomeTitulo}
-              </h1>
-
-              {/* Comentário de organização: Linha de posto + nome de guerra (só exibe nome de guerra se diferente do nome completo) */}
-              <p className="text-base text-militar-main font-bold mt-0.5">
-                {perfil.postoGraduacao || '—'}
-                {mostrarNomeGuerra && (
-                  <span className="text-gray-400 font-normal text-sm"> · {nomeGuerra}</span>
-                )}
-              </p>
+          {/* NOME COMPLETO E CHIPS (Linha de baixo) */}
+          <div className="mt-6">
+            <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900 leading-tight">
+              {nomeTitulo}
+            </h1>
 
               {/* Chips de info rápida */}
               <div className="flex flex-wrap gap-2 mt-3">
