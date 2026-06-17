@@ -292,7 +292,7 @@ export function PerfilMilitar() {
               </div>
 
               {/* Comentário de organização: Nome completo como título principal do hero card com limitador de linha */}
-              <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900 leading-tight line-clamp-1" title={nomeTitulo}>
+              <h1 className="text-xl md:text-2xl font-extrabold text-gray-900 leading-tight truncate" title={nomeTitulo}>
                 {nomeTitulo}
               </h1>
 
@@ -503,6 +503,10 @@ export function PerfilMilitar() {
               <DetailField label="Cabelos" value={perfil.dadosCivil?.cabelos} />
               <DetailField label="Religião" value={perfil.dadosCivil?.religiao} />
               <DetailField label="Escolaridade" value={perfil.dadosCivil?.escolaridade} />
+              <div className="col-span-2 md:col-span-4 grid grid-cols-1 md:grid-cols-2 gap-3 mt-2 pt-2 border-t border-gray-100">
+                <DetailField label="Nome da Mãe" value={perfil.dadosCivil?.nomeMae} />
+                <DetailField label="Nome do Pai" value={perfil.dadosCivil?.nomePai} />
+              </div>
             </div>
           </Section>
         </div>
