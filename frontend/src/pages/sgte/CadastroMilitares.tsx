@@ -911,69 +911,73 @@ export function CadastroMilitares() {
                   <p className="text-xs mt-1">As ações realizadas nos militares aparecerão aqui.</p>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  {historicoFiltrado.map((h, i) => {
-                    // Define cor e rótulo do badge pelo tipo de ação
-                    const tipoCfg: Record<string, { bg: string; text: string; label: string }> = {
-                      'Criação':    { bg: 'bg-green-100',  text: 'text-green-700',  label: 'Criação' },
-                      'Atualização': { bg: 'bg-blue-100',   text: 'text-blue-700',   label: 'Atualização' },
-                      'Exclusão':    { bg: 'bg-red-100',    text: 'text-red-700',    label: 'Exclusão' },
-                    };
-                    const cfg = tipoCfg[h.tipo_alteracao] || { bg: 'bg-gray-100', text: 'text-gray-600', label: h.tipo_alteracao };
-                    return (
-                      <div
-                        key={h.id || i}
-                        onClick={() => setLogSelecionado(h)}
-                        className="flex gap-4 p-4 bg-white rounded-xl border border-gray-150 shadow-sm hover:border-militar-main/30 hover:shadow-md hover:bg-gray-50/50 cursor-pointer transition-all duration-200"
-                      >
-                        {/* Ícone com cor por tipo */}
-                        <div className="flex-shrink-0 mt-0.5">
-                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${cfg.bg}`}>
-                            <History size={16} className={cfg.text} />
-                          </div>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          {/* Linha principal */}
-                          <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
-                            <div className="flex items-center gap-2">
-                              <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.text}`}>
-                                {cfg.label}
-                              </span>
-                              {h.militar_envolvido && (
-                                <span className="text-sm font-bold text-gray-900">{h.militar_envolvido}</span>
-                              )}
-                            </div>
-                            <span className="text-xs text-gray-400 font-medium">
-                              {h.data ? new Date(h.data).toLocaleString('pt-BR') : '—'}
-                            </span>
-                          </div>
-                          {/* Descrição da ação */}
-                          <div className="text-xs text-gray-600 leading-relaxed">
-                            {h.tipo_alteracao === 'Atualização' ? (
-                              <p className="line-clamp-2">
-                                Alterou: <span className="font-semibold text-gray-800 bg-gray-100 px-1.5 py-0.5 rounded text-[11px]">{h.campo_alteracao || 'Campos'}</span>
-                              </p>
-                            ) : h.tipo_alteracao === 'Criação' ? (
-                              <p className="text-green-700 font-medium">Cadastrou este militar no sistema.</p>
-                            ) : (
-                              <p className="text-red-700 font-medium">Excluiu o registro do militar.</p>
-                            )}
-                          </div>
-                          {/* Rodapé */}
-                          {h.usuario_responsavel && (
-                            <p className="text-[10px] text-gray-400 mt-2 flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-gray-300"></span>
-                              Responsável: <span className="font-semibold text-gray-500">
-                                {typeof h.usuario_responsavel === 'object'
-                                  ? (h.usuario_responsavel.email || JSON.stringify(h.usuario_responsavel))
-                                  : h.usuario_responsavel}
-                              </span>
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm border-collapse">
+                      <thead>
+                        <tr className="bg-gray-50 border-b border-gray-200 text-gray-600 font-semibold text-xs">
+                          <th className="p-4 whitespace-nowrap">Data / Hora</th>
+                          <th className="p-4 whitespace-nowrap">Ação</th>
+                          <th className="p-4">Militar Envolvido</th>
+                          <th className="p-4">Detalhes</th>
+                          <th className="p-4">Responsável</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {historicoFiltrado.map((h, i) => {
+                          const tipoCfg: Record<string, { bg: string; text: string; label: string }> = {
+                            'Criação':    { bg: 'bg-green-100',  text: 'text-green-700',  label: 'Criação' },
+                            'Atualização': { bg: 'bg-blue-100',   text: 'text-blue-700',   label: 'Atualização' },
+                            'Exclusão':    { bg: 'bg-red-100',    text: 'text-red-700',    label: 'Exclusão' },
+                          };
+                          const cfg = tipoCfg[h.tipo_alteracao] || { bg: 'bg-gray-100', text: 'text-gray-600', label: h.tipo_alteracao };
+                          
+                          return (
+                            <tr
+                              key={h.id || i}
+                              onClick={() => setLogSelecionado(h)}
+                              className="hover:bg-gray-50/50 cursor-pointer transition-colors group"
+                            >
+                              <td className="p-4 text-xs font-medium text-gray-500 whitespace-nowrap group-hover:text-militar-main transition-colors">
+                                {h.data ? new Date(h.data).toLocaleString('pt-BR') : '—'}
+                              </td>
+                              <td className="p-4 whitespace-nowrap">
+                                <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md ${cfg.bg} ${cfg.text}`}>
+                                  {cfg.label}
+                                </span>
+                              </td>
+                              <td className="p-4 font-semibold text-gray-800">
+                                {h.militar_envolvido || '—'}
+                              </td>
+                              <td className="p-4 text-xs text-gray-600">
+                                {h.tipo_alteracao === 'Atualização' ? (
+                                  <span className="bg-gray-100 px-2 py-1 rounded text-gray-700 font-medium line-clamp-1">
+                                    Alterou: {h.campo_alteracao || 'Campos'}
+                                  </span>
+                                ) : h.tipo_alteracao === 'Criação' ? (
+                                  <span className="text-green-700 font-medium">Novo registro</span>
+                                ) : (
+                                  <span className="text-red-700 font-medium">Registro removido</span>
+                                )}
+                              </td>
+                              <td className="p-4 text-xs font-medium text-gray-500">
+                                <div className="flex items-center gap-1.5">
+                                  <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-[9px] font-bold text-gray-600">
+                                    {(typeof h.usuario_responsavel === 'object' ? h.usuario_responsavel.email?.[0] : h.usuario_responsavel?.[0]) || 'S'}
+                                  </div>
+                                  <span className="truncate max-w-[120px]">
+                                    {typeof h.usuario_responsavel === 'object'
+                                      ? (h.usuario_responsavel.email || JSON.stringify(h.usuario_responsavel))
+                                      : h.usuario_responsavel || 'Sistema'}
+                                  </span>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
             </div>
@@ -1235,7 +1239,7 @@ export function CadastroMilitares() {
           const parserOlds = (logSelecionado.valor_anterior || '').split('|').map((o: string) => o.trim()).filter(Boolean);
           const parserNews = (logSelecionado.valor_novo || '').split('|').map((n: string) => n.trim()).filter(Boolean);
 
-          const alteracoesGrid = parserCampos.map((campo: string, idx: number) => {
+          const alteracoesGrid = parserCampos.map((campo: string) => {
             // Busca o texto correspondente a esse campo nas strings
             const rawOld = parserOlds.find((o: string) => o.startsWith(`${campo}:`));
             const oldVal = rawOld ? rawOld.replace(`${campo}:`, '').trim() : '—';

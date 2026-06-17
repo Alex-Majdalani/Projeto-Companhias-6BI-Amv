@@ -40,21 +40,24 @@ async function registrarLog(opts: {
   campo_alteracao: string;
   valor_anterior?: string;
   valor_novo?: string;
-  usuario_responsavel?: string;
-  militar_envolvido?: string;
+  usuario_responsavel?: string | number;
+  militar_envolvido?: string | number;
 }) {
   try {
+    const payload: any = {
+      tipo_alteracao: opts.tipo_alteracao,
+      campo_alterado: opts.campo_alteracao, // O NocoDB utiliza "campo_alterado"
+      valor_anterior: opts.valor_anterior || '',
+      valor_novo: opts.valor_novo || '',
+      data: new Date().toISOString(),
+    };
+
+    if (opts.usuario_responsavel) payload.usuario_responsavel = opts.usuario_responsavel;
+    if (opts.militar_envolvido) payload.militar_envolvido = opts.militar_envolvido;
+
     await nocoRequest(`/tables/${TBL_HISTORICO_LOGS}/records`, {
       method: 'POST',
-      body: JSON.stringify({
-        tipo_alteracao: opts.tipo_alteracao,
-        campo_alteracao: opts.campo_alteracao,
-        valor_anterior: opts.valor_anterior || '',
-        valor_novo: opts.valor_novo || '',
-        usuario_responsavel: opts.usuario_responsavel || 'Sistema',
-        militar_envolvido: opts.militar_envolvido || '',
-        data: new Date().toISOString(),
-      })
+      body: JSON.stringify(payload)
     });
   } catch (logErr) {
     // Log de historico nunca deve quebrar o fluxo principal
@@ -612,7 +615,7 @@ export class MilitarController {
   static async delete(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const militarId = parseInt(id);
+      const militarId = parseInt(id as string);
 
       if (isNaN(militarId)) {
         return res.status(400).json({ error: 'ID inválido.' });
@@ -668,7 +671,7 @@ export class MilitarController {
   static async update(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const militarId = parseInt(id);
+      const militarId = parseInt(id as string);
 
       if (isNaN(militarId)) {
         return res.status(400).json({ error: 'ID inválido.' });
@@ -771,12 +774,10 @@ export class MilitarController {
         }
 
         // Tratamento de CNH
-        let cnhValue: string[] | null = null;
+        let cnhValue: string[] | string | null = null;
         if (body.cnhCategoria !== undefined) {
-          if (Array.isArray(body.cnhCategoria)) {
-            cnhValue = body.cnhCategoria.filter((c: string) => c !== 'Nenhum');
-            if (cnhValue.length === 0) cnhValue = null;
-          }
+          cnhValue = Array.isArray(body.cnhCategoria) ? body.cnhCategoria.join(', ') : body.cnhCategoria;
+          if (typeof cnhValue === 'string' && cnhValue.length === 0) cnhValue = null;
         }
 
         const civilUpdate: Record<string, any> = { Id: civilId };
@@ -928,8 +929,8 @@ export class MilitarController {
           campo_alteracao: camposAlterados.join(', '),
           valor_anterior: valoresAnteriores.join(' | '),
           valor_novo: valoresNovos.join(' | '),
-          usuario_responsavel: body.usuarioResponsavel || req.headers['x-usuario'] as string || 'Sistema',
-          militar_envolvido: nomeGuerraAtual,
+          usuario_responsavel: body.usuarioResponsavelId || (req as any).user?.id || req.headers['x-usuario'] as string,
+          militar_envolvido: militarId,
         });
       }
 

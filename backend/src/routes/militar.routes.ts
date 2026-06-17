@@ -11,6 +11,7 @@ militarRoutes.post('/', MilitarController.create);
 militarRoutes.get('/:id', MilitarController.getById);
 // Comentário de organização: Rota para atualizar dados de um militar
 militarRoutes.put('/:id', MilitarController.update);
+militarRoutes.patch('/:id', MilitarController.update);
 // Comentário de organização: Rota para excluir um militar e seus dados relacionados
 militarRoutes.delete('/:id', MilitarController.delete);
 

@@ -57,15 +57,41 @@ export class HistoricoController {
       );
 
       // Comentário de organização: Mapeia as colunas reais do banco para o formato do frontend
-      const registros = (data.list || []).map((h: any) => ({
-        id: h.Id,
-        campo_alteracao: h.campo_alteracao || h.campo_alterado || '—',
-        valor_anterior: h.valor_anterior || '',
-        valor_novo: h.valor_novo || '',
-        tipo_alteracao: h.tipo_alteracao || '',
-        data: h.data || h.criado_em || '',
-        usuario_responsavel: h.usuario_responsavel || '',
-        militar_envolvido: h.militar_envolvido || '',
+      // Busca militares para enriquecer o M2M com nomes
+      const militaresRes = await nocoRequest(`/m5bfeui27vdb3rx/records?limit=1000`);
+      const militaresMap = new Map();
+      if (militaresRes && militaresRes.list) {
+        militaresRes.list.forEach((m: any) => {
+          militaresMap.set(m.Id, m.nome_guerra || m.nome_completo || `ID ${m.Id}`);
+        });
+      }
+
+      const registros = await Promise.all((data.list || []).map(async (h: any) => {
+        let militarStr = h.militar_envolvido || '';
+        
+        // Se for um M2M array contendo o ID do militar, podemos mapear para o nome
+        if (h._nc_m2m_historico_logs_militares && h._nc_m2m_historico_logs_militares.length > 0) {
+           const milId = h._nc_m2m_historico_logs_militares[0].militares_id;
+           militarStr = militaresMap.get(milId) || `ID ${milId}`;
+        } else if (typeof h.militar_envolvido === 'object' && h.militar_envolvido !== null) {
+           militarStr = h.militar_envolvido.nome_guerra || h.militar_envolvido.nome_completo || `ID ${h.militar_envolvido.Id}`;
+        }
+
+        let usuarioStr = h.usuario_responsavel || '';
+        if (typeof h.usuario_responsavel === 'object' && h.usuario_responsavel !== null) {
+           usuarioStr = h.usuario_responsavel.email || h.usuario_responsavel.nome_completo || `ID ${h.usuario_responsavel.Id}`;
+        }
+
+        return {
+          id: h.Id,
+          campo_alteracao: h.campo_alteracao || h.campo_alterado || '—',
+          valor_anterior: h.valor_anterior || '',
+          valor_novo: h.valor_novo || '',
+          tipo_alteracao: h.tipo_alteracao || '',
+          data: h.data || h.criado_em || '',
+          usuario_responsavel: usuarioStr,
+          militar_envolvido: militarStr,
+        };
       }));
 
       res.status(200).json(registros);
@@ -87,22 +113,23 @@ export class HistoricoController {
       } = req.body;
 
       // Comentário de organização: Cria o registro usando os nomes reais das colunas do banco
-      const body = {
-        campo_alteracao:     campo_alteracao     || '',
+      const payload: any = {
+        campo_alterado:      campo_alteracao     || '',
         valor_anterior:      valor_anterior      || '',
         valor_novo:          valor_novo          || '',
         tipo_alteracao:      tipo_alteracao      || 'Atualização',
-        usuario_responsavel: usuario_responsavel || '',
-        militar_envolvido:   militar_envolvido   || '',
         data:                new Date().toISOString(),
       };
 
+      if (usuario_responsavel) payload.usuario_responsavel = usuario_responsavel;
+      if (militar_envolvido) payload.militar_envolvido = militar_envolvido;
+
       const created = await nocoRequest(`/${TBL_HISTORICO}/records`, {
         method: 'POST',
-        body: JSON.stringify(body)
+        body: JSON.stringify(payload)
       });
 
-      res.status(201).json({ id: created.Id, ...body });
+      res.status(201).json({ id: created.Id, ...payload });
     } catch (error: any) {
       console.error('[HistoricoController] Erro ao criar registro de histórico:', error);
       res.status(500).json({ error: error.message || 'Erro ao registrar no histórico.' });

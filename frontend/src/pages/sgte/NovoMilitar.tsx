@@ -100,45 +100,38 @@ export function NovoMilitar() {
   const [companhias, setCompanhias] = useState<{ id: number; companhia: string }[]>([]);
   const [showYearScroll, setShowYearScroll] = useState(false);
 
-  // Estados e funções de upload da foto
+  // Estados para upload da foto
+  // O arquivo é guardado localmente e só enviado ao S3 quando o formulário for submetido
+  const [fotoFile, setFotoFile] = useState<File | null>(null);
+  const [fotoPreviewUrl, setFotoPreviewUrl] = useState<string>('');
   const [fotoUrl, setFotoUrl] = useState<string>('');
   const [uploading, setUploading] = useState<boolean>(false);
   const [uploadError, setUploadError] = useState<string>('');
 
-  const handleFotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Comentário de organização: Apenas armazena o arquivo localmente e gera um preview,
+  // sem fazer nenhuma chamada ao S3 neste momento
+  const handleFotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setUploading(true);
-    setUploadError('');
+    setFotoFile(file);
     setFotoUrl('');
+    setUploadError('');
 
-    const formDataObj = new FormData();
-    formDataObj.append('foto', file);
-
-    try {
-      const response = await api.post('/upload', formDataObj, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-
-      if (response.data?.url) {
-        setFotoUrl(response.data.url);
-      }
-    } catch (err: any) {
-      console.error('Erro ao fazer upload da foto:', err);
-      setUploadError(err.response?.data?.error || 'Erro ao enviar foto para o servidor.');
-    } finally {
-      setUploading(false);
-    }
+    // Gera URL temporária de preview local (sem envio ao servidor)
+    const localPreview = URL.createObjectURL(file);
+    setFotoPreviewUrl(localPreview);
   };
 
   const [formData, setFormData] = useState({
     postoGraduacao: '',
-    numero: '',
+    // Comentário de organização: Novos campos de número divididos e precCP
+    numeroEbca: '',
+    numeroCampoBasico: '',
+    precCP: '',
     nomeGuerra: '',
     tipoMilitar: 'Militar Temporário',
+    situacao: 'Ativo',
     periodoObrigatorio: '',
     secaoCompanhia: '',
     dataPraca: '',
@@ -317,60 +310,8 @@ export function NovoMilitar() {
     setLoading(true);
     setError('');
 
-    // Dicionário de campos obrigatórios com nomes legíveis
-    const requiredFields: Record<string, string> = {
-      postoGraduacao: 'Posto/Graduação (P/G)',
-      nomeGuerra: 'Nome de Guerra',
-      tipoMilitar: 'Tipo',
-      periodoObrigatorio: 'Período Obrigatório',
-      secaoCompanhia: 'Companhia',
-      pelotao: 'Pelotão',
-      dataPraca: 'Data de Praça',
-      turmaFormacao: 'Turma de Formação',
-      nomeCompleto: 'Nome Completo',
-      dataNascimento: 'Data de Nascimento',
-      cpf: 'CPF',
-      altura: 'Altura',
-      tipoSanguineo: 'Tipo Sanguíneo (TS)',
-      fatorRh: 'Fator RH',
-      cutis: 'Cútis',
-      olhos: 'Olhos',
-      cabelos: 'Cabelos',
-      religiao: 'Religião',
-      nomePai: 'Nome do Pai',
-      nomeMae: 'Nome da Mãe',
-      escolaridade: 'Escolaridade',
-      cnhCategoria: 'CNH Categorias',
-      resideCom: 'Reside com',
-      cep: 'CEP',
-      rua: 'Rua / Logradouro',
-      numeroResidencial: 'Número do Endereço',
-      bairro: 'Bairro',
-      cidade: 'Cidade',
-      uf: 'Estado (UF)',
-      telefoneCelular: 'Telefone de Contato',
-      telefoneEmergencia: 'Telefone de Emergência',
-      nomeEmergencia: 'Nome para Emergência',
-      grauParentesco: 'Grau de Parentesco'
-    };
-
-    const missing: string[] = [];
-    Object.entries(requiredFields).forEach(([key, label]) => {
-      const val = (formData as any)[key];
-      if (Array.isArray(val)) {
-        if (val.length === 0) {
-          missing.push(label);
-        }
-      } else if (!val || String(val).trim() === '') {
-        missing.push(label);
-      }
-    });
-
-    if (missing.length > 0) {
-      setError(`Preenchimento obrigatório: os seguintes campos estão em branco ou incompletos: ${missing.join(', ')}.`);
-      setLoading(false);
-      return;
-    }
+    // Comentário de organização: Validação de obrigatoriedade desativada para fins de teste.
+    // Todos os campos são opcionais neste momento.
 
     // Validação de Envio para Altura (Impede envio de inteiros como "1" ou "2")
     if (formData.altura) {
@@ -442,7 +383,34 @@ export function NovoMilitar() {
       return;
     }
 
-    // Preparar payload normalizando campos
+    // Comentário de organização: Se há um arquivo de foto selecionado, faz o upload
+    // para o S3 agora (no momento do submit) e captura a URL retornada
+    let uploadedFotoUrl = '';
+    if (fotoFile) {
+      setUploading(true);
+      setUploadError('');
+      const formDataObj = new FormData();
+      formDataObj.append('foto', fotoFile);
+      try {
+        const uploadRes = await api.post('/upload', formDataObj, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        if (uploadRes.data?.url) {
+          uploadedFotoUrl = uploadRes.data.url;
+          setFotoUrl(uploadedFotoUrl);
+        }
+      } catch (err: any) {
+        console.error('Erro ao fazer upload da foto:', err);
+        setUploadError(err.response?.data?.error || 'Erro ao enviar foto para o S3.');
+        setLoading(false);
+        setUploading(false);
+        return;
+      } finally {
+        setUploading(false);
+      }
+    }
+
+    // Preparar payload normalizando campos e incluindo a URL da foto
     const payload = {
       ...formData,
       nomeCompleto: toTitleCase(formData.nomeCompleto),
@@ -457,7 +425,9 @@ export function NovoMilitar() {
       cutis: formData.cutis,
       olhos: formData.olhos,
       cabelos: formData.cabelos,
-      resideCom: formData.resideCom.join(', ')
+      resideCom: formData.resideCom.join(', '),
+      // Comentário de organização: URL da foto no S3 para salvar em dados_civil.foto_url
+      fotoUrl: uploadedFotoUrl
     };
 
     try {
@@ -538,11 +508,26 @@ export function NovoMilitar() {
             <option value="sdep">SD EP</option>
             <option value="sdev">SD EV</option>
           </Select>
+          {/* Comentário de organização: Substituição do campo único de número pelos campos divididos de número (EBCA/Campo) e adição de Prec CP */}
           <Input
-            label="Número"
-            name="numero"
-            placeholder="Ex: 123"
-            value={formData.numero}
+            label="Prec CP"
+            name="precCP"
+            placeholder="Ex: 123456789"
+            value={formData.precCP}
+            onChange={handleChange}
+          />
+          <Input
+            label="Número EBCA"
+            name="numeroEbca"
+            placeholder="Ex: 45"
+            value={formData.numeroEbca}
+            onChange={handleChange}
+          />
+          <Input
+            label="Número Campo"
+            name="numeroCampoBasico"
+            placeholder="Ex: 58"
+            value={formData.numeroCampoBasico}
             onChange={handleChange}
           />
           <Input
@@ -562,6 +547,21 @@ export function NovoMilitar() {
           >
             <option value="Militar Temporário">Militar Temporário</option>
             <option value="Militar de Carreira">Militar de Carreira</option>
+          </Select>
+
+          <Select
+            label="Situação"
+            name="situacao"
+            value={formData.situacao}
+            onChange={handleChange}
+            required
+          >
+            <option value="Ativo">Ativo</option>
+            <option value="Baixado">Baixado</option>
+            <option value="Transferido">Transferido</option>
+            <option value="Reserva">Reserva</option>
+            <option value="Licença">Licença</option>
+            <option value="Afastado">Afastado</option>
           </Select>
 
           <Select
@@ -616,7 +616,7 @@ export function NovoMilitar() {
 
           <div className="flex flex-col gap-1.5 w-full relative">
             <label className="text-sm font-semibold text-gray-700">Turma de Formação</label>
-            
+
             <button
               type="button"
               onClick={() => setShowYearScroll((prev) => !prev)}
@@ -643,11 +643,10 @@ export function NovoMilitar() {
                             setFormData((prev) => ({ ...prev, turmaFormacao: String(y) }));
                             setShowYearScroll(false);
                           }}
-                          className={`flex-shrink-0 px-4 py-1 text-base font-bold rounded-full transition-all border ${
-                            isSelected
+                          className={`flex-shrink-0 px-4 py-1 text-base font-bold rounded-full transition-all border ${isSelected
                               ? 'bg-militar-main text-white border-militar-main shadow-sm scale-105'
                               : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
-                          }`}
+                            }`}
                         >
                           {y}
                         </button>
@@ -662,24 +661,33 @@ export function NovoMilitar() {
           <div className="space-y-2">
             <div className="flex gap-3 items-end">
               <div className="flex-1">
-                <Input 
-                  label="Foto do Militar" 
-                  type="file" 
+                <Input
+                  label="Foto do Militar"
+                  type="file"
                   accept="image/*"
                   onChange={handleFotoChange}
                   className="cursor-pointer file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
                 />
               </div>
-              {fotoUrl && (
+              {/* Comentário de organização: Preview local da foto selecionada, gerado sem envio ao S3 */}
+              {fotoPreviewUrl && (
                 <div className="w-10 h-10 rounded-full overflow-hidden border border-gray-300 shadow-inner flex-shrink-0 bg-gray-50 flex items-center justify-center">
-                  <img src={fotoUrl} alt="Preview" className="w-full h-full object-cover" />
+                  <img src={fotoPreviewUrl} alt="Preview" className="w-full h-full object-cover" />
                 </div>
               )}
             </div>
-            
+
             <p className="text-[11px] text-gray-500 leading-tight">
               <strong>Nota:</strong> A foto deve ser tirada sem cobertura, de gandola com o fundo branco.
             </p>
+
+            {/* Comentário de organização: Foto selecionada aguardando envio ao clicar em Salvar */}
+            {fotoFile && !fotoUrl && !uploading && (
+              <div className="flex items-center gap-1.5 text-xs text-amber-600 font-medium">
+                <CheckCircle2 size={13} />
+                <span>Foto selecionada — será enviada ao S3 ao salvar o registro.</span>
+              </div>
+            )}
 
             {uploading && (
               <div className="flex items-center gap-1.5 text-xs text-blue-600 animate-pulse font-medium">
@@ -691,7 +699,7 @@ export function NovoMilitar() {
             {fotoUrl && (
               <div className="flex items-center gap-1.5 text-xs text-green-600 font-semibold">
                 <CheckCircle2 size={13} />
-                <span>Foto carregada e salva com sucesso no S3!</span>
+                <span>Foto salva com sucesso no S3!</span>
               </div>
             )}
 
