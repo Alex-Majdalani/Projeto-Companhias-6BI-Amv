@@ -176,6 +176,16 @@ export class MilitarController {
         numeroCampoBasico: m.numero_campo_basico || '',
         numeroEbca: m.numero_ebca || '',
         dataPraca: m.data_praca || '',
+        fotoUrl: Array.isArray(m.dados_civil?.foto_url) && m.dados_civil.foto_url.length > 0
+          ? m.dados_civil.foto_url[0].url || m.dados_civil.foto_url[0].signedUrl || ''
+          : (typeof m.dados_civil?.foto_url === 'string' && m.dados_civil.foto_url.startsWith('[')
+              ? (() => {
+                  try {
+                    const parsed = JSON.parse(m.dados_civil.foto_url);
+                    return parsed[0]?.url || parsed[0]?.signedUrl || '';
+                  } catch { return m.dados_civil.foto_url; }
+                })()
+              : m.dados_civil?.foto_url || ''),
         // IDs relacionados para operações de exclusão
         dadosCivilId: typeof m.dados_civil === 'object' ? m.dados_civil?.Id : m.dados_civil,
         enderecoId: typeof m.endereco === 'object' ? m.endereco?.Id : m.endereco,
@@ -464,6 +474,7 @@ export class MilitarController {
         dataPraca: militar.data_praca || '',
         turmaFormacao: militar.turma_formacao || '',
         tipoVinculo: militar.tipo_vinculo || '',
+        situacao: militar.situacao || '',
         periodoObrigatorio: militar.periodo_obrigatorio || '',
         pelotao: militar.pelotao || '',
         companhia: militar.companhia?.Companhia || '',
