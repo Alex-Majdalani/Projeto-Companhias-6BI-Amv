@@ -53,7 +53,7 @@ async function registrarLog(opts: {
     };
 
     if (opts.usuario_responsavel) payload.usuario_responsavel = opts.usuario_responsavel;
-    if (opts.militar_envolvido) payload.militar_envolvido = opts.militar_envolvido;
+    if (opts.militar_envolvido) payload.militar_envolvido = [{ Id: opts.militar_envolvido }];
 
     await nocoRequest(`/tables/${TBL_HISTORICO_LOGS}/records`, {
       method: 'POST',
@@ -317,6 +317,8 @@ export class MilitarController {
       const dadosCivilBody: Record<string, any> = {
         nome_completo: toTitleCase(body.nomeCompleto || body.nome_completo || '') || null,
         data_nascimento: body.dataNascimento || null,
+        idade: null, // Pode ser calculado depois no frontend/backend
+        sexo: body.sexo || null,
         cpf: body.cpf || null,
         idt_civil: body.idtCivil || null,
         altura: alturaNum,
@@ -785,6 +787,7 @@ export class MilitarController {
         if (body.nomeMae       !== undefined) civilUpdate.nome_mae            = toTitleCase(body.nomeMae);
         if (body.nomePai       !== undefined) civilUpdate.nome_pai            = toTitleCase(body.nomePai);
         if (body.dataNascimento !== undefined) civilUpdate.data_nascimento    = body.dataNascimento || null;
+        if (body.sexo           !== undefined) civilUpdate.sexo               = body.sexo || null;
         if (body.cpf           !== undefined) civilUpdate.cpf                 = body.cpf || null;
         if (body.idtCivil      !== undefined) civilUpdate.idt_civil           = body.idtCivil || null;
         if (body.altura        !== undefined) civilUpdate.altura              = alturaNum;

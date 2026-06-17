@@ -456,6 +456,7 @@ async function renderPerfil(doc: any, perfil: any): Promise<void> {
     ['Nome do Pai', fmt.str(perfil.dadosCivil?.nomePai)],
     ['Nome da Mae', fmt.str(perfil.dadosCivil?.nomeMae)],
     ['Data de Nascimento', fmt.data(perfil.dadosCivil?.dataNascimento)],
+    ['Sexo', perfil.dadosCivil?.sexo || '—'],
     ['Idade', fmt.idade(perfil.dadosCivil?.dataNascimento)],
     ['CPF', fmt.str(perfil.dadosCivil?.cpf)],
     ['Identidade Civil', fmt.str(perfil.dadosCivil?.idtCivil)],

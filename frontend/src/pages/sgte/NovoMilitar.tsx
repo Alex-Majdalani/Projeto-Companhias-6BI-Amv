@@ -139,6 +139,7 @@ export function NovoMilitar() {
     nomeCompleto: '',
     dataNascimento: '',
     idade: '',
+    sexo: '',
     idtMil: '',
     cpf: '',
     idtCivil: '',
@@ -562,6 +563,18 @@ export function NovoMilitar() {
             <option value="Reserva">Reserva</option>
             <option value="Licença">Licença</option>
             <option value="Afastado">Afastado</option>
+          </Select>
+
+          <Select
+            label="Sexo"
+            name="sexo"
+            value={formData.sexo}
+            onChange={handleChange}
+            required
+          >
+            <option value="" disabled>Selecione...</option>
+            <option value="Masculino">Masculino</option>
+            <option value="Feminino">Feminino</option>
           </Select>
 
           <Select

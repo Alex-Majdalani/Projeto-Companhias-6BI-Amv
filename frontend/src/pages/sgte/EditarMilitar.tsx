@@ -141,6 +141,7 @@ export function EditarMilitar() {
     nomeCompleto: '',
     dataNascimento: '',
     idade: '',
+    sexo: '',
     idtMil: '',
     cpf: '',
     idtCivil: '',
@@ -248,6 +249,7 @@ export function EditarMilitar() {
           nomeCompleto: data.dadosCivil?.nomeCompleto || '',
           dataNascimento: data.dadosCivil?.dataNascimento ? data.dadosCivil.dataNascimento.split('T')[0] : '',
           idade: '', // preenchido via onChange
+          sexo: data.dadosCivil?.sexo || '',
           idtMil: data.idtMilitar || '', // corrigido
           cpf: data.dadosCivil?.cpf || '',
           idtCivil: data.dadosCivil?.idtCivil || '',
@@ -685,6 +687,18 @@ export function EditarMilitar() {
             <option value="Reserva">Reserva</option>
             <option value="Licença">Licença</option>
             <option value="Afastado">Afastado</option>
+          </Select>
+
+          <Select
+            label="Sexo"
+            name="sexo"
+            value={formData.sexo}
+            onChange={handleChange}
+            required
+          >
+            <option value="" disabled>Selecione...</option>
+            <option value="Masculino">Masculino</option>
+            <option value="Feminino">Feminino</option>
           </Select>
 
           <Select

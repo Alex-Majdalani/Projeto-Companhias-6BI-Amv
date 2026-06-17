@@ -404,6 +404,7 @@ export function PerfilMilitar() {
                   <DetailField label="Nome Completo" value={perfil.dadosCivil?.nomeCompleto} />
                 </div>
                 <DetailField label="Data de Nascimento" value={formatDate(perfil.dadosCivil?.dataNascimento)} />
+                <DetailField label="Sexo" value={perfil.dadosCivil?.sexo} />
                 <DetailField label="Idade" value={calcularIdade(perfil.dadosCivil?.dataNascimento)} />
                 <DetailField label="CPF" value={perfil.dadosCivil?.cpf} />
                 <DetailField label="Tipo Sanguíneo" value={perfil.dadosCivil?.tipoSanguineo} />
@@ -494,6 +495,7 @@ export function PerfilMilitar() {
                 <DetailField label="Nome Completo" value={perfil.dadosCivil?.nomeCompleto} />
               </div>
               <DetailField label="Data de Nascimento" value={formatDate(perfil.dadosCivil?.dataNascimento)} />
+              <DetailField label="Sexo" value={perfil.dadosCivil?.sexo} />
               <DetailField label="Idade" value={calcularIdade(perfil.dadosCivil?.dataNascimento)} />
               <DetailField label="CPF" value={perfil.dadosCivil?.cpf} />
               <DetailField label="IDT Civil" value={perfil.dadosCivil?.idtCivil} />
