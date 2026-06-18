@@ -174,6 +174,8 @@ export function NovoMilitar() {
     tiktok: '',
     twitter: '',
     outrasRedes: '',
+    // Comentário de organização: Incluindo estadoCivil no estado inicial do formulário
+    estadoCivil: '',
     pelotao: ''
   });
 
@@ -427,6 +429,8 @@ export function NovoMilitar() {
       olhos: formData.olhos,
       cabelos: formData.cabelos,
       resideCom: formData.resideCom.join(', '),
+      // Comentário de organização: Incluindo estadoCivil no payload enviado ao backend
+      estadoCivil: formData.estadoCivil,
       // Comentário de organização: URL da foto no S3 para salvar em dados_civil.foto_url
       fotoUrl: uploadedFotoUrl
     };
@@ -895,6 +899,7 @@ export function NovoMilitar() {
             />
           </div>
 
+          {/* Comentário de organização: Campos de Escolaridade, CNH e Estado Civil em grade */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Select
               label="Escolaridade"
@@ -912,7 +917,21 @@ export function NovoMilitar() {
               <option value="superior_com">Superior Completo</option>
             </Select>
 
-            {/* Grupo de Checkboxes de CNH */}
+            {/* Comentário de organização: Campo Estado Civil adicionado conforme nova coluna na tabela dados_civil */}
+            <Select
+              label="Estado Civil"
+              name="estadoCivil"
+              value={formData.estadoCivil}
+              onChange={handleChange}
+            >
+              <option value="" disabled>Selecione...</option>
+              <option value="Solteiro(a)">Solteiro(a)</option>
+              <option value="Casado(a)">Casado(a)</option>
+              <option value="Divorciado(a)">Divorciado(a)</option>
+              <option value="Viúvo(a)">Viúvo(a)</option>
+              <option value="União Estável">União Estável</option>
+              <option value="Separado(a)">Separado(a)</option>
+            </Select>
             <div className="flex flex-col gap-1.5 w-full">
               <label className="text-sm font-semibold text-gray-700">CNH Categorias</label>
               <div className="flex flex-wrap gap-3 items-center h-10">

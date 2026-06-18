@@ -319,6 +319,8 @@ export class MilitarController {
         data_nascimento: body.dataNascimento || null,
         idade: null, // Pode ser calculado depois no frontend/backend
         sexo: body.sexo || null,
+        // Comentário de organização: Campo estado_civil adicionado conforme nova coluna na tabela dados_civil
+        estado_civil: body.estadoCivil || null,
         cpf: body.cpf || null,
         idt_civil: body.idtCivil || null,
         altura: alturaNum,
@@ -548,6 +550,9 @@ export class MilitarController {
           id: dadosCivil.Id,
           nomeCompleto: dadosCivil.nome_completo || '',
           dataNascimento: dadosCivil.data_nascimento || '',
+          // Comentário de organização: Retornando sexo e estado_civil do banco de dados
+          sexo: dadosCivil.sexo || '',
+          estadoCivil: dadosCivil.estado_civil || '',
           cpf: dadosCivil.cpf || '',
           idtCivil: dadosCivil.idt_civil || '',
           altura: dadosCivil.altura || '',
@@ -788,6 +793,8 @@ export class MilitarController {
         if (body.nomePai       !== undefined) civilUpdate.nome_pai            = toTitleCase(body.nomePai);
         if (body.dataNascimento !== undefined) civilUpdate.data_nascimento    = body.dataNascimento || null;
         if (body.sexo           !== undefined) civilUpdate.sexo               = body.sexo || null;
+        // Comentário de organização: Atualiza estado_civil na tabela dados_civil
+        if (body.estadoCivil    !== undefined) civilUpdate.estado_civil       = body.estadoCivil || null;
         if (body.cpf           !== undefined) civilUpdate.cpf                 = body.cpf || null;
         if (body.idtCivil      !== undefined) civilUpdate.idt_civil           = body.idtCivil || null;
         if (body.altura        !== undefined) civilUpdate.altura              = alturaNum;
@@ -889,6 +896,9 @@ export class MilitarController {
         nomeMae: { label: 'Nome da Mãe', getOld: () => civilAntes.nome_mae, getNew: () => body.nomeMae },
         nomePai: { label: 'Nome do Pai', getOld: () => civilAntes.nome_pai, getNew: () => body.nomePai },
         dataNascimento: { label: 'Data de Nascimento', getOld: () => civilAntes.data_nascimento, getNew: () => body.dataNascimento },
+        sexo: { label: 'Sexo', getOld: () => civilAntes.sexo, getNew: () => body.sexo },
+        // Comentário de organização: Log do campo estado_civil no historico de alterações
+        estadoCivil: { label: 'Estado Civil', getOld: () => civilAntes.estado_civil, getNew: () => body.estadoCivil },
         cpf: { label: 'CPF', getOld: () => civilAntes.cpf, getNew: () => body.cpf },
         idtCivil: { label: 'Identidade Civil', getOld: () => civilAntes.idt_civil, getNew: () => body.idtCivil },
         altura: { label: 'Altura', getOld: () => civilAntes.altura, getNew: () => body.altura },

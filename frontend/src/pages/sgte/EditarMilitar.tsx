@@ -176,6 +176,8 @@ export function EditarMilitar() {
     tiktok: '',
     twitter: '',
     outrasRedes: '',
+    // Comentário de organização: Incluindo estadoCivil no estado inicial do formulário de edição
+    estadoCivil: '',
     pelotao: ''
   });
 
@@ -284,6 +286,8 @@ export function EditarMilitar() {
           tiktok: data.redesSociais?.tiktok || '',
           twitter: data.redesSociais?.twitter || '',
           outrasRedes: data.redesSociais?.outras || '', // corrigido
+          // Comentário de organização: Populando o estadoCivil do form com dados do backend
+          estadoCivil: data.dadosCivil?.estadoCivil || '',
           pelotao: data.pelotao || ''
         });
 
@@ -540,6 +544,8 @@ export function EditarMilitar() {
       olhos: formData.olhos,
       cabelos: formData.cabelos,
       resideCom: formData.resideCom.join(', '),
+      // Comentário de organização: Incluindo estadoCivil no payload de atualização
+      estadoCivil: formData.estadoCivil,
     };
 
     if (uploadedFotoUrl) {
@@ -1019,6 +1025,7 @@ export function EditarMilitar() {
             />
           </div>
 
+          {/* Comentário de organização: Grade contendo Escolaridade, Estado Civil e CNH */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Select
               label="Escolaridade"
@@ -1034,6 +1041,22 @@ export function EditarMilitar() {
               <option value="medio_com">Médio Completo</option>
               <option value="superior_inc">Superior Incompleto</option>
               <option value="superior_com">Superior Completo</option>
+            </Select>
+
+            {/* Comentário de organização: Campo Select de Estado Civil adicionado */}
+            <Select
+              label="Estado Civil"
+              name="estadoCivil"
+              value={formData.estadoCivil}
+              onChange={handleChange}
+            >
+              <option value="" disabled>Selecione...</option>
+              <option value="Solteiro(a)">Solteiro(a)</option>
+              <option value="Casado(a)">Casado(a)</option>
+              <option value="Divorciado(a)">Divorciado(a)</option>
+              <option value="Viúvo(a)">Viúvo(a)</option>
+              <option value="União Estável">União Estável</option>
+              <option value="Separado(a)">Separado(a)</option>
             </Select>
 
             {/* Grupo de Checkboxes de CNH */}
