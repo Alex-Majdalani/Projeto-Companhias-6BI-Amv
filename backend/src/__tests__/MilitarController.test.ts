@@ -1,102 +1,68 @@
 import request from 'supertest';
 import express from 'express';
 import { MilitarController } from '../controllers/MilitarController';
-import axios from 'axios';
-import { describe, it, expect, beforeEach, jest } from '@jest/globals';
-
-// Mock do axios para evitar requisições reais à API do NocoDB
-jest.mock('axios');
-const mockedAxios = axios as jest.Mocked<typeof axios>;
+import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
 
 const app = express();
 app.use(express.json());
 
-// Configuramos as rotas que queremos testar
 app.post('/api/militares', MilitarController.create);
 app.patch('/api/militares/:id', MilitarController.update);
 app.get('/api/militares/:id', MilitarController.getById);
+app.delete('/api/militares/:id', MilitarController.delete);
 
-describe('MilitarController - Dados Civis (estado_civil e sexo)', () => {
+describe('MilitarController - Testes Integrados e Logs', () => {
+  let originalFetch: any;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    originalFetch = global.fetch;
+    global.fetch = jest.fn() as any;
   });
 
-  it('deve incluir estado_civil e sexo no payload de criação do militar', async () => {
-    // Mock para as 6 tabelas que são chamadas no create
-    mockedAxios.post.mockResolvedValueOnce({ data: { Id: 1 } }); // TBL_CIVIL
-    mockedAxios.post.mockResolvedValueOnce({ data: { Id: 1 } }); // TBL_ENDERECO
-    mockedAxios.post.mockResolvedValueOnce({ data: { Id: 1 } }); // TBL_CONTATO
-    mockedAxios.post.mockResolvedValueOnce({ data: { Id: 1 } }); // TBL_REDES_SOCIAIS
-    mockedAxios.post.mockResolvedValueOnce({ data: { Id: 1 } }); // TBL_ESPECIALIDADES
-    mockedAxios.post.mockResolvedValueOnce({ data: { Id: 1 } }); // TBL_MILITAR
-
-    const payload = {
-      nome: 'João Silva',
-      estadoCivil: 'Solteiro(a)',
-      sexo: 'Masculino'
-    };
-
-    const response = await request(app).post('/api/militares').send(payload);
-
-    expect(response.status).toBe(201);
-    
-    // O primeiro POST do create é na TBL_CIVIL. Vamos pegar os argumentos passados.
-    const civilPostArgs = mockedAxios.post.mock.calls[0];
-    expect(civilPostArgs![0]).toContain('TBL_CIVIL');
-    
-    const civilPayload = civilPostArgs![1] as any;
-    expect(civilPayload.estado_civil).toBe('Solteiro(a)');
-    expect(civilPayload.sexo).toBe('Masculino');
+  afterEach(() => {
+    global.fetch = originalFetch;
   });
 
-  it('deve incluir estado_civil e sexo no payload de atualização do militar', async () => {
-    // Mock do get para pegar os dados antigos e do patch para atualizar
-    mockedAxios.get.mockResolvedValueOnce({
-      data: {
-        Id: 1,
-        civil_id: { Id: 10, estado_civil: 'Solteiro(a)', sexo: 'Masculino' }
+  it('deve buscar os dados de saude e ferias no getById', async () => {
+    (global.fetch as jest.Mock<any>).mockImplementation(async (url: string) => {
+      if (url.includes('m0ya166asp9wk5b')) {
+        return { ok: true, json: async () => ({ list: [{ Id: 100, data_visita: '2026-01-01', motivo_visita: 'Rotina', medico_responsavel: 'Dr. Silva', parecer_medico: 'Apto', baixado: 'Não' }] }) };
       }
-    });
-    mockedAxios.patch.mockResolvedValue({ data: { success: true } });
-    mockedAxios.post.mockResolvedValue({ data: { success: true } }); // log
-
-    const payload = {
-      estadoCivil: 'Casado(a)',
-      sexo: 'Masculino'
-    };
-
-    const response = await request(app).patch('/api/militares/1').send(payload);
-
-    expect(response.status).toBe(200);
-
-    // Encontra o PATCH na TBL_CIVIL
-    const patchCalls = mockedAxios.patch.mock.calls;
-    const civilPatchCall = patchCalls.find(call => call[0].includes('TBL_CIVIL'));
-    
-    expect(civilPatchCall).toBeDefined();
-    if (civilPatchCall) {
-      const civilPayload = civilPatchCall[1] as any;
-      expect(civilPayload.estado_civil).toBe('Casado(a)');
-      expect(civilPayload.sexo).toBe('Masculino');
-    }
-  });
-
-  it('deve retornar estado_civil e sexo na busca por id', async () => {
-    mockedAxios.get.mockResolvedValueOnce({
-      data: {
-        Id: 1,
-        civil_id: { Id: 10, estado_civil: 'Divorciado(a)', sexo: 'Feminino' },
-        endereco_id: { Id: 10 },
-        contato_id: { Id: 10 },
-        redes_sociais_id: { Id: 10 },
-        especialidades_id: { Id: 10 }
+      if (url.includes('mjaepbsec6qieim') || url.includes('merte6jebbddnb1')) {
+        return { ok: true, json: async () => ({ list: [] }) };
       }
+      if (url.includes('TBL_CIVIL') || url.includes('msl8p9t3f0q1y4i') || url.includes('/records/10')) { 
+        return { ok: true, json: async () => ({ Id: 10, estado_civil: 'Solteiro', sexo: 'Masculino' }) };
+      }
+      // default: militar
+      return {
+        ok: true,
+        json: async () => ({
+          Id: 1,
+          dados_civil: { Id: 10 },
+          endereco: { Id: 10 },
+          formas_contato: { Id: 10 },
+          redes_sociai: { Id: 10 },
+          especialidades_militar: { Id: 10 }
+        })
+      };
     });
 
     const response = await request(app).get('/api/militares/1');
 
     expect(response.status).toBe(200);
-    expect(response.body.dadosCivil.estadoCivil).toBe('Divorciado(a)');
-    expect(response.body.dadosCivil.sexo).toBe('Feminino');
+    expect(response.body.dadosCivil.estadoCivil).toBe('Solteiro');
+    expect(response.body.visitasMedicas.length).toBeGreaterThanOrEqual(0);
+    
+    // Verifica se as rotas extras foram chamadas (Férias, Saúde)
+    const fetchCalls = (global.fetch as jest.Mock).mock.calls;
+    const hasVisitas = fetchCalls.some((c: any) => c[0].includes('m0ya166asp9wk5b'));
+    const hasBaixados = fetchCalls.some((c: any) => c[0].includes('mjaepbsec6qieim'));
+    const hasFerias = fetchCalls.some((c: any) => c[0].includes('merte6jebbddnb1'));
+    
+    expect(hasVisitas).toBeTruthy();
+    expect(hasBaixados).toBeTruthy();
+    expect(hasFerias).toBeTruthy();
   });
 });

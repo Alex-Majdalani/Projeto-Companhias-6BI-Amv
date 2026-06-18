@@ -176,13 +176,7 @@ export function PerfilMilitar() {
     { id: 1, tipo: 'Recebida', descricao: 'Repreensão verbal por atraso em serviço', data: '10/03/2026', aplicador: '1º SGT Torres', status: 'Cumprida' },
     { id: 2, tipo: 'Aplicada', descricao: 'Advertência oral a SD sob seu comando', data: '22/04/2026', aplicador: `Em nome de ${perfil.nomeGuerra || '—'}`, status: 'Registrada' },
   ];
-  const visitasMedicasStatic = [
-    { id: 1, data: '05/01/2026', motivo: 'Consulta de rotina', medico: 'Cap Médico Faria', resultado: 'Apto', obs: 'Exames normais' },
-    { id: 2, data: '14/03/2026', motivo: 'Dor lombar', medico: 'Cap Médico Faria', resultado: 'Apto c/ restrição', obs: 'Afastado de atividades de campo por 7 dias' },
-  ];
-  const baixasStatic = [
-    { id: 1, dataInicio: '14/03/2026', dataFim: '21/03/2026', dias: 7, motivo: 'Dor lombar aguda', tipo: 'Licença Saúde', medico: 'Cap Médico Faria' },
-  ];
+
   const tafStatic = [
     { id: 1, data: '15/01/2026', nota: 82, resultado: 'Aprovado', corrida: '11:48', flexao: 38, abdominal: 42 },
     { id: 2, data: '15/07/2025', nota: 78, resultado: 'Aprovado', corrida: '12:10', flexao: 35, abdominal: 40 },
@@ -194,9 +188,6 @@ export function PerfilMilitar() {
   const funcoesStatic = [
     { id: 1, funcao: 'Atirador', secao: '2ª Seção', desde: '01/03/2026', ate: null, atual: true },
     { id: 2, funcao: 'Operador de Rádio', secao: 'Estado-Maior', desde: '01/01/2025', ate: '28/02/2026', atual: false },
-  ];
-  const planoFeriasStatic = [
-    { id: 1, periodo: '1º Período', dataInicio: '10/03/2026', dataFim: '09/04/2026', dias: 30, status: 'Pendente' },
   ];
 
   // Comentário de organização: Nome de exibição principal — prioriza nome completo civil, com fallback para nome de guerra
@@ -405,6 +396,7 @@ export function PerfilMilitar() {
                 </div>
                 <DetailField label="Data de Nascimento" value={formatDate(perfil.dadosCivil?.dataNascimento)} />
                 <DetailField label="Sexo" value={perfil.dadosCivil?.sexo} />
+                <DetailField label="Estado Civil" value={perfil.dadosCivil?.estadoCivil} />
                 <DetailField label="Idade" value={calcularIdade(perfil.dadosCivil?.dataNascimento)} />
                 <DetailField label="CPF" value={perfil.dadosCivil?.cpf} />
                 <DetailField label="Tipo Sanguíneo" value={perfil.dadosCivil?.tipoSanguineo} />
@@ -496,6 +488,7 @@ export function PerfilMilitar() {
               </div>
               <DetailField label="Data de Nascimento" value={formatDate(perfil.dadosCivil?.dataNascimento)} />
               <DetailField label="Sexo" value={perfil.dadosCivil?.sexo} />
+              <DetailField label="Estado Civil" value={perfil.dadosCivil?.estadoCivil} />
               <DetailField label="Idade" value={calcularIdade(perfil.dadosCivil?.dataNascimento)} />
               <DetailField label="CPF" value={perfil.dadosCivil?.cpf} />
               <DetailField label="IDT Civil" value={perfil.dadosCivil?.idtCivil} />
@@ -557,29 +550,44 @@ export function PerfilMilitar() {
 
       {/* ====== ABA: PLANO DE FÉRIAS ====== */}
       {activeTab === 'ferias' && (
-        <Section title="Plano de Férias" icon={<Calendar size={15} />}>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b-2 border-gray-100">
-                  {['Período', 'Data Início', 'Data Fim', 'Dias', 'Status'].map(h => (
-                    <th key={h} className="text-left pb-3 px-3 text-[11px] font-bold text-militar-main uppercase tracking-wider">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {planoFeriasStatic.map(f => (
-                  <tr key={f.id} className="border-b border-gray-50 hover:bg-gray-50/70 transition-colors">
-                    <td className="py-3 px-3 font-semibold text-gray-800">{f.periodo}</td>
-                    <td className="py-3 px-3 text-gray-600">{f.dataInicio}</td>
-                    <td className="py-3 px-3 text-gray-600">{f.dataFim}</td>
-                    <td className="py-3 px-3 font-bold text-gray-800">{f.dias}</td>
-                    <td className="py-3 px-3"><Badge variant="warning">{f.status}</Badge></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <StaticDataWarning />
+        <Section title="Planos de Férias Cadastrados" icon={<Calendar size={15} />}>
+          <div className="space-y-4">
+            {perfil.planosFerias && perfil.planosFerias.length > 0 ? (
+              perfil.planosFerias.map((plano: any) => (
+                <div key={plano.id} className="bg-gray-50 rounded-xl p-4 border border-gray-200 shadow-sm">
+                  <div className="flex justify-between items-center mb-3">
+                    <h4 className="font-bold text-gray-800 text-sm">{plano.titulo} - Ano Ref: {plano.anoReferencia}</h4>
+                    <Badge variant={plano.status === 'Pendente' ? 'warning' : (plano.status === 'Aprovado' ? 'success' : 'default')}>{plano.status}</Badge>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm bg-white rounded-lg border border-gray-100">
+                      <thead>
+                        <tr className="border-b border-gray-100 bg-gray-50/50">
+                          {['Período', 'Data Início', 'Data Fim'].map(h => (
+                            <th key={h} className="text-left py-2 px-3 text-[11px] font-bold text-militar-main uppercase tracking-wider">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {plano.periodos && plano.periodos.length > 0 ? (
+                          plano.periodos.map((p: any) => (
+                            <tr key={p.id} className="border-b border-gray-50 hover:bg-gray-50/70 transition-colors">
+                              <td className="py-2 px-3 font-semibold text-gray-800">{p.nome}</td>
+                              <td className="py-2 px-3 text-gray-600">{formatDate(p.inicio)}</td>
+                              <td className="py-2 px-3 text-gray-600">{formatDate(p.fim)}</td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr><td colSpan={3} className="py-3 text-center text-xs text-gray-500">Nenhum período cadastrado para este plano.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-gray-500 text-center py-4">Nenhum plano de férias cadastrado para este militar.</p>
+            )}
           </div>
         </Section>
       )}
@@ -654,51 +662,53 @@ export function PerfilMilitar() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b-2 border-gray-100">
-                    {['Data', 'Motivo', 'Médico', 'Resultado', 'Observações'].map(h => (
+                    {['Data', 'Motivo', 'Médico', 'Parecer', 'Baixado?', 'Observações'].map(h => (
                       <th key={h} className="text-left pb-3 px-3 text-[11px] font-bold text-militar-main uppercase tracking-wider">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {visitasMedicasStatic.map(v => (
+                  {perfil.visitasMedicas && perfil.visitasMedicas.length > 0 ? perfil.visitasMedicas.map((v: any) => (
                     <tr key={v.id} className="border-b border-gray-50 hover:bg-gray-50/70 transition-colors">
-                      <td className="py-3 px-3 font-semibold text-gray-800">{v.data}</td>
+                      <td className="py-3 px-3 font-semibold text-gray-800">{formatDate(v.data)}</td>
                       <td className="py-3 px-3 text-gray-700">{v.motivo}</td>
                       <td className="py-3 px-3 text-gray-600">{v.medico}</td>
-                      <td className="py-3 px-3"><Badge variant={v.resultado === 'Apto' ? 'success' : 'warning'}>{v.resultado}</Badge></td>
-                      <td className="py-3 px-3 text-gray-500 text-xs">{v.obs}</td>
+                      <td className="py-3 px-3"><Badge variant={v.resultado.toLowerCase().includes('apto') ? 'success' : 'warning'}>{v.resultado}</Badge></td>
+                      <td className="py-3 px-3 font-bold">{v.baixado ? <span className="text-red-600">Sim</span> : <span className="text-green-600">Não</span>}</td>
+                      <td className="py-3 px-3 text-gray-500 text-xs max-w-xs">{v.obs}</td>
                     </tr>
-                  ))}
+                  )) : (
+                    <tr><td colSpan={6} className="py-4 text-center text-sm text-gray-500">Nenhuma visita médica registrada.</td></tr>
+                  )}
                 </tbody>
               </table>
             </div>
           </Section>
 
-          <Section title="Baixas / Licenças de Saúde" icon={<Heart size={15} />}>
+          <Section title="Baixados / Licenças de Saúde" icon={<Heart size={15} />}>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b-2 border-gray-100">
-                    {['Início', 'Fim', 'Dias', 'Motivo', 'Tipo', 'Médico'].map(h => (
+                    {['Início', 'Retorno', 'Motivo', 'CSD / Situação'].map(h => (
                       <th key={h} className="text-left pb-3 px-3 text-[11px] font-bold text-militar-main uppercase tracking-wider">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {baixasStatic.map(b => (
+                  {perfil.baixados && perfil.baixados.length > 0 ? perfil.baixados.map((b: any) => (
                     <tr key={b.id} className="border-b border-gray-50 hover:bg-gray-50/70 transition-colors">
-                      <td className="py-3 px-3 font-semibold text-gray-800">{b.dataInicio}</td>
-                      <td className="py-3 px-3 text-gray-600">{b.dataFim}</td>
-                      <td className="py-3 px-3 font-bold text-red-600">{b.dias}</td>
+                      <td className="py-3 px-3 font-semibold text-gray-800">{formatDate(b.dataInicio)}</td>
+                      <td className="py-3 px-3 text-gray-600">{formatDate(b.dataFim)}</td>
                       <td className="py-3 px-3 text-gray-700">{b.motivo}</td>
-                      <td className="py-3 px-3"><Badge variant="warning">{b.tipo}</Badge></td>
-                      <td className="py-3 px-3 text-gray-600">{b.medico}</td>
+                      <td className="py-3 px-3"><Badge variant="danger">{b.csd}</Badge></td>
                     </tr>
-                  ))}
+                  )) : (
+                    <tr><td colSpan={4} className="py-4 text-center text-sm text-gray-500">Nenhum registro de baixa médica.</td></tr>
+                  )}
                 </tbody>
               </table>
             </div>
-            <StaticDataWarning />
           </Section>
         </div>
       )}

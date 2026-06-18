@@ -527,6 +527,31 @@ export class MilitarController {
         } catch {}
       }
 
+      // Comentário de organização: Busca dados de saúde e férias do militar
+      let visitasMedicas: any[] = [];
+      let baixados: any[] = [];
+      let planosFerias: any[] = [];
+
+      try {
+        const [visitasRes, baixadosRes, feriasRes] = await Promise.allSettled([
+          nocoRequest(`/tables/m0ya166asp9wk5b/records?where=(militar,eq,${id})`),
+          nocoRequest(`/tables/mjaepbsec6qieim/records?where=(militar,eq,${id})`),
+          nocoRequest(`/tables/merte6jebbddnb1/records?where=(militar,eq,${id})&nested[periodos_ferias][fields]=nome_periodo,data_inicio,data_fim`)
+        ]);
+
+        if (visitasRes.status === 'fulfilled' && visitasRes.value?.list) {
+          visitasMedicas = visitasRes.value.list;
+        }
+        if (baixadosRes.status === 'fulfilled' && baixadosRes.value?.list) {
+          baixados = baixadosRes.value.list;
+        }
+        if (feriasRes.status === 'fulfilled' && feriasRes.value?.list) {
+          planosFerias = feriasRes.value.list;
+        }
+      } catch (err) {
+        console.warn('Aviso: falha ao buscar registros adicionais de saúde/férias:', err);
+      }
+
       // Formata o retorno consolidado para o frontend
       const perfil = {
         id: militar.Id,
@@ -608,7 +633,36 @@ export class MilitarController {
         // Especialidades
         especialidades: {
           cursos: especialidades.cursos_gerais || ''
-        }
+        },
+        // Saúde e Férias
+        visitasMedicas: visitasMedicas.map(v => ({
+          id: v.Id,
+          data: v.data_visita || '',
+          motivo: v.motivo_visita || '',
+          medico: v.medico_responsavel || '',
+          resultado: v.parecer_medico || '',
+          baixado: v.baixado === 'Sim',
+          obs: v.obs || ''
+        })),
+        baixados: baixados.map(b => ({
+          id: b.Id,
+          dataInicio: b.data_inicio || '',
+          dataFim: b.data_retorno || '',
+          motivo: b.motivo || '',
+          csd: b.csd || b.outro_csd || '',
+        })),
+        planosFerias: planosFerias.map(pf => ({
+          id: pf.Id,
+          titulo: pf.titulo || '',
+          anoReferencia: pf.ano_referencia || '',
+          status: pf.status || '',
+          periodos: (pf.periodos_ferias || []).map((p: any) => ({
+            id: p.Id,
+            nome: p.nome_periodo || '',
+            inicio: p.data_inicio || '',
+            fim: p.data_fim || ''
+          }))
+        }))
       };
 
       return res.status(200).json(perfil);
@@ -664,7 +718,7 @@ export class MilitarController {
         valor_anterior: `Militar ${nomeGuerraExcluido} (${militar.posto_graduacao || ''})`,
         valor_novo: '',
         usuario_responsavel: req.headers['x-usuario'] as string || 'Sistema',
-        militar_envolvido: nomeGuerraExcluido,
+        militar_envolvido: militarId,
       });
 
       return res.status(200).json({ message: 'Militar excluído com sucesso.' });
@@ -881,35 +935,35 @@ export class MilitarController {
       const valoresNovos: string[] = [];
 
       const mapLabels: Record<string, { label: string; getOld: () => any; getNew: () => any }> = {
-        nomeGuerra: { label: 'Nome de Guerra', getOld: () => militarAntes.nome_guerra, getNew: () => body.nomeGuerra },
-        postoGraduacao: { label: 'Posto/Graduação', getOld: () => militarAntes.posto_graduacao, getNew: () => body.postoGraduacao },
-        situacao: { label: 'Situação', getOld: () => militarAntes.situacao, getNew: () => body.situacao },
-        pelotao: { label: 'Pelotão', getOld: () => militarAntes.pelotao, getNew: () => body.pelotao },
-        tipoMilitar: { label: 'Tipo de Vínculo', getOld: () => militarAntes.tipo_vinculo, getNew: () => body.tipoMilitar },
-        tipoVinculo: { label: 'Tipo de Vínculo', getOld: () => militarAntes.tipo_vinculo, getNew: () => body.tipoVinculo },
-        companhia: { label: 'Companhia', getOld: () => militarAntes.companhia?.Companhia, getNew: () => body.companhia },
-        dataPraca: { label: 'Data de Praça', getOld: () => militarAntes.data_praca, getNew: () => body.dataPraca },
-        turmaFormacao: { label: 'Turma de Formação', getOld: () => militarAntes.turma_formacao, getNew: () => body.turmaFormacao },
-        precCP: { label: 'Prec-CP', getOld: () => militarAntes.prec_cp, getNew: () => body.precCP },
-        idtMil: { label: 'Identidade Militar', getOld: () => militarAntes.idt_militar, getNew: () => body.idtMil },
-        nomeCompleto: { label: 'Nome Completo', getOld: () => civilAntes.nome_completo, getNew: () => body.nomeCompleto },
-        nomeMae: { label: 'Nome da Mãe', getOld: () => civilAntes.nome_mae, getNew: () => body.nomeMae },
-        nomePai: { label: 'Nome do Pai', getOld: () => civilAntes.nome_pai, getNew: () => body.nomePai },
-        dataNascimento: { label: 'Data de Nascimento', getOld: () => civilAntes.data_nascimento, getNew: () => body.dataNascimento },
-        sexo: { label: 'Sexo', getOld: () => civilAntes.sexo, getNew: () => body.sexo },
+        nomeGuerra: { label: 'Nome de Guerra', getOld: () => militarAntes.nome_guerra, getNew: () => toTitleCase(body.nomeGuerra || '') || null },
+        postoGraduacao: { label: 'Posto/Graduação', getOld: () => militarAntes.posto_graduacao, getNew: () => mapPostoGraduacao(body.postoGraduacao) || null },
+        situacao: { label: 'Situação', getOld: () => militarAntes.situacao, getNew: () => body.situacao || null },
+        pelotao: { label: 'Pelotão', getOld: () => militarAntes.pelotao, getNew: () => body.pelotao || null },
+        tipoMilitar: { label: 'Tipo de Vínculo', getOld: () => militarAntes.tipo_vinculo, getNew: () => body.tipoMilitar || null },
+        tipoVinculo: { label: 'Tipo de Vínculo', getOld: () => militarAntes.tipo_vinculo, getNew: () => body.tipoVinculo || null },
+        companhia: { label: 'Companhia', getOld: () => militarAntes.companhia?.Id || militarAntes.companhia, getNew: () => body.companhia || null },
+        dataPraca: { label: 'Data de Praça', getOld: () => militarAntes.data_praca, getNew: () => body.dataPraca || null },
+        turmaFormacao: { label: 'Turma de Formação', getOld: () => militarAntes.turma_formacao, getNew: () => body.turmaFormacao ? parseInt(body.turmaFormacao) : null },
+        precCP: { label: 'Prec-CP', getOld: () => militarAntes.prec_cp, getNew: () => body.precCP || null },
+        idtMil: { label: 'Identidade Militar', getOld: () => militarAntes.idt_militar, getNew: () => body.idtMil || body.idtMilitar || null },
+        nomeCompleto: { label: 'Nome Completo', getOld: () => civilAntes.nome_completo, getNew: () => toTitleCase(body.nomeCompleto || '') || null },
+        nomeMae: { label: 'Nome da Mãe', getOld: () => civilAntes.nome_mae, getNew: () => toTitleCase(body.nomeMae || '') || null },
+        nomePai: { label: 'Nome do Pai', getOld: () => civilAntes.nome_pai, getNew: () => toTitleCase(body.nomePai || '') || null },
+        dataNascimento: { label: 'Data de Nascimento', getOld: () => civilAntes.data_nascimento, getNew: () => body.dataNascimento || null },
+        sexo: { label: 'Sexo', getOld: () => civilAntes.sexo, getNew: () => body.sexo || null },
         // Comentário de organização: Log do campo estado_civil no historico de alterações
-        estadoCivil: { label: 'Estado Civil', getOld: () => civilAntes.estado_civil, getNew: () => body.estadoCivil },
-        cpf: { label: 'CPF', getOld: () => civilAntes.cpf, getNew: () => body.cpf },
-        idtCivil: { label: 'Identidade Civil', getOld: () => civilAntes.idt_civil, getNew: () => body.idtCivil },
-        altura: { label: 'Altura', getOld: () => civilAntes.altura, getNew: () => body.altura },
-        tipoSanguineo: { label: 'Tipo Sanguíneo', getOld: () => civilAntes.tipo_sanquineo, getNew: () => body.tipoSanguineo },
-        fatorRh: { label: 'Fator RH', getOld: () => civilAntes.fator_rh, getNew: () => body.fatorRh },
-        cutis: { label: 'Cutis', getOld: () => civilAntes.cutis, getNew: () => body.cutis },
-        olhos: { label: 'Olhos', getOld: () => civilAntes.olhos, getNew: () => body.olhos },
-        cabelos: { label: 'Cabelos', getOld: () => civilAntes.cabelos, getNew: () => body.cabelos },
-        religiao: { label: 'Religião', getOld: () => civilAntes.religiao, getNew: () => body.religiao },
-        escolaridade: { label: 'Escolaridade', getOld: () => civilAntes.escolaridade, getNew: () => body.escolaridade },
-        cnhCategoria: { label: 'CNH', getOld: () => civilAntes.cnh_categoria, getNew: () => Array.isArray(body.cnhCategoria) ? body.cnhCategoria.join(', ') : body.cnhCategoria },
+        estadoCivil: { label: 'Estado Civil', getOld: () => civilAntes.estado_civil, getNew: () => body.estadoCivil || null },
+        cpf: { label: 'CPF', getOld: () => civilAntes.cpf, getNew: () => body.cpf || null },
+        idtCivil: { label: 'Identidade Civil', getOld: () => civilAntes.idt_civil, getNew: () => body.idtCivil || null },
+        altura: { label: 'Altura', getOld: () => civilAntes.altura, getNew: () => typeof body.altura === 'string' ? parseFloat(body.altura.replace(',', '.')) : (body.altura || null) },
+        tipoSanguineo: { label: 'Tipo Sanguíneo', getOld: () => civilAntes.tipo_sanquineo, getNew: () => mapTipoSanguineo(body.tipoSanguineo) || null },
+        fatorRh: { label: 'Fator RH', getOld: () => civilAntes.fator_rh, getNew: () => mapFatorRh(body.fatorRh) || null },
+        cutis: { label: 'Cutis', getOld: () => civilAntes.cutis, getNew: () => mapCutis(body.cutis) || null },
+        olhos: { label: 'Olhos', getOld: () => civilAntes.olhos, getNew: () => mapOlhos(body.olhos) || null },
+        cabelos: { label: 'Cabelos', getOld: () => civilAntes.cabelos, getNew: () => mapCabelos(body.cabelos) || null },
+        religiao: { label: 'Religião', getOld: () => civilAntes.religiao, getNew: () => body.religiao || null },
+        escolaridade: { label: 'Escolaridade', getOld: () => civilAntes.escolaridade, getNew: () => mapEscolaridade(body.escolaridade) || body.escolaridade || null },
+        cnhCategoria: { label: 'CNH', getOld: () => civilAntes.cnh_categoria, getNew: () => Array.isArray(body.cnhCategoria) ? body.cnhCategoria.join(', ') : (body.cnhCategoria || null) },
         fotoUrl: { label: 'Foto de Perfil', getOld: () => 'Foto anterior', getNew: () => 'Nova foto enviada' },
         cep: { label: 'CEP', getOld: () => enderecoAntes.cep, getNew: () => body.cep },
         rua: { label: 'Logradouro', getOld: () => enderecoAntes.rua, getNew: () => body.rua },
@@ -926,9 +980,14 @@ export class MilitarController {
       Object.keys(body).forEach(k => {
         if (mapLabels[k] && body[k] !== undefined) {
           const cfg = mapLabels[k];
-          const oldVal = cfg.getOld() || '—';
-          const newVal = cfg.getNew() || '—';
-          if (String(oldVal).trim() !== String(newVal).trim()) {
+          let oldVal = cfg.getOld() ?? '—';
+          let newVal = cfg.getNew() ?? '—';
+
+          // Se a string contiver vazio puro, tratar como '—' também para a comparação
+          oldVal = String(oldVal).trim() === '' ? '—' : String(oldVal).trim();
+          newVal = String(newVal).trim() === '' ? '—' : String(newVal).trim();
+
+          if (oldVal !== newVal) {
             camposAlterados.push(cfg.label);
             valoresAnteriores.push(`${cfg.label}: ${oldVal}`);
             valoresNovos.push(`${cfg.label}: ${newVal}`);

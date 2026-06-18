@@ -583,31 +583,41 @@ async function renderPerfil(doc: any, perfil: any): Promise<void> {
   y = sep(y);
 
   // ━━━ FERIAS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  const ferias = Array.isArray(perfil.ferias) ? perfil.ferias : [];
+  const planosFerias = Array.isArray(perfil.planosFerias) ? perfil.planosFerias : [];
   y = checkPage(doc, y, 55);
-  y = secao(doc, 'Historico de Ferias', y);
+  y = secao(doc, 'Planos de Ferias', y);
 
-  if (ferias.length > 0) {
+  if (planosFerias.length > 0) {
+    const feriasFlat: any[] = [];
+    planosFerias.forEach((pf: any) => {
+      if (pf.periodos && pf.periodos.length > 0) {
+        pf.periodos.forEach((p: any) => {
+          feriasFlat.push({ ...p, titulo: pf.titulo, ano: pf.anoReferencia, status: pf.status });
+        });
+      } else {
+        feriasFlat.push({ titulo: pf.titulo, ano: pf.anoReferencia, status: pf.status, nome: '—', inicio: '', fim: '' });
+      }
+    });
+
     y = tabelaComCabecalho(doc,
-      ['ANO', 'INICIO', 'FIM', 'TIPO', 'OBSERVACAO'],
-      ferias.slice(-6).map((f: any) => [
-        fmt.str(f.ano ?? f.Ano),
-        fmt.data(f.inicio ?? f.data_inicio ?? ''),
-        fmt.data(f.fim ?? f.data_fim ?? ''),
-        fmt.str(f.tipo ?? f.Tipo) || 'Ferias Regulares',
-        fmt.str(f.observacao ?? f.obs),
+      ['PLANO / ANO', 'PERIODO', 'INICIO', 'FIM', 'STATUS'],
+      feriasFlat.slice(-8).map((f: any) => [
+        `${fmt.str(f.titulo)} (${fmt.str(f.ano)})`,
+        fmt.str(f.nome),
+        fmt.data(f.inicio),
+        fmt.data(f.fim),
+        fmt.str(f.status),
       ]), y
     );
   } else {
     const ano = new Date().getFullYear();
     y = tabelaComCabecalho(doc,
-      ['ANO', 'INICIO', 'FIM', 'TIPO', 'OBSERVACAO'],
+      ['PLANO / ANO', 'PERIODO', 'INICIO', 'FIM', 'STATUS'],
       [
-        [String(ano),     '—', '—', 'A programar',    'Sem registro'],
-        [String(ano - 1), '—', '—', '—',              'Sem registro'],
+        [`— (${ano})`, '—', '—', '—', 'Sem registro'],
       ], y
     );
-    y = caixaAviso(doc, '* Nenhuma ferias registrada no sistema.', y, 'neutro');
+    y = caixaAviso(doc, '* Nenhum plano de ferias registrado no sistema.', y, 'neutro');
   }
 
   y = sep(y);
@@ -619,24 +629,44 @@ async function renderPerfil(doc: any, perfil: any): Promise<void> {
 
   if (visitas.length > 0) {
     y = tabelaComCabecalho(doc,
-      ['DATA', 'ESPECIALIDADE', 'MEDICO', 'DIAGNOSTICO / RESULTADO'],
+      ['DATA', 'MOTIVO', 'MEDICO', 'PARECER', 'BAIXADO'],
       visitas.slice(-6).map((v: any) => [
-        fmt.data(v.data ?? v.Data ?? ''),
-        fmt.str(v.tipo ?? v.Tipo ?? v.especialidade),
-        fmt.str(v.medico ?? v.Medico),
-        fmt.str(v.diagnostico ?? v.Diagnostico ?? v.resultado),
+        fmt.data(v.data),
+        fmt.str(v.motivo),
+        fmt.str(v.medico),
+        fmt.str(v.resultado),
+        v.baixado ? 'Sim' : 'Nao',
       ]), y
     );
   } else {
     y = tabelaComCabecalho(doc,
-      ['DATA', 'ESPECIALIDADE', 'MEDICO', 'DIAGNOSTICO / RESULTADO'],
+      ['DATA', 'MOTIVO', 'MEDICO', 'PARECER', 'BAIXADO'],
       [
-        ['—', 'Clinica Geral',  '—', 'Sem registro'],
-        ['—', 'Odontologia',    '—', 'Sem registro'],
-        ['—', 'Saude Mental',   '—', 'Sem registro'],
+        ['—', '—', '—', 'Sem registro', '—'],
       ], y
     );
     y = caixaAviso(doc, '* Nenhuma visita medica registrada no sistema.', y, 'neutro');
+  }
+
+  y = sep(y);
+
+  // ━━━ BAIXADOS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  const baixados = Array.isArray(perfil.baixados) ? perfil.baixados : [];
+  y = checkPage(doc, y, 55);
+  y = secao(doc, 'Baixas / Licencas de Saude', y);
+
+  if (baixados.length > 0) {
+    y = tabelaComCabecalho(doc,
+      ['INICIO', 'RETORNO', 'MOTIVO', 'CSD'],
+      baixados.slice(-6).map((b: any) => [
+        fmt.data(b.dataInicio),
+        fmt.data(b.dataFim),
+        fmt.str(b.motivo),
+        fmt.str(b.csd),
+      ]), y
+    );
+  } else {
+    y = caixaAviso(doc, '* Nenhum registro de baixa medica para este militar.', y, 'sucesso');
   }
 
   y = sep(y);
