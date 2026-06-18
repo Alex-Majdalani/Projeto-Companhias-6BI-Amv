@@ -532,11 +532,23 @@ export class MilitarController {
       let baixados: any[] = [];
       let planosFerias: any[] = [];
 
+      let funcoesCia: any[] = [];
+      let punicoesRecebidas: any[] = [];
+      let fatdParticipados: any[] = [];
+
       try {
-        const [visitasRes, baixadosRes, feriasRes] = await Promise.allSettled([
+        const [
+          visitasRes, baixadosRes, feriasRes,
+          funcoesEfetivoRes, funcoesSubstitutoRes,
+          punicoesRes, fatdPartRes
+        ] = await Promise.allSettled([
           nocoRequest(`/tables/m0ya166asp9wk5b/records?where=(militar,eq,${id})`),
           nocoRequest(`/tables/mjaepbsec6qieim/records?where=(militar,eq,${id})`),
-          nocoRequest(`/tables/merte6jebbddnb1/records?where=(militar,eq,${id})&nested[periodos_ferias][fields]=nome_periodo,data_inicio,data_fim`)
+          nocoRequest(`/tables/merte6jebbddnb1/records?where=(militar,eq,${id})&nested[periodos_ferias][fields]=nome_periodo,data_inicio,data_fim`),
+          nocoRequest(`/tables/m53uey4mkuimti7/records?where=(efetivo,eq,${id})`),
+          nocoRequest(`/tables/m53uey4mkuimti7/records?where=(substituto,eq,${id})`),
+          nocoRequest(`/tables/mxdic5ej7eigds1/records?where=(militar_punido,eq,${id})&nested[fatd][fields]=fato_relatado,data_processo_fato,numero_processo`),
+          nocoRequest(`/tables/mhdr8z1rnvysh6u/records?where=(militar_participante,anyof,${id})~or(militar_participante,eq,${id})`)
         ]);
 
         if (visitasRes.status === 'fulfilled' && visitasRes.value?.list) {
@@ -548,8 +560,26 @@ export class MilitarController {
         if (feriasRes.status === 'fulfilled' && feriasRes.value?.list) {
           planosFerias = feriasRes.value.list;
         }
+        if (funcoesEfetivoRes.status === 'fulfilled' && funcoesEfetivoRes.value?.list) {
+          funcoesCia.push(...funcoesEfetivoRes.value.list.map((f: any) => ({ ...f, vinculo: 'Efetivo' })));
+        }
+        if (funcoesSubstitutoRes.status === 'fulfilled' && funcoesSubstitutoRes.value?.list) {
+          // Evita duplicidade se o NocoDB retornar o mesmo por algum motivo
+          const existentes = new Set(funcoesCia.map(f => f.Id));
+          funcoesSubstitutoRes.value.list.forEach((f: any) => {
+            if (!existentes.has(f.Id)) {
+              funcoesCia.push({ ...f, vinculo: 'Substituto' });
+            }
+          });
+        }
+        if (punicoesRes.status === 'fulfilled' && punicoesRes.value?.list) {
+          punicoesRecebidas = punicoesRes.value.list;
+        }
+        if (fatdPartRes.status === 'fulfilled' && fatdPartRes.value?.list) {
+          fatdParticipados = fatdPartRes.value.list;
+        }
       } catch (err) {
-        console.warn('Aviso: falha ao buscar registros adicionais de saúde/férias:', err);
+        console.warn('Aviso: falha ao buscar registros adicionais:', err);
       }
 
       // Formata o retorno consolidado para o frontend
@@ -662,6 +692,30 @@ export class MilitarController {
             inicio: p.data_inicio || '',
             fim: p.data_fim || ''
           }))
+        })),
+        // Funções da Cia
+        funcoesCia: funcoesCia.map(f => ({
+          id: f.Id,
+          funcao: f.funcao || '',
+          ativa: f.ativa ?? true,
+          vinculo: f.vinculo || 'Efetivo'
+        })),
+        // Punições / Ocorrências
+        punicoesRecebidas: punicoesRecebidas.map(p => ({
+          id: p.Id,
+          biPublicacao: p.bi_publicacao || '',
+          tipo: p.tipo || '',
+          dias: p.dias || 0,
+          fatoRelatado: p.fatd?.fato_relatado || '',
+          dataFato: p.fatd?.data_processo_fato || '',
+          numeroProcesso: p.fatd?.numero_processo || ''
+        })),
+        fatdParticipados: fatdParticipados.map(f => ({
+          id: f.Id,
+          numeroProcesso: f.numero_processo || '',
+          dataFato: f.data_processo_fato || '',
+          fatoRelatado: f.fato_relatado || '',
+          funcaoParticipante: f.funcao_participante || ''
         }))
       };
 

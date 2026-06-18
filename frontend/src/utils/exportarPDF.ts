@@ -447,6 +447,26 @@ async function renderPerfil(doc: any, perfil: any): Promise<void> {
 
   y = sep(y);
 
+  // ━━━ FUNCOES CIA ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  const funcoesCia = Array.isArray(perfil.funcoesCia) ? perfil.funcoesCia : [];
+  y = checkPage(doc, y, 40);
+  y = secao(doc, 'Funcoes e Cargos na Cia', y);
+
+  if (funcoesCia.length > 0) {
+    y = tabelaComCabecalho(doc,
+      ['FUNCAO', 'VINCULO', 'STATUS'],
+      funcoesCia.map((f: any) => [
+        fmt.str(f.funcao),
+        fmt.str(f.vinculo),
+        f.ativa ? 'Ativa' : 'Inativa',
+      ]), y
+    );
+  } else {
+    y = caixaAviso(doc, '* Nenhuma funcao registrada para este militar na Cia.', y, 'neutro');
+  }
+
+  y = sep(y);
+
   // ━━━ DADOS PESSOAIS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   y = checkPage(doc, y, 65);
   y = secao(doc, 'Dados Pessoais', y);
@@ -671,25 +691,45 @@ async function renderPerfil(doc: any, perfil: any): Promise<void> {
 
   y = sep(y);
 
-  // ━━━ PUNICOES / OCORRENCIAS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  const punicoes = Array.isArray(perfil.punicoes) ? perfil.punicoes
-    : Array.isArray(perfil.ocorrencias) ? perfil.ocorrencias : [];
+  // ━━━ PUNICOES RECEBIDAS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  const punicoesRecebidas = Array.isArray(perfil.punicoesRecebidas) ? perfil.punicoesRecebidas : [];
   y = checkPage(doc, y, 50);
-  y = secao(doc, 'Punicoes e Ocorrencias Disciplinares', y);
+  y = secao(doc, 'Punicoes Recebidas', y);
 
-  if (punicoes.length > 0) {
+  if (punicoesRecebidas.length > 0) {
     y = tabelaComCabecalho(doc,
-      ['DATA', 'TIPO', 'MOTIVO', 'PENALIDADE', 'SITUACAO'],
-      punicoes.slice(-6).map((p: any) => [
-        fmt.data(p.data ?? p.Data ?? ''),
-        fmt.str(p.tipo ?? p.Tipo ?? p.natureza),
-        fmt.str(p.motivo ?? p.Motivo ?? p.descricao),
-        fmt.str(p.penalidade ?? p.Penalidade ?? p.sancao),
-        fmt.str(p.situacao ?? p.Situacao) || 'Registrada',
+      ['DATA DO FATO', 'PROCESSO / BI', 'TIPO', 'DIAS', 'FATO RELATADO'],
+      punicoesRecebidas.slice(-6).map((p: any) => [
+        fmt.data(p.dataFato),
+        `${fmt.str(p.numeroProcesso)}\nBI: ${fmt.str(p.biPublicacao)}`,
+        fmt.str(p.tipo),
+        fmt.str(p.dias),
+        fmt.str(p.fatoRelatado),
       ]), y
     );
   } else {
-    y = caixaAviso(doc, 'Nenhuma punicao ou ocorrencia disciplinar registrada para este militar.', y, 'sucesso');
+    y = caixaAviso(doc, 'Nenhuma punicao registrada para este militar.', y, 'sucesso');
+  }
+
+  y = sep(y);
+
+  // ━━━ PROCESSOS COMO PARTICIPANTE ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  const fatdParticipados = Array.isArray(perfil.fatdParticipados) ? perfil.fatdParticipados : [];
+  y = checkPage(doc, y, 50);
+  y = secao(doc, 'Processos como Participante', y);
+
+  if (fatdParticipados.length > 0) {
+    y = tabelaComCabecalho(doc,
+      ['DATA DO FATO', 'PROCESSO', 'FUNCAO PARTICIPANTE', 'FATO RELATADO'],
+      fatdParticipados.slice(-6).map((f: any) => [
+        fmt.data(f.dataFato),
+        fmt.str(f.numeroProcesso),
+        fmt.str(f.funcaoParticipante),
+        fmt.str(f.fatoRelatado),
+      ]), y
+    );
+  } else {
+    y = caixaAviso(doc, 'Nenhum processo como participante registrado.', y, 'neutro');
   }
 
   y = sep(y);

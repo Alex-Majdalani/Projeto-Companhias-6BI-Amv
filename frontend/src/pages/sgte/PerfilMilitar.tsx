@@ -172,10 +172,6 @@ export function PerfilMilitar() {
   }
 
   // Comentário de organização: Dados de exemplo para seções ainda sem integração real com o banco
-  const punicoesStatic = [
-    { id: 1, tipo: 'Recebida', descricao: 'Repreensão verbal por atraso em serviço', data: '10/03/2026', aplicador: '1º SGT Torres', status: 'Cumprida' },
-    { id: 2, tipo: 'Aplicada', descricao: 'Advertência oral a SD sob seu comando', data: '22/04/2026', aplicador: `Em nome de ${perfil.nomeGuerra || '—'}`, status: 'Registrada' },
-  ];
 
   const tafStatic = [
     { id: 1, data: '15/01/2026', nota: 82, resultado: 'Aprovado', corrida: '11:48', flexao: 38, abdominal: 42 },
@@ -184,10 +180,6 @@ export function PerfilMilitar() {
   const tiroStatic = [
     { id: 1, data: '20/02/2026', arma: 'FAL 7.62mm', pontuacao: 92, classificacao: 'Atirador de 1ª Classe' },
     { id: 2, data: '20/08/2025', arma: 'FAL 7.62mm', pontuacao: 88, classificacao: 'Atirador de 2ª Classe' },
-  ];
-  const funcoesStatic = [
-    { id: 1, funcao: 'Atirador', secao: '2ª Seção', desde: '01/03/2026', ate: null, atual: true },
-    { id: 2, funcao: 'Operador de Rádio', secao: 'Estado-Maior', desde: '01/01/2025', ate: '28/02/2026', atual: false },
   ];
 
   // Comentário de organização: Nome de exibição principal — prioriza nome completo civil, com fallback para nome de guerra
@@ -592,66 +584,93 @@ export function PerfilMilitar() {
         </Section>
       )}
 
-      {/* ====== ABA: FUNÇÕES CIA ====== */}
+      {/* ====== ABA: FUNÇÕES DA CIA ====== */}
       {activeTab === 'funcoes' && (
-        <Section title="Funções Exercidas na CIA" icon={<Star size={15} />}>
+        <Section title="Funções e Cargos na Cia" icon={<Award size={15} />}>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b-2 border-gray-100">
-                  {['Função', 'Seção', 'Desde', 'Até', 'Situação'].map(h => (
+                  {['Função', 'Vínculo', 'Status'].map(h => (
                     <th key={h} className="text-left pb-3 px-3 text-[11px] font-bold text-militar-main uppercase tracking-wider">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {funcoesStatic.map(f => (
+                {perfil.funcoesCia && perfil.funcoesCia.length > 0 ? perfil.funcoesCia.map((f: any) => (
                   <tr key={f.id} className="border-b border-gray-50 hover:bg-gray-50/70 transition-colors">
-                    <td className="py-3 px-3 font-bold text-gray-800">{f.funcao}</td>
-                    <td className="py-3 px-3 text-gray-600">{f.secao}</td>
-                    <td className="py-3 px-3 text-gray-600">{f.desde}</td>
-                    <td className="py-3 px-3 text-gray-500">{f.atual ? '—' : f.ate}</td>
-                    <td className="py-3 px-3">
-                      <Badge variant={f.atual ? 'success' : 'default'}>{f.atual ? 'Atual' : 'Encerrada'}</Badge>
-                    </td>
+                    <td className="py-3 px-3 font-semibold text-gray-800">{f.funcao}</td>
+                    <td className="py-3 px-3 text-gray-600">{f.vinculo}</td>
+                    <td className="py-3 px-3"><Badge variant={f.ativa ? 'success' : 'default'}>{f.ativa ? 'Ativa' : 'Inativa'}</Badge></td>
                   </tr>
-                ))}
+                )) : (
+                  <tr><td colSpan={3} className="py-4 text-center text-sm text-gray-500">Nenhuma função registrada.</td></tr>
+                )}
               </tbody>
             </table>
-            <StaticDataWarning />
           </div>
         </Section>
       )}
 
-      {/* ====== ABA: PUNIÇÕES ====== */}
+      {/* ====== ABA: PUNIÇÕES E OCORRÊNCIAS ====== */}
       {activeTab === 'punicoes' && (
-        <Section title="Histórico de Punições" icon={<AlertTriangle size={15} />}>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b-2 border-gray-100">
-                  {['Tipo', 'Descrição', 'Data', 'Aplicador / Registro', 'Status'].map(h => (
-                    <th key={h} className="text-left pb-3 px-3 text-[11px] font-bold text-militar-main uppercase tracking-wider">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {punicoesStatic.map(p => (
-                  <tr key={p.id} className="border-b border-gray-50 hover:bg-gray-50/70 transition-colors">
-                    <td className="py-3 px-3"><PunicaoBadge tipo={p.tipo} /></td>
-                    <td className="py-3 px-3 text-gray-700 max-w-xs">{p.descricao}</td>
-                    <td className="py-3 px-3 text-gray-600">{p.data}</td>
-                    <td className="py-3 px-3 text-gray-600">{p.aplicador}</td>
-                    <td className="py-3 px-3">
-                      <Badge variant={p.status === 'Cumprida' ? 'success' : 'default'}>{p.status}</Badge>
-                    </td>
+        <div className="grid grid-cols-1 gap-6">
+          <Section title="Punições Recebidas" icon={<AlertTriangle size={15} />}>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b-2 border-gray-100">
+                    {['Data do Fato', 'Processo / BI', 'Tipo', 'Dias', 'Fato Relatado'].map(h => (
+                      <th key={h} className="text-left pb-3 px-3 text-[11px] font-bold text-militar-main uppercase tracking-wider">{h}</th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-            <StaticDataWarning />
-          </div>
-        </Section>
+                </thead>
+                <tbody>
+                  {perfil.punicoesRecebidas && perfil.punicoesRecebidas.length > 0 ? perfil.punicoesRecebidas.map((p: any) => (
+                    <tr key={p.id} className="border-b border-gray-50 hover:bg-gray-50/70 transition-colors">
+                      <td className="py-3 px-3 font-semibold text-gray-800">{formatDate(p.dataFato)}</td>
+                      <td className="py-3 px-3 text-gray-600">
+                        <div>{p.numeroProcesso}</div>
+                        <div className="text-xs text-gray-400">BI: {p.biPublicacao}</div>
+                      </td>
+                      <td className="py-3 px-3"><Badge variant="danger">{p.tipo}</Badge></td>
+                      <td className="py-3 px-3 font-bold text-red-600">{p.dias || '—'}</td>
+                      <td className="py-3 px-3 text-gray-700 text-xs max-w-sm">{p.fatoRelatado}</td>
+                    </tr>
+                  )) : (
+                    <tr><td colSpan={5} className="py-4 text-center text-sm text-gray-500">Nenhuma punição registrada.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Section>
+
+          <Section title="Processos como Participante" icon={<AlertTriangle size={15} className="text-yellow-600" />}>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b-2 border-gray-100">
+                    {['Data do Fato', 'Processo', 'Função Participante', 'Fato Relatado'].map(h => (
+                      <th key={h} className="text-left pb-3 px-3 text-[11px] font-bold text-militar-main uppercase tracking-wider">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {perfil.fatdParticipados && perfil.fatdParticipados.length > 0 ? perfil.fatdParticipados.map((f: any) => (
+                    <tr key={f.id} className="border-b border-gray-50 hover:bg-gray-50/70 transition-colors">
+                      <td className="py-3 px-3 font-semibold text-gray-800">{formatDate(f.dataFato)}</td>
+                      <td className="py-3 px-3 text-gray-600">{f.numeroProcesso}</td>
+                      <td className="py-3 px-3"><Badge variant="warning">{f.funcaoParticipante}</Badge></td>
+                      <td className="py-3 px-3 text-gray-700 text-xs max-w-sm">{f.fatoRelatado}</td>
+                    </tr>
+                  )) : (
+                    <tr><td colSpan={4} className="py-4 text-center text-sm text-gray-500">Nenhuma participação registrada.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Section>
+        </div>
       )}
 
       {/* ====== ABA: SAÚDE ====== */}

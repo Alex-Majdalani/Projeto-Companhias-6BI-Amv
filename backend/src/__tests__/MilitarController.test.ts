@@ -29,7 +29,7 @@ describe('MilitarController - Testes Integrados e Logs', () => {
       if (url.includes('m0ya166asp9wk5b')) {
         return { ok: true, json: async () => ({ list: [{ Id: 100, data_visita: '2026-01-01', motivo_visita: 'Rotina', medico_responsavel: 'Dr. Silva', parecer_medico: 'Apto', baixado: 'Não' }] }) };
       }
-      if (url.includes('mjaepbsec6qieim') || url.includes('merte6jebbddnb1')) {
+      if (url.includes('mjaepbsec6qieim') || url.includes('merte6jebbddnb1') || url.includes('m53uey4mkuimti7') || url.includes('mxdic5ej7eigds1') || url.includes('mhdr8z1rnvysh6u')) {
         return { ok: true, json: async () => ({ list: [] }) };
       }
       if (url.includes('TBL_CIVIL') || url.includes('msl8p9t3f0q1y4i') || url.includes('/records/10')) { 
@@ -60,9 +60,15 @@ describe('MilitarController - Testes Integrados e Logs', () => {
     const hasVisitas = fetchCalls.some((c: any) => c[0].includes('m0ya166asp9wk5b'));
     const hasBaixados = fetchCalls.some((c: any) => c[0].includes('mjaepbsec6qieim'));
     const hasFerias = fetchCalls.some((c: any) => c[0].includes('merte6jebbddnb1'));
+    const hasFuncoes = fetchCalls.some((c: any) => c[0].includes('m53uey4mkuimti7'));
+    const hasPunicoes = fetchCalls.some((c: any) => c[0].includes('mxdic5ej7eigds1'));
+    const hasFatd = fetchCalls.some((c: any) => c[0].includes('mhdr8z1rnvysh6u'));
     
     expect(hasVisitas).toBeTruthy();
     expect(hasBaixados).toBeTruthy();
     expect(hasFerias).toBeTruthy();
+    expect(hasFuncoes).toBeTruthy();
+    expect(hasPunicoes).toBeTruthy();
+    expect(hasFatd).toBeTruthy();
   });
 });
