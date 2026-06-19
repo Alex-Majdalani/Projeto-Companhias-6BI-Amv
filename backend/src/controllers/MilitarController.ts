@@ -197,7 +197,7 @@ export class MilitarController {
       }
 
       const whereStr = whereConditions.length > 0 ? `&where=${encodeURIComponent(whereConditions.join('~and'))}` : '';
-      const nestedStr = `&nested[dados_civil][fields]=Id,nome_completo,cpf,foto_url&nested[funcao_efetivo_cia][fields]=Id,funcao,ativa,substituto&nested[funcao_substituto_cia][fields]=Id,funcao,ativa,efetivo`;
+      const nestedStr = `&nested[dados_civil][fields]=Id,nome_completo,cpf,foto_url,idt_civil,cnh_categoria&nested[funcao_efetivo_cia][fields]=Id,funcao,ativa,substituto&nested[funcao_substituto_cia][fields]=Id,funcao,ativa,efetivo`;
       const data = await nocoRequest(`/tables/${TBL_MILITAR}/records?limit=200${whereStr}${nestedStr}`);
       
       let formatados = (data.list || []).map((m: any) => {
@@ -212,6 +212,11 @@ export class MilitarController {
         nomeGuerra: m.nome_guerra || '',
         identidade: m.idt_militar || '',
         cpf: m.dados_civil?.cpf || '',
+        // Adicionando identidade civil e CNH
+        idtCivil: m.dados_civil?.idt_civil || '',
+        cnh: typeof m.dados_civil?.cnh_categoria === 'string'
+          ? m.dados_civil.cnh_categoria
+          : (Array.isArray(m.dados_civil?.cnh_categoria) ? m.dados_civil.cnh_categoria.join(', ') : ''),
         quadro: m.posto_graduacao || '',
         subunidade: m.companhia?.Companhia || '',
         companhia: m.companhia?.Companhia || '',
