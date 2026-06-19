@@ -83,8 +83,16 @@ const formatAtSign = (val: string) => {
 
 const calculateAge = (birthDateString: string): string => {
   if (!birthDateString) return '';
+  const cleanDateStr = typeof birthDateString === 'string' ? birthDateString.split('T')[0] : '';
+  const parts = cleanDateStr.split(/[-/]/);
+  if (parts.length < 3) return '';
+
+  const year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10) - 1;
+  const day = parseInt(parts[2], 10);
+
+  const birthDate = new Date(year, month, day);
   const today = new Date();
-  const birthDate = new Date(birthDateString);
   let age = today.getFullYear() - birthDate.getFullYear();
   const m = today.getMonth() - birthDate.getMonth();
   if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
