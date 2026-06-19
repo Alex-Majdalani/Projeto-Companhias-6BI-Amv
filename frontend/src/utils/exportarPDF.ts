@@ -290,15 +290,7 @@ async function renderPerfil(doc: any, perfil: any): Promise<void> {
   doc.setFillColor(VD.r, VD.g, VD.b);
   doc.rect(0, 8, PAGE_W, 28, 'F');
 
-  // Selo / brasao simulado (circulo decorativo)
-  doc.setFillColor(255, 255, 255);
-  doc.setDrawColor(255, 255, 255);
-  doc.setLineWidth(0);
-  doc.circle(PAGE_W / 2, 22, 8, 'S');
-  doc.setFontSize(6);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(VD.r, VD.g, VD.b);
-  doc.text('EB', PAGE_W / 2, 23.5, { align: 'center' });
+
 
   doc.setTextColor(BR.r, BR.g, BR.b);
   doc.setFontSize(7);
