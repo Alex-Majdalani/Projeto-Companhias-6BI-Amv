@@ -517,12 +517,13 @@ async function renderPerfil(doc: any, perfil: any): Promise<void> {
   y = secao(doc, 'Teste de Aptidao Fisica (TAF)', y);
 
   if (tafs.length > 0) {
-    const cab = ['DATA', 'FLEXAO', 'ABDOMINAL', 'CORRIDA / DISTANCIA', 'RESULTADO'];
+    const cab = ['DATA', 'FLEXAO', 'ABDOMINAL', 'CORRIDA / DISTANCIA', 'MENCAO', 'RESULTADO'];
     const corpo = tafs.slice(-6).map((t: any) => [
       fmt.data(t.data || t.Data || ''),
       fmt.str(t.flexao ?? t.Flexao),
       fmt.str(t.abdominal ?? t.Abdominal),
       fmt.str(t.corrida ?? t.Corrida ?? t.distancia),
+      fmt.str(t.mencao ?? t.Mencao ?? t.pontuacao),
       fmt.str(t.resultado ?? t.Resultado ?? t.conceito),
     ]);
     y = tabelaComCabecalho(doc, cab, corpo, y);
@@ -559,10 +560,10 @@ async function renderPerfil(doc: any, perfil: any): Promise<void> {
     }
   } else {
     y = tabelaComCabecalho(doc,
-      ['DATA', 'FLEXAO', 'ABDOMINAL', 'CORRIDA / DISTANCIA', 'RESULTADO'],
+      ['DATA', 'FLEXAO', 'ABDOMINAL', 'CORRIDA / DISTANCIA', 'MENCAO', 'RESULTADO'],
       [
-        [`${new Date().getFullYear()}`, '—', '—', '—', 'Sem registro'],
-        [`${new Date().getFullYear() - 1}`, '—', '—', '—', 'Sem registro'],
+        [`${new Date().getFullYear()}`, '—', '—', '—', '—', 'Sem registro'],
+        [`${new Date().getFullYear() - 1}`, '—', '—', '—', '—', 'Sem registro'],
       ], y
     );
     y = caixaAviso(doc, '* Nenhum resultado de TAF registrado para este militar.', y, 'neutro');
@@ -577,17 +578,17 @@ async function renderPerfil(doc: any, perfil: any): Promise<void> {
 
   if (tiros.length > 0) {
     y = tabelaComCabecalho(doc,
-      ['DATA', 'ARMA', 'PONTUACAO', 'CONCEITO'],
+      ['DATA', 'TIPO', 'MENCAO', 'OBS'],
       tiros.slice(-5).map((t: any) => [
         fmt.data(t.data || t.Data || ''),
-        fmt.str(t.arma ?? t.Arma),
-        fmt.str(t.pontuacao ?? t.Pontuacao ?? t.pontos),
-        fmt.str(t.conceito ?? t.Conceito),
+        fmt.str(t.tipo ?? t.Tipo ?? t.arma ?? t.Arma),
+        fmt.str(t.mencao ?? t.Mencao ?? t.pontuacao ?? t.Pontuacao ?? t.pontos),
+        fmt.str(t.obs ?? t.Obs ?? t.observacao ?? t.conceito ?? t.Conceito),
       ]), y
     );
   } else {
     y = tabelaComCabecalho(doc,
-      ['DATA', 'ARMA', 'PONTUACAO', 'CONCEITO'],
+      ['DATA', 'TIPO', 'MENCAO', 'OBS'],
       [['—', '—', '—', 'Sem registro']], y
     );
     y = caixaAviso(doc, '* Nenhum resultado de tiro de campo registrado.', y, 'neutro');
@@ -702,27 +703,6 @@ async function renderPerfil(doc: any, perfil: any): Promise<void> {
     );
   } else {
     y = caixaAviso(doc, 'Nenhuma punicao registrada para este militar.', y, 'sucesso');
-  }
-
-  y = sep(y);
-
-  // ━━━ PROCESSOS COMO PARTICIPANTE ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  const fatdParticipados = Array.isArray(perfil.fatdParticipados) ? perfil.fatdParticipados : [];
-  y = checkPage(doc, y, 50);
-  y = secao(doc, 'Processos como Participante', y);
-
-  if (fatdParticipados.length > 0) {
-    y = tabelaComCabecalho(doc,
-      ['DATA DO FATO', 'PROCESSO', 'FUNCAO PARTICIPANTE', 'FATO RELATADO'],
-      fatdParticipados.slice(-6).map((f: any) => [
-        fmt.data(f.dataFato),
-        fmt.str(f.numeroProcesso),
-        fmt.str(f.funcaoParticipante),
-        fmt.str(f.fatoRelatado),
-      ]), y
-    );
-  } else {
-    y = caixaAviso(doc, 'Nenhum processo como participante registrado.', y, 'neutro');
   }
 
   y = sep(y);

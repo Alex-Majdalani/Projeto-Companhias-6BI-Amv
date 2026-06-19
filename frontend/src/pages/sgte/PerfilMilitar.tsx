@@ -174,12 +174,12 @@ export function PerfilMilitar() {
   // Comentário de organização: Dados de exemplo para seções ainda sem integração real com o banco
 
   const tafStatic = [
-    { id: 1, data: '15/01/2026', nota: 82, resultado: 'Aprovado', corrida: '11:48', flexao: 38, abdominal: 42 },
-    { id: 2, data: '15/07/2025', nota: 78, resultado: 'Aprovado', corrida: '12:10', flexao: 35, abdominal: 40 },
+    { id: 1, data: '15/01/2026', mencao: 'E', resultado: 'Aprovado', corrida: '11:48', flexao: 38, abdominal: 42 },
+    { id: 2, data: '15/07/2025', mencao: 'MB', resultado: 'Aprovado', corrida: '12:10', flexao: 35, abdominal: 40 },
   ];
   const tiroStatic = [
-    { id: 1, data: '20/02/2026', arma: 'FAL 7.62mm', pontuacao: 92, classificacao: 'Atirador de 1ª Classe' },
-    { id: 2, data: '20/08/2025', arma: 'FAL 7.62mm', pontuacao: 88, classificacao: 'Atirador de 2ª Classe' },
+    { id: 1, data: '20/02/2026', tipo: 'Fuzil 7.62mm', mencao: 'Excelente', obs: 'Destaque no estande' },
+    { id: 2, data: '20/08/2025', tipo: 'Pistola 9mm', mencao: 'Bom', obs: '-' },
   ];
 
   // Comentário de organização: Nome de exibição principal — prioriza nome completo civil, com fallback para nome de guerra
@@ -645,31 +645,7 @@ export function PerfilMilitar() {
             </div>
           </Section>
 
-          <Section title="Processos como Participante" icon={<AlertTriangle size={15} className="text-yellow-600" />}>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b-2 border-gray-100">
-                    {['Data do Fato', 'Processo', 'Função Participante', 'Fato Relatado'].map(h => (
-                      <th key={h} className="text-left pb-3 px-3 text-[11px] font-bold text-militar-main uppercase tracking-wider">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {perfil.fatdParticipados && perfil.fatdParticipados.length > 0 ? perfil.fatdParticipados.map((f: any) => (
-                    <tr key={f.id} className="border-b border-gray-50 hover:bg-gray-50/70 transition-colors">
-                      <td className="py-3 px-3 font-semibold text-gray-800">{formatDate(f.dataFato)}</td>
-                      <td className="py-3 px-3 text-gray-600">{f.numeroProcesso}</td>
-                      <td className="py-3 px-3"><Badge variant="warning">{f.funcaoParticipante}</Badge></td>
-                      <td className="py-3 px-3 text-gray-700 text-xs max-w-sm">{f.fatoRelatado}</td>
-                    </tr>
-                  )) : (
-                    <tr><td colSpan={4} className="py-4 text-center text-sm text-gray-500">Nenhuma participação registrada.</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </Section>
+
         </div>
       )}
 
@@ -741,7 +717,7 @@ export function PerfilMilitar() {
             <div className="mb-8">
               <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Evolução do Desempenho Físico</h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <StatCard title="Última Nota TAF" value={tafStatic[0]?.nota || '—'} subtitle={`Em ${tafStatic[0]?.data || '—'}`} trend={tafStatic[0]?.nota > (tafStatic[1]?.nota || 0) ? 'up' : 'down'} />
+                <StatCard title="Última Menção TAF" value={tafStatic[0]?.mencao || '—'} subtitle={`Em ${tafStatic[0]?.data || '—'}`} trend="neutral" />
                 <StatCard title="Média de Flexões" value={Math.round(tafStatic.reduce((acc, t) => acc + t.flexao, 0) / (tafStatic.length || 1))} subtitle="Últimos testes" />
                 <StatCard title="Média de Abdominais" value={Math.round(tafStatic.reduce((acc, t) => acc + t.abdominal, 0) / (tafStatic.length || 1))} subtitle="Últimos testes" />
               </div>
@@ -749,7 +725,6 @@ export function PerfilMilitar() {
               <div className="bg-gray-50 border border-gray-200 rounded-xl p-5">
                 <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-4">Comparativo: Último TAF</h4>
                 <div className="space-y-4">
-                  <ProgressBar label="Desempenho Geral (Nota)" value={tafStatic[0]?.nota || 0} max={100} colorClass="bg-militar-main" />
                   <ProgressBar label="Flexões de Braço" value={tafStatic[0]?.flexao || 0} max={50} colorClass="bg-blue-500" />
                   <ProgressBar label="Abdominais" value={tafStatic[0]?.abdominal || 0} max={60} colorClass="bg-green-500" />
                 </div>
@@ -761,7 +736,7 @@ export function PerfilMilitar() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b-2 border-gray-100">
-                    {['Data', 'Corrida (m:ss)', 'Flexão', 'Abdominal', 'Nota', 'Resultado'].map(h => (
+                    {['Data', 'Corrida (m:ss)', 'Flexão', 'Abdominal', 'Menção', 'Resultado'].map(h => (
                       <th key={h} className="text-left pb-3 px-3 text-[11px] font-bold text-militar-main uppercase tracking-wider">{h}</th>
                     ))}
                   </tr>
@@ -774,7 +749,7 @@ export function PerfilMilitar() {
                       <td className="py-3 px-3 font-semibold">{t.flexao}</td>
                       <td className="py-3 px-3 font-semibold">{t.abdominal}</td>
                       <td className="py-3 px-3">
-                        <span className="text-lg font-black text-militar-main">{t.nota}</span>
+                        <span className="text-lg font-black text-militar-main">{t.mencao}</span>
                       </td>
                       <td className="py-3 px-3"><Badge variant="success">{t.resultado}</Badge></td>
                     </tr>
@@ -789,7 +764,7 @@ export function PerfilMilitar() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b-2 border-gray-100">
-                    {['Data', 'Arma', 'Pontuação', 'Classificação'].map(h => (
+                    {['Data', 'Tipo', 'Menção', 'Observações'].map(h => (
                       <th key={h} className="text-left pb-3 px-3 text-[11px] font-bold text-militar-main uppercase tracking-wider">{h}</th>
                     ))}
                   </tr>
@@ -798,11 +773,11 @@ export function PerfilMilitar() {
                   {tiroStatic.map(t => (
                     <tr key={t.id} className="border-b border-gray-50 hover:bg-gray-50/70 transition-colors">
                       <td className="py-3 px-3 font-semibold text-gray-800">{t.data}</td>
-                      <td className="py-3 px-3 text-gray-700">{t.arma}</td>
+                      <td className="py-3 px-3 text-gray-700">{t.tipo}</td>
                       <td className="py-3 px-3">
-                        <span className="text-lg font-black text-militar-main">{t.pontuacao}</span>
+                        <span className="text-lg font-black text-militar-main">{t.mencao}</span>
                       </td>
-                      <td className="py-3 px-3"><Badge variant="success">{t.classificacao}</Badge></td>
+                      <td className="py-3 px-3 text-gray-600">{t.obs}</td>
                     </tr>
                   ))}
                 </tbody>
