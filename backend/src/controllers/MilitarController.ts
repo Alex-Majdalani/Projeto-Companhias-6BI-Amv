@@ -14,24 +14,44 @@ const TBL_REDES_SOCIAIS = 'mw1va9kecnl1c16';
 const TBL_ESPECIALIDADES_MILITAR = 'mbfumyosimeqpa6';
 const TBL_HISTORICO_LOGS = 'ml7fddu63zljsta';
 
-// Helper para chamadas fetch no NocoDB
+// Helper para chamadas fetch no NocoDB com tratamento de timeout e encerramento de conexões
 async function nocoRequest(path: string, options: RequestInit = {}) {
   const url = `${NOCODB_URL}/api/v2${path}`;
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'xc-token': XC_TOKEN,
-      ...(options.headers || {})
-    }
-  });
+  
+  // Comentário de organização: Cria um sinalizador de timeout de 25 segundos para tolerar a lentidão do NocoDB de desenvolvimento em nuvem
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 25000);
 
-  const data = await response.json();
-  if (!response.ok) {
-    console.error('NocoDB Error details:', data);
-    throw new Error(data.msg || data.message || `Erro na chamada NocoDB: ${response.status}`);
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        'xc-token': XC_TOKEN,
+        // Comentário de organização: Evita problemas de reutilização de socket TCP travado forçando o fechamento da conexão HTTP
+        'Connection': 'close',
+        ...(options.headers || {})
+      }
+    });
+
+    // Comentário de organização: Limpa o timeout para evitar vazamento de memória se a requisição retornar a tempo
+    clearTimeout(timeoutId);
+
+    const data = await response.json();
+    if (!response.ok) {
+      console.error('NocoDB Error details:', data);
+      throw new Error(data.msg || data.message || `Erro na chamada NocoDB: ${response.status}`);
+    }
+    return data;
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      console.error(`[NocoDB TIMEOUT] Requisição para ${path} excedeu o tempo limite de 25s.`);
+      throw new Error(`Tempo limite excedido na comunicação com o NocoDB para o caminho: ${path}`);
+    }
+    throw error;
   }
-  return data;
 }
 
 // Comentário de organização: Helper para registrar log de ações no historico_logs.
@@ -819,58 +839,85 @@ export class MilitarController {
     }
   }
 
-  // Comentário de organização: Atualiza todos os dados do militar e seus registros relacionados
+  // Comentário de organização: Atualiza todos os dados do militar e seus registros relacionados com depuração detalhada via console
   static async update(req: Request, res: Response) {
     try {
       const { id } = req.params;
       const militarId = parseInt(id as string);
 
+      console.log(`[DEBUG UPDATE] Iniciando atualização para militar ID: ${militarId}`);
+
       if (isNaN(militarId)) {
+        console.warn(`[DEBUG UPDATE] ID de militar inválido fornecido: ${id}`);
         return res.status(400).json({ error: 'ID inválido.' });
       }
 
       const body = req.body;
+      console.log('[DEBUG UPDATE] Payload recebido para atualização:', JSON.stringify(body, null, 2));
 
       // Comentário de organização: Busca dados anteriores para gerar o log com valores exatos antes e depois
+      console.log('[DEBUG UPDATE] Buscando registro do militar anterior no NocoDB...');
       const militarAntes = await nocoRequest(`/tables/${TBL_MILITAR}/records/${militarId}`);
+      console.log('[DEBUG UPDATE] Registro do militar obtido com sucesso.');
+
       const civilIdAntes = typeof militarAntes.dados_civil === 'object' ? militarAntes.dados_civil?.Id : militarAntes.dados_civil;
       let civilAntes: any = {};
       if (civilIdAntes) {
         try {
+          console.log(`[DEBUG UPDATE] Buscando dados civis anteriores para ID: ${civilIdAntes}...`);
           civilAntes = await nocoRequest(`/tables/${TBL_CIVIL}/records/${civilIdAntes}`);
-        } catch {}
+          console.log('[DEBUG UPDATE] Dados civis anteriores obtidos.');
+        } catch (errCivil) {
+          console.warn('[DEBUG UPDATE] Erro ao buscar dados civis anteriores:', errCivil);
+        }
       }
 
       const enderecoIdAntes = typeof militarAntes.endereco === 'object' ? militarAntes.endereco?.Id : militarAntes.endereco;
       let enderecoAntes: any = {};
       if (enderecoIdAntes) {
         try {
+          console.log(`[DEBUG UPDATE] Buscando endereço anterior para ID: ${enderecoIdAntes}...`);
           enderecoAntes = await nocoRequest(`/tables/${TBL_ENDERECO}/records/${enderecoIdAntes}`);
-        } catch {}
+          console.log('[DEBUG UPDATE] Endereço anterior obtido.');
+        } catch (errEnd) {
+          console.warn('[DEBUG UPDATE] Erro ao buscar endereço anterior:', errEnd);
+        }
       }
 
       const contatoIdAntes = typeof militarAntes.formas_contato === 'object' ? militarAntes.formas_contato?.Id : militarAntes.formas_contato;
       let contatoAntes: any = {};
       if (contatoIdAntes) {
         try {
+          console.log(`[DEBUG UPDATE] Buscando formas de contato anteriores para ID: ${contatoIdAntes}...`);
           contatoAntes = await nocoRequest(`/tables/${TBL_CONTATO}/records/${contatoIdAntes}`);
-        } catch {}
+          console.log('[DEBUG UPDATE] Formas de contato anteriores obtidas.');
+        } catch (errCont) {
+          console.warn('[DEBUG UPDATE] Erro ao buscar contato anterior:', errCont);
+        }
       }
 
       const redesIdAntes = typeof militarAntes.redes_sociai === 'object' ? militarAntes.redes_sociai?.Id : militarAntes.redes_sociai;
       let redesAntes: any = {};
       if (redesIdAntes) {
         try {
+          console.log(`[DEBUG UPDATE] Buscando redes sociais anteriores para ID: ${redesIdAntes}...`);
           redesAntes = await nocoRequest(`/tables/${TBL_REDES_SOCIAIS}/records/${redesIdAntes}`);
-        } catch {}
+          console.log('[DEBUG UPDATE] Redes sociais anteriores obtidas.');
+        } catch (errRede) {
+          console.warn('[DEBUG UPDATE] Erro ao buscar redes sociais anteriores:', errRede);
+        }
       }
 
       const espIdAntes = typeof militarAntes.especialidades_militar === 'object' ? militarAntes.especialidades_militar?.Id : militarAntes.especialidades_militar;
       let espAntes: any = {};
       if (espIdAntes) {
         try {
+          console.log(`[DEBUG UPDATE] Buscando especialidades anteriores para ID: ${espIdAntes}...`);
           espAntes = await nocoRequest(`/tables/${TBL_ESPECIALIDADES_MILITAR}/records/${espIdAntes}`);
-        } catch {}
+          console.log('[DEBUG UPDATE] Especialidades anteriores obtidas.');
+        } catch (errEsp) {
+          console.warn('[DEBUG UPDATE] Erro ao buscar especialidades anteriores:', errEsp);
+        }
       }
 
       // ── 1. Atualiza tabela principal: militares ───────────────────────────
@@ -906,13 +953,17 @@ export class MilitarController {
         militarUpdate.companhia = isNaN(compId) ? mapCompanhiaId(compRaw) : compId;
       }
 
+      console.log('[DEBUG UPDATE] Atualizando registro principal do militar no NocoDB...');
       await nocoRequest(`/tables/${TBL_MILITAR}/records`, {
         method: 'PATCH',
         body: JSON.stringify(militarUpdate)
       });
+      console.log('[DEBUG UPDATE] Registro principal do militar atualizado com sucesso.');
 
       // Busca o militar para obter IDs relacionados atuais
+      console.log('[DEBUG UPDATE] Buscando registro do militar atualizado para obter IDs de relacionamentos...');
       const militarRow = await nocoRequest(`/tables/${TBL_MILITAR}/records/${militarId}`);
+      console.log('[DEBUG UPDATE] Registro do militarRow atualizado obtido com sucesso.');
 
       // ── 2. Atualiza dados_civil ───────────────────────────────────────────
       const civilId = typeof militarRow.dados_civil === 'object' ? militarRow.dados_civil?.Id : militarRow.dados_civil;
@@ -953,10 +1004,12 @@ export class MilitarController {
         if (body.cnhCategoria  !== undefined) civilUpdate.cnh_categoria       = cnhValue;
         if (body.fotoUrl       !== undefined) civilUpdate.foto_url            = body.fotoUrl;
 
+        console.log(`[DEBUG UPDATE] Atualizando dados civis para ID ${civilId} no NocoDB...`);
         await nocoRequest(`/tables/${TBL_CIVIL}/records`, {
           method: 'PATCH',
           body: JSON.stringify(civilUpdate)
         });
+        console.log('[DEBUG UPDATE] Dados civis atualizados com sucesso.');
       }
 
       // ── 3. Atualiza endereço ──────────────────────────────────────────────
@@ -1016,6 +1069,59 @@ export class MilitarController {
           method: 'PATCH',
           body: JSON.stringify({ Id: espId, cursos_gerais: body.cursosProfissionais || '' })
         });
+      }
+
+      // ── 7. Atualiza funções da Cia (tabela m53uey4mkuimti7) ──────────────
+      // Comentário de organização: Lógica para gerenciar as funções da Cia associadas ao militar.
+      // Se funcaoId for enviado, o militar é associado como efetivo daquela função e desvinculado de outras funções.
+      if (body.funcaoId !== undefined) {
+        try {
+          // Desvincula o militar como efetivo de qualquer outra função para manter a consistência
+          const funcoesExistentes = await nocoRequest(`/tables/m53uey4mkuimti7/records?where=(efetivo,eq,${militarId})`);
+          if (funcoesExistentes.list && funcoesExistentes.list.length > 0) {
+            for (const func of funcoesExistentes.list) {
+              await nocoRequest(`/tables/m53uey4mkuimti7/records`, {
+                method: 'PATCH',
+                body: JSON.stringify({ Id: func.Id, efetivo: null })
+              });
+            }
+          }
+
+          // Se o usuário selecionou uma nova função válida (funcaoId não nulo/vazio)
+          if (body.funcaoId) {
+            const updateBody: any = {
+              Id: parseInt(body.funcaoId),
+              efetivo: militarId,
+              ativa: body.funcaoAtiva !== undefined ? body.funcaoAtiva : true
+            };
+            if (body.substitutoId !== undefined) {
+              updateBody.substituto = body.substitutoId ? parseInt(body.substitutoId) : null;
+            }
+            await nocoRequest(`/tables/m53uey4mkuimti7/records`, {
+              method: 'PATCH',
+              body: JSON.stringify(updateBody)
+            });
+          }
+        } catch (err) {
+          console.warn('Aviso: falha ao atualizar relação de função da Cia:', err);
+        }
+      } else if (body.substitutoId !== undefined) {
+        // Se o usuário atualizou apenas o substituto, aplicamos à função onde o militar é efetivo
+        try {
+          const funcoesExistentes = await nocoRequest(`/tables/m53uey4mkuimti7/records?where=(efetivo,eq,${militarId})`);
+          if (funcoesExistentes.list && funcoesExistentes.list.length > 0) {
+            const func = funcoesExistentes.list[0];
+            await nocoRequest(`/tables/m53uey4mkuimti7/records`, {
+              method: 'PATCH',
+              body: JSON.stringify({
+                Id: func.Id,
+                substituto: body.substitutoId ? parseInt(body.substitutoId) : null
+              })
+            });
+          }
+        } catch (err) {
+          console.warn('Aviso: falha ao atualizar substituto na função existente:', err);
+        }
       }
 
       // Comentário de organização: Registra log de atualização no historico_logs
@@ -1089,8 +1195,10 @@ export class MilitarController {
         }
       });
 
+      console.log(`[DEBUG UPDATE] Quantidade de campos alterados identificados: ${camposAlterados.length}`);
       if (camposAlterados.length > 0) {
         const usuarioLogadoId = (req as any).user?.id || body.usuarioResponsavelId || null;
+        console.log('[DEBUG UPDATE] Gravando histórico de alterações log no NocoDB...');
         await registrarLog({
           tipo_alteracao: 'Atualização',
           campo_alteracao: camposAlterados.join(', '),
@@ -1104,6 +1212,25 @@ export class MilitarController {
       return res.status(200).json({ message: 'Militar atualizado com sucesso.' });
     } catch (error: any) {
       console.error('Erro ao atualizar militar:', error);
+      return res.status(500).json({ error: error.message });
+    }
+  }
+
+  static async listFuncoes(req: Request, res: Response) {
+    try {
+      // Comentário de organização: Lista todas as funções da Cia cadastradas no banco NocoDB
+      const data = await nocoRequest('/tables/m53uey4mkuimti7/records?limit=100');
+      const list = (data.list || [])
+        .map((f: any) => ({
+          id: f.Id,
+          funcao: f.funcao ? f.funcao.trim() : '',
+          ativa: f.ativa ?? true,
+          efetivoId: f.efetivo ? (typeof f.efetivo === 'object' ? f.efetivo.Id : f.efetivo) : null,
+          substitutoId: f.substituto ? (typeof f.substituto === 'object' ? f.substituto.Id : f.substituto) : null
+        }));
+      return res.status(200).json(list);
+    } catch (error: any) {
+      console.error('Erro ao listar funções da cia:', error);
       return res.status(500).json({ error: error.message });
     }
   }

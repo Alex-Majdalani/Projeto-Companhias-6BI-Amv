@@ -8,6 +8,11 @@ test.describe('Modais por Aba no Cadastro de Militares', () => {
   test('Deve exibir modais específicos para cada aba e permitir edição', async ({ page }) => {
     test.setTimeout(90000);
 
+    // Comentário de organização: Captura as mensagens do console do browser e as expõe nos logs do teste para depuração de erros
+    page.on('console', msg => {
+      console.log(`[BROWSER CONSOLE] [${msg.type()}] ${msg.text()}`);
+    });
+
     // 1. Acessar a tela e logar
     await page.goto('/cadastro');
     const userEmail = `teste${Date.now()}@test.com`;
@@ -66,56 +71,102 @@ test.describe('Modais por Aba no Cadastro de Militares', () => {
 
     await page.click('button[type="submit"]');
 
-    await page.waitForURL('**/sgte/cadastro-militares', { timeout: 15000 });
+    // Comentário de organização: Aumenta o timeout para 45s para tolerar a gravação sequencial de 6 registros no NocoDB Cloud remoto de dev
+    await page.waitForURL('**/sgte/cadastro-militares', { timeout: 45000 });
 
     await page.fill('input[placeholder="Digite o nome de guerra ou nome completo..."]', nomeRandom);
     await page.waitForTimeout(1000);
 
-    // 3. Teste Aba Dados Pessoais
-    await page.click('text="Dados Pessoais"');
+    // 3. Teste Aba Dados Pessoais: Edição completa e validação de salvamento
+    // Comentário de organização: Usa o seletor button:has-text para garantir que clique no botão da aba e não em outro elemento
+    await page.click('button:has-text("Dados Pessoais")');
     await page.waitForTimeout(500);
 
-    const rowCard = page.locator(`text=${nomeRandom}`).first();
-    await rowCard.click();
+    // Comentário de organização: Seleciona o card do militar de teste na aba Dados Pessoais de forma robusta e clica no texto estático para evitar clique no link do perfil
+    const rowCard = page.locator('div.cursor-pointer').filter({ hasText: nomeRandom }).first();
+    await rowCard.locator('p:has-text("IDT Militar")').first().click();
 
-    // Modal de Resumo deve aparecer com apenas Dados Pessoais visíveis
+    // Comentário de organização: Verifica se o modal abriu com os Dados Pessoais visíveis
     await expect(page.locator('text="Resumo do Militar"').first()).toBeVisible();
     await expect(page.locator('h4:has-text("Dados Pessoais")')).toBeVisible();
     await expect(page.locator('h4:has-text("Situação Funcional")')).toBeHidden();
 
+    // Clica para habilitar a edição dos campos no modal
     await page.click('button:has-text("Atualizar Campos")');
-    // Deve haver inputs para IDT Mil, CPF e Nº EBCA
-    await expect(page.locator('input[value="' + ident + '"]')).toBeVisible();
+    
+    // Comentário de organização: Preenche todos os novos inputs adicionados ao formulário de Dados Pessoais
+    await page.fill('input#modal-nomeGuerra', `${nomeRandom} Modificado`);
+    await page.fill('input#modal-precCP', '654321');
+    await page.fill('input#modal-numeroCampoBasico', '45');
+    await page.fill('input#modal-dataPraca', '2021-08-20');
+    
+    // Salva as alterações feitas
+    await page.click('button:has-text("Salvar Alterações")');
+    await page.waitForTimeout(2000); // Aguarda a requisição e reload dos dados
 
-    await page.click('button:has-text("Cancelar")');
+    // Comentário de organização: Valida se as informações atualizadas aparecem corretamente no modo de visualização do modal diretamente através de IDs explícitos (com tolerância de 20s para lentidão do NocoDB)
+    await expect(page.locator('#detalhe-precCP')).toHaveText('654321', { timeout: 20000 });
+    await expect(page.locator('#detalhe-numeroCampoBasico')).toHaveText('45', { timeout: 20000 });
+    await expect(page.locator('#detalhe-nomeGuerra')).toHaveText(`${nomeRandom} Modificado`, { timeout: 20000 });
+
     await page.click('button:has-text("Fechar")');
 
-    // 4. Teste Aba Situação Funcional
-    await page.click('text="Situação Funcional"');
+    // 4. Teste Aba Situação Funcional: Edição completa, select dinâmico de funções e autocomplete de substituto
+    // Comentário de organização: Usa o seletor button:has-text para garantir que clique no botão da aba e não em outro elemento
+    await page.click('button:has-text("Situação Funcional")');
     await page.waitForTimeout(500);
 
-    const rowSituacao = page.locator(`text=${nomeRandom}`).first();
-    await rowSituacao.click();
+    // Comentário de organização: Clica no card do militar na aba de Situação Funcional para abrir o modal
+    const rowSituacao = page.locator('div.cursor-pointer').filter({ hasText: `${nomeRandom} Modificado` }).first();
+    await rowSituacao.locator('p:has-text("Posto/Grad (Cargo)")').first().click();
 
-    // Modal de Resumo deve aparecer com apenas Situação Funcional visível
+    // Comentário de organização: Verifica se o modal abriu exibindo a aba de Situação Funcional
     await expect(page.locator('h4:has-text("Situação Funcional")')).toBeVisible();
     await expect(page.locator('h4:has-text("Dados Pessoais")')).toBeHidden();
 
     await page.click('button:has-text("Atualizar Campos")');
     
-    // Verifica campo de Busca de Substituto
-    await expect(page.locator('input[placeholder="Buscar militar substituto..."]')).toBeVisible();
-    await page.fill('input[placeholder="Buscar militar substituto..."]', 'Teste');
+    // Altera a situação funcional
+    await page.selectOption('select#modal-situacao-estado', { label: 'Ativo' });
+    await page.selectOption('select#modal-situacao-pelotao', { label: '2º PEL' });
+
+    // Comentário de organização: Seleciona uma função na Cia caso exista alguma cadastrada no select dinâmico
+    const selectFuncao = page.locator('select#modal-situacao-funcaoId');
+    const optionCount = await selectFuncao.locator('option').count();
+    if (optionCount > 1) {
+      await selectFuncao.selectOption({ index: 1 });
+    }
+
+    // Comentário de organização: Busca e seleciona o próprio militar de teste como substituto usando o autocomplete
+    await page.fill('input#modal-situacao-substituto-busca', nomeRandom);
+    await page.waitForTimeout(1000); // Aguarda aparecer as opções do auto-complete
     
-    await page.click('button:has-text("Cancelar")');
+    const resultadoItem = page.locator('ul.max-h-32 li').first();
+    if (await resultadoItem.isVisible()) {
+      await resultadoItem.locator('button:has-text("Selecionar")').click();
+    }
+
+    // Salva as alterações feitas na situação funcional
+    await page.click('button:has-text("Salvar Alterações")');
+    await page.waitForTimeout(2000);
+
+    // Comentário de organização: Valida se as alterações foram salvas com sucesso diretamente no modal usando IDs (com tolerância de 20s para lentidão do NocoDB)
+    await expect(page.locator('#detalhe-situacao-pelotao')).toHaveText('2º PEL', { timeout: 20000 });
+    await expect(page.locator('#detalhe-situacao-estado')).toHaveText('Ativo', { timeout: 20000 });
+    
     await page.click('button:has-text("Fechar")');
 
     // 5. Teste Aba Documentos
-    await page.click('text="Documentos"');
-    await page.waitForTimeout(500);
+    // Comentário de organização: Usa o seletor button:has-text para garantir que clique no botão da aba e evite o link homônimo no menu lateral
+    await page.click('button:has-text("Documentos")');
+    await page.waitForTimeout(1000);
 
-    const rowDocs = page.locator(`text=${nomeRandom}`).first();
-    await rowDocs.click();
+    // Comentário de organização: Captura screenshot da tela para diagnosticar o estado da aba de Documentos no teste
+    await page.screenshot({ path: 'screenshot-error.png' });
+
+    // Comentário de organização: Clica no card na aba de documentos
+    const rowDocs = page.locator('div.cursor-pointer').filter({ hasText: `${nomeRandom} Modificado` }).first();
+    await rowDocs.locator('p:has-text("Identidade Militar")').first().click();
 
     await expect(page.locator('h4:has-text("Documentos")')).toBeVisible();
     await expect(page.locator('h4:has-text("Dados Pessoais")')).toBeHidden();
@@ -123,3 +174,4 @@ test.describe('Modais por Aba no Cadastro de Militares', () => {
     await page.click('button:has-text("Fechar")');
   });
 });
+// Comentário de organização: Fim dos testes de modais por aba no cadastro de militares

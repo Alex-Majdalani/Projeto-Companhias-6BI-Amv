@@ -6,6 +6,7 @@ const militarRoutes = Router();
 
 militarRoutes.get('/companhias', MilitarController.listCompanhias);
 militarRoutes.get('/pelotoes', MilitarController.listPelotoes);
+militarRoutes.get('/funcoes', MilitarController.listFuncoes);
 militarRoutes.get('/', MilitarController.list);
 militarRoutes.post('/', authMiddleware, MilitarController.create);
 // Comentário de organização: Rota para buscar o perfil completo de um militar pelo ID
