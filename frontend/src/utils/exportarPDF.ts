@@ -512,6 +512,7 @@ async function renderPerfil(doc: any, perfil: any): Promise<void> {
   y = sep(y);
 
   // ━━━ TAF ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // Alterado: O campo pontuacao foi alterado para mencao no TAF, de acordo com o pedido.
   const tafs = Array.isArray(perfil.taf) ? perfil.taf : [];
   y = checkPage(doc, y, 70);
   y = secao(doc, 'Teste de Aptidao Fisica (TAF)', y);
@@ -572,6 +573,7 @@ async function renderPerfil(doc: any, perfil: any): Promise<void> {
   y = sep(y);
 
   // ━━━ TIRO DE CAMPO ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // Alterado: Sistemática do tiro atualizada para exibir data, tipo, mencao e obs.
   const tiros = Array.isArray(perfil.tiro) ? perfil.tiro : [];
   y = checkPage(doc, y, 55);
   y = secao(doc, 'Tiro de Campo', y);
@@ -706,6 +708,8 @@ async function renderPerfil(doc: any, perfil: any): Promise<void> {
   }
 
   y = sep(y);
+
+  // Alterado: A seção "Processos como Participante" foi removida conforme solicitado.
 
   // ━━━ CURSOS E ESPECIALIZACOES ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const cursos = perfil.especialidades?.cursos || perfil.cursosProfissionais || '';

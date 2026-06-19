@@ -172,11 +172,12 @@ export function PerfilMilitar() {
   }
 
   // Comentário de organização: Dados de exemplo para seções ainda sem integração real com o banco
-
+  // Alterado: O campo pontuacao foi alterado para mencao no TAF
   const tafStatic = [
     { id: 1, data: '15/01/2026', mencao: 'E', resultado: 'Aprovado', corrida: '11:48', flexao: 38, abdominal: 42 },
     { id: 2, data: '15/07/2025', mencao: 'MB', resultado: 'Aprovado', corrida: '12:10', flexao: 35, abdominal: 40 },
   ];
+  // Alterado: Sistemática do tiro atualizada para exibir data, tipo, mencao e obs
   const tiroStatic = [
     { id: 1, data: '20/02/2026', tipo: 'Fuzil 7.62mm', mencao: 'Excelente', obs: 'Destaque no estande' },
     { id: 2, data: '20/08/2025', tipo: 'Pistola 9mm', mencao: 'Bom', obs: '-' },
@@ -645,6 +646,7 @@ export function PerfilMilitar() {
             </div>
           </Section>
 
+          {/* Alterado: A seção "Processos como Participante" foi removida conforme solicitado */}
 
         </div>
       )}
