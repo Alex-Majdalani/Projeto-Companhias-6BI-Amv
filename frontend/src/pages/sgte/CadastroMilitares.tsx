@@ -307,41 +307,50 @@ export function CadastroMilitares() {
   const totalPages = Math.ceil(militaresFiltrados.length / itemsPerPage);
   const paginatedMilitares = militaresFiltrados.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  const handleExportarPerfisJuntos = async () => {
-    const listToExport = selectedIds.length > 0 ? militaresFiltrados.filter(m => selectedIds.includes(m.id)) : militaresFiltrados;
+  const handleExportarPerfisJuntos = () => {
+    // Comentário de organização: Usamos a lista geral para abranger militares selecionados pelo novo dropdown no modal
+    const listToExport = selectedIds.length > 0 ? militares.filter(m => selectedIds.includes(m.id)) : militaresFiltrados;
     setExportandoVarios(true);
-    try {
+    setModalExportacaoAberto(false);
+    
+    const promise = (async () => {
       const perfis = [];
       for (const m of listToExport) {
         const res = await api.get(`/militares/${m.id}`);
         perfis.push(res.data);
       }
       await exportarLotePerfisPDF(perfis);
-    } catch (err) {
-      console.error('Erro ao exportar PDFs', err);
-      toast.error('Houve um erro ao exportar os PDFs.');
-    } finally {
+    })();
+
+    toast.promise(promise, {
+      loading: 'Gerando PDF consolidado com os militares, aguarde...',
+      success: 'PDF gerado com sucesso!',
+      error: 'Houve um erro ao exportar os PDFs.'
+    }).finally(() => {
       setExportandoVarios(false);
-      setModalExportacaoAberto(false);
-    }
+    });
   };
 
-  const handleExportarPerfisSeparados = async () => {
-    const listToExport = selectedIds.length > 0 ? militaresFiltrados.filter(m => selectedIds.includes(m.id)) : militaresFiltrados;
+  const handleExportarPerfisSeparados = () => {
+    const listToExport = selectedIds.length > 0 ? militares.filter(m => selectedIds.includes(m.id)) : militaresFiltrados;
     setExportandoVarios(true);
-    try {
+    setModalExportacaoAberto(false);
+
+    const promise = (async () => {
       for (const m of listToExport) {
         const res = await api.get(`/militares/${m.id}`);
         const module = await import('../../utils/exportarPDF');
         await module.exportarPerfilPDF(res.data);
       }
-    } catch (err) {
-      console.error('Erro ao exportar PDFs separados', err);
-      toast.error('Houve um erro ao exportar os PDFs.');
-    } finally {
+    })();
+
+    toast.promise(promise, {
+      loading: 'Gerando arquivos PDF separados, aguarde...',
+      success: 'PDFs gerados e baixados com sucesso!',
+      error: 'Houve um erro ao exportar os PDFs.'
+    }).finally(() => {
       setExportandoVarios(false);
-      setModalExportacaoAberto(false);
-    }
+    });
   };
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -514,14 +523,19 @@ export function CadastroMilitares() {
               <div className="flex justify-between items-center mb-4">
                 <span className="text-sm text-gray-600">
                   Total de <strong className="text-gray-900">{militaresFiltrados.length}</strong> militares encontrados
+                  {selectedIds.length > 0 && (
+                    <span className="ml-2 pl-2 border-l border-gray-300 text-militar-main font-semibold">
+                      {selectedIds.length} selecionado(s)
+                    </span>
+                  )}
                 </span>
-                {/* Comentário de organização: Botão de exportação da listagem em PDF */}
+                {/* Comentário de organização: Botão de exportação da listagem em PDF com nova indicação */}
                 <button
                   onClick={() => setModalExportacaoAberto(true)}
                   disabled={militaresFiltrados.length === 0 || exportandoVarios}
                   className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white bg-militar-main hover:bg-militar-dark border border-militar-main rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  {exportandoVarios ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                  <Download size={14} />
                   Exportar
                 </button>
               </div>
@@ -1106,14 +1120,16 @@ export function CadastroMilitares() {
       >
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
-            Você está prestes a exportar <strong>{selectedIds.length > 0 ? selectedIds.length : militaresFiltrados.length}</strong> militar(es). Como deseja exportá-los?
+            Você está prestes a exportar <strong className="text-militar-main text-base bg-militar-main/10 px-2 py-0.5 rounded-full">{selectedIds.length > 0 ? selectedIds.length : militaresFiltrados.length}</strong> militar(es). Como deseja exportá-los?
           </p>
 
           {selectedIds.length > 0 && (
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 max-h-48 overflow-y-auto mb-4">
-              <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Militares Selecionados</p>
-              <ul className="space-y-1">
-                {militaresFiltrados.filter(m => selectedIds.includes(m.id)).map(m => (
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 max-h-64 overflow-y-auto mb-4">
+              <div className="flex justify-between items-center mb-2">
+                <p className="text-xs font-semibold text-gray-500 uppercase">Militares Selecionados</p>
+              </div>
+              <ul className="space-y-1 mb-3">
+                {militares.filter(m => selectedIds.includes(m.id)).map(m => (
                   <li key={m.id} className="flex justify-between items-center text-sm text-gray-700 bg-white p-1.5 rounded border border-gray-100">
                     <span className="truncate pr-2">{m.posto} {m.nomeGuerra || m.nome}</span>
                     <button 
@@ -1126,6 +1142,27 @@ export function CadastroMilitares() {
                   </li>
                 ))}
               </ul>
+
+              {/* Comentário de organização: Input dropdown para selecionar outros militares no próprio modal */}
+              <div className="mt-2 pt-2 border-t border-gray-200">
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Adicionar mais militares à exportação:</label>
+                <select 
+                  className="w-full text-sm border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:border-militar-main bg-white"
+                  onChange={(e) => {
+                    const id = Number(e.target.value);
+                    if (id && !selectedIds.includes(id)) {
+                      toggleSelectMilitar(id);
+                    }
+                    e.target.value = "";
+                  }}
+                  defaultValue=""
+                >
+                  <option value="" disabled>Selecione um militar para adicionar...</option>
+                  {militares.filter(m => !selectedIds.includes(m.id)).map(m => (
+                    <option key={m.id} value={m.id}>{m.posto} {m.nomeGuerra || m.nome}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           )}
           
