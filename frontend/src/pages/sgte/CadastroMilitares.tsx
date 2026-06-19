@@ -8,7 +8,7 @@ import {
   Plus, Download, Filter, Eye, Edit2, Trash2,
   Search, X, ChevronDown, ChevronUp, User,
   FileText, Users, History, Loader2, AlertTriangle,
-  Shield, Phone, MapPin, Briefcase
+  Shield, Phone, MapPin, Briefcase, Save
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
@@ -101,6 +101,9 @@ export function CadastroMilitares() {
   const [deleteError, setDeleteError] = useState('');
   const [editandoMilitar, setEditandoMilitar] = useState<any | null>(null);
   const [militarDetalheModal, setMilitarDetalheModal] = useState<any | null>(null);
+  const [isEditingDetalhes, setIsEditingDetalhes] = useState(false);
+  const [detalhesForm, setDetalhesForm] = useState<any>({});
+  const [salvandoDetalhes, setSalvandoDetalhes] = useState(false);
   const [editForm, setEditForm] = useState<Record<string, string>>({});
   const [salvandoEdicao, setSalvandoEdicao] = useState(false);
   const [editError, setEditError] = useState('');
@@ -263,6 +266,51 @@ export function CadastroMilitares() {
       setEditError(err.response?.data?.error || 'Não foi possível salvar. Tente novamente.');
     } finally {
       setSalvandoEdicao(false);
+    }
+  };
+
+  const handleAbrirEdicaoDetalhes = () => {
+    setDetalhesForm({
+      identidade: militarDetalheModal.identidade || militarDetalheModal.idtMilitar || '',
+      cpf: militarDetalheModal.cpf || '',
+      numeroEbca: militarDetalheModal.numeroEbca || '',
+      tipoVinculo: militarDetalheModal.tipoVinculo || '',
+      pelotao: militarDetalheModal.pelotao || ''
+    });
+    setIsEditingDetalhes(true);
+  };
+
+  const handleSalvarDetalhesModal = async () => {
+    if (!militarDetalheModal) return;
+    setSalvandoDetalhes(true);
+    try {
+      const payload = {
+        idtMil: detalhesForm.identidade,
+        cpf: detalhesForm.cpf,
+        numeroEbca: detalhesForm.numeroEbca,
+        tipoMilitar: detalhesForm.tipoVinculo,
+        pelotao: detalhesForm.pelotao
+      };
+      await api.patch(`/militares/${militarDetalheModal.id}`, payload);
+      toast.success('Campos atualizados com sucesso!');
+      
+      const novosDados = {
+        identidade: detalhesForm.identidade,
+        idtMilitar: detalhesForm.identidade,
+        cpf: detalhesForm.cpf,
+        numeroEbca: detalhesForm.numeroEbca,
+        tipoVinculo: detalhesForm.tipoVinculo,
+        pelotao: detalhesForm.pelotao
+      };
+
+      setMilitares(prev => prev.map(m => m.id === militarDetalheModal.id ? { ...m, ...novosDados } : m));
+      setMilitarDetalheModal((prev: any) => ({ ...prev, ...novosDados }));
+      
+      setIsEditingDetalhes(false);
+    } catch (err: any) {
+      toast.error('Erro ao salvar os detalhes.');
+    } finally {
+      setSalvandoDetalhes(false);
     }
   };
 
@@ -1385,52 +1433,137 @@ export function CadastroMilitares() {
       {/* ── MODAL DE DETALHES RÁPIDOS DO MILITAR ────────────────────────────── */}
       <Modal
         isOpen={militarDetalheModal !== null}
-        onClose={() => setMilitarDetalheModal(null)}
+        onClose={() => {
+          setMilitarDetalheModal(null);
+          setIsEditingDetalhes(false);
+        }}
         title="Resumo do Militar"
+        maxWidth="max-w-4xl"
       >
         {militarDetalheModal && (
           <div className="space-y-6">
-            <div className="flex items-center gap-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
-              <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0 border border-gray-300">
+            <div className="flex flex-col sm:flex-row items-center gap-6 bg-gray-50 p-6 rounded-2xl border border-gray-200">
+              <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0 border-4 border-white shadow-sm">
                 {militarDetalheModal.fotoUrl ? (
                   <img src={militarDetalheModal.fotoUrl} alt="Foto" className="w-full h-full object-cover" />
                 ) : (
-                  <User size={32} className="text-gray-400" />
+                  <User size={40} className="text-gray-400" />
                 )}
               </div>
-              <div>
-                <h3 className="text-xl font-bold text-gray-900">{militarDetalheModal.nomeGuerra || militarDetalheModal.nome}</h3>
-                <p className="text-sm font-medium text-gray-600">{militarDetalheModal.posto} · {militarDetalheModal.companhia}</p>
+              <div className="text-center sm:text-left flex-1">
+                <h3 className="text-2xl font-bold text-gray-900">{militarDetalheModal.nomeGuerra || militarDetalheModal.nome}</h3>
+                <p className="text-base font-medium text-gray-600 mt-1">{militarDetalheModal.posto} · {militarDetalheModal.companhia}</p>
               </div>
-              <div className="ml-auto">
+              <div className="mt-2 sm:mt-0">
                 <SituacaoBadge situacao={militarDetalheModal.situacao} />
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
-                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-1.5"><User size={14} /> Dados Pessoais</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between"><span className="text-gray-500">IDT Mil:</span> <span className="font-semibold text-gray-800">{militarDetalheModal.identidade || militarDetalheModal.idtMilitar || '—'}</span></div>
-                  <div className="flex justify-between"><span className="text-gray-500">CPF:</span> <span className="font-semibold text-gray-800">{militarDetalheModal.cpf || '—'}</span></div>
-                  <div className="flex justify-between"><span className="text-gray-500">Nº EBCA:</span> <span className="font-semibold text-gray-800">{militarDetalheModal.numeroEbca || '—'}</span></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* DADOS PESSOAIS */}
+              <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
+                <h4 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-5 flex items-center gap-2"><User size={16} /> Dados Pessoais</h4>
+                <div className="space-y-4 text-sm">
+                  {isEditingDetalhes ? (
+                    <>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-600 mb-1">IDT Mil</label>
+                        <input
+                          value={detalhesForm.identidade}
+                          onChange={e => setDetalhesForm({ ...detalhesForm, identidade: e.target.value })}
+                          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-militar-main"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-600 mb-1">CPF</label>
+                        <input
+                          value={detalhesForm.cpf}
+                          onChange={e => setDetalhesForm({ ...detalhesForm, cpf: e.target.value })}
+                          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-militar-main"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-600 mb-1">Nº EBCA</label>
+                        <input
+                          value={detalhesForm.numeroEbca}
+                          onChange={e => setDetalhesForm({ ...detalhesForm, numeroEbca: e.target.value })}
+                          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-militar-main"
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex justify-between items-center py-1 border-b border-gray-50"><span className="text-gray-500">IDT Mil:</span> <span className="font-semibold text-gray-800 text-base">{militarDetalheModal.identidade || militarDetalheModal.idtMilitar || '—'}</span></div>
+                      <div className="flex justify-between items-center py-1 border-b border-gray-50"><span className="text-gray-500">CPF:</span> <span className="font-semibold text-gray-800 text-base">{militarDetalheModal.cpf || '—'}</span></div>
+                      <div className="flex justify-between items-center py-1 border-b border-gray-50"><span className="text-gray-500">Nº EBCA:</span> <span className="font-semibold text-gray-800 text-base">{militarDetalheModal.numeroEbca || '—'}</span></div>
+                    </>
+                  )}
                 </div>
               </div>
               
-              <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
-                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-1.5"><Briefcase size={14} /> Situação Funcional</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between"><span className="text-gray-500">Vínculo:</span> <span className="font-semibold text-gray-800">{militarDetalheModal.tipoVinculo || '—'}</span></div>
-                  <div className="flex justify-between"><span className="text-gray-500">Pelotão:</span> <span className="font-semibold text-gray-800">{militarDetalheModal.pelotao || '—'}</span></div>
-                  <div className="flex justify-between"><span className="text-gray-500">Função:</span> <span className="font-semibold text-gray-800 truncate max-w-[100px]" title={militarDetalheModal.funcoesEfetivo?.length > 0 ? militarDetalheModal.funcoesEfetivo.map((f: any) => f.funcao).join(', ') : 'Sem função'}>{militarDetalheModal.funcoesEfetivo?.length > 0 ? militarDetalheModal.funcoesEfetivo.map((f: any) => f.funcao).join(', ') : 'Sem função'}</span></div>
+              {/* SITUAÇÃO FUNCIONAL */}
+              <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
+                <h4 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-5 flex items-center gap-2"><Briefcase size={16} /> Situação Funcional</h4>
+                <div className="space-y-4 text-sm">
+                  {isEditingDetalhes ? (
+                    <>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-600 mb-1">Vínculo</label>
+                        <select
+                          value={detalhesForm.tipoVinculo}
+                          onChange={e => setDetalhesForm({ ...detalhesForm, tipoVinculo: e.target.value })}
+                          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-militar-main bg-white"
+                        >
+                          {TIPOS_VINCULO.filter(t => t !== 'Todos').map(t => <option key={t}>{t}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-600 mb-1">Pelotão</label>
+                        <select
+                          value={detalhesForm.pelotao}
+                          onChange={e => setDetalhesForm({ ...detalhesForm, pelotao: e.target.value })}
+                          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-militar-main bg-white"
+                        >
+                          <option value="">Selecione...</option>
+                          {['1º PEL', '2º PEL', '3º PEL', '4º PEL', 'Pct'].map(p => <option key={p}>{p}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-600 mb-1">Função (Somente Leitura)</label>
+                        <div className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 text-gray-500 truncate" title={militarDetalheModal.funcoesEfetivo?.length > 0 ? militarDetalheModal.funcoesEfetivo.map((f: any) => f.funcao).join(', ') : 'Sem função'}>
+                          {militarDetalheModal.funcoesEfetivo?.length > 0 ? militarDetalheModal.funcoesEfetivo.map((f: any) => f.funcao).join(', ') : 'Sem função'}
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex justify-between items-center py-1 border-b border-gray-50"><span className="text-gray-500">Vínculo:</span> <span className="font-semibold text-gray-800 text-base">{militarDetalheModal.tipoVinculo || '—'}</span></div>
+                      <div className="flex justify-between items-center py-1 border-b border-gray-50"><span className="text-gray-500">Pelotão:</span> <span className="font-semibold text-gray-800 text-base">{militarDetalheModal.pelotao || '—'}</span></div>
+                      <div className="flex justify-between items-center py-1 border-b border-gray-50"><span className="text-gray-500">Função:</span> <span className="font-semibold text-gray-800 text-base truncate max-w-[150px]" title={militarDetalheModal.funcoesEfetivo?.length > 0 ? militarDetalheModal.funcoesEfetivo.map((f: any) => f.funcao).join(', ') : 'Sem função'}>{militarDetalheModal.funcoesEfetivo?.length > 0 ? militarDetalheModal.funcoesEfetivo.map((f: any) => f.funcao).join(', ') : 'Sem função'}</span></div>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
-              <Button variant="outline" onClick={() => setMilitarDetalheModal(null)}>Fechar</Button>
-              <Button variant="outline" icon={<Edit2 size={16} />} onClick={() => navigate(`/sgte/cadastro-militares/editar/${militarDetalheModal.id}`)}>Atualizar Campos</Button>
-              <Button icon={<Eye size={16} />} onClick={() => navigate(`/sgte/militares/${militarDetalheModal.id}`)}>Abrir Perfil</Button>
+            <div className="flex justify-end gap-3 pt-6 border-t border-gray-100">
+              {isEditingDetalhes ? (
+                <>
+                  <Button variant="outline" onClick={() => setIsEditingDetalhes(false)} disabled={salvandoDetalhes}>Cancelar</Button>
+                  <Button icon={salvandoDetalhes ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} onClick={handleSalvarDetalhesModal} disabled={salvandoDetalhes}>
+                    {salvandoDetalhes ? 'Salvando...' : 'Salvar Alterações'}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button variant="outline" onClick={() => {
+                    setMilitarDetalheModal(null);
+                    setIsEditingDetalhes(false);
+                  }}>Fechar</Button>
+                  <Button variant="outline" icon={<Edit2 size={16} />} onClick={handleAbrirEdicaoDetalhes}>Atualizar Campos</Button>
+                  <Button icon={<Eye size={16} />} onClick={() => navigate(`/sgte/militares/${militarDetalheModal.id}`)}>Abrir Perfil Completo</Button>
+                </>
+              )}
             </div>
           </div>
         )}
