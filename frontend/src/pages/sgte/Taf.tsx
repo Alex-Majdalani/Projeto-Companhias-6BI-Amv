@@ -635,10 +635,19 @@ export function Taf() {
         const temVazio = row.corrida === null || row.flexao === null || row.barra === null || row.abdominal === null || !row.mencao || row.mencao === 'N/A';
         const rowInfo = getCycleInfo(row.atividade);
         const isSecond = row.segundaChamada || rowInfo.isSecondCall;
-        const fezSegunda = !isSecond && rowInfo.cycle !== 0 && records.some(x => {
+        
+        const fezSegunda = !activeInfo.isSecondCall && !isSecond && rowInfo.cycle !== 0 && records.some(x => {
           const xcInfo = getCycleInfo(x.atividade);
           return x.militarId === row.militarId && xcInfo.cycle === rowInfo.cycle && (xcInfo.isSecondCall || x.segundaChamada);
         });
+
+        const fezPrimeira = activeInfo.isSecondCall && rowInfo.cycle !== 0 && records.some(x => {
+          const xcInfo = getCycleInfo(x.atividade);
+          return x.militarId === row.militarId && xcInfo.cycle === rowInfo.cycle && !(xcInfo.isSecondCall || x.segundaChamada);
+        });
+
+        const mostrarFeitoSegunda = !activeInfo.isSecondCall && isSecond;
+
         return (
           <span className="font-semibold text-gray-900 flex items-center gap-2">
             {row.pgMilitar} {row.nomeGuerraMilitar}
@@ -647,7 +656,7 @@ export function Taf() {
                 <AlertCircle size={10} /> Pendente
               </Badge>
             )}
-            {isSecond && (
+            {mostrarFeitoSegunda && (
               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700 border border-purple-200">
                 Feito na 2ª Chamada
               </span>
@@ -655,6 +664,11 @@ export function Taf() {
             {fezSegunda && (
               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700 border border-blue-200">
                 Realizou a 2ª Chamada
+              </span>
+            )}
+            {fezPrimeira && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700 border border-green-200">
+                Realizou a 1ª Chamada
               </span>
             )}
           </span>
