@@ -387,6 +387,16 @@ export function Taf() {
       if (recordInfo.cycle !== activeInfo.cycle) return false;
       if (activeInfo.isSecondCall) {
         if (!recordInfo.isSecondCall && !r.segundaChamada) return false;
+      } else {
+        // Se for registro de 1ª chamada, mas o militar também fez a 2ª chamada, ocultamos o registro da 1ª chamada
+        const isSecond = recordInfo.isSecondCall || r.segundaChamada;
+        if (!isSecond) {
+          const militarFezSegundaChamada = records.some(x => {
+            const xInfo = getCycleInfo(x.atividade);
+            return x.militarId === r.militarId && xInfo.cycle === activeInfo.cycle && (xInfo.isSecondCall || x.segundaChamada);
+          });
+          if (militarFezSegundaChamada) return false;
+        }
       }
     } else {
       if (r.atividade.toLowerCase() !== activeTab.toLowerCase()) return false;
