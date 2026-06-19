@@ -464,7 +464,8 @@ async function renderPerfil(doc: any, perfil: any): Promise<void> {
   y = secao(doc, 'Dados Pessoais', y);
   y = tabelaGrid(doc, [
     ['Nome Completo', fmt.str(perfil.dadosCivil?.nomeCompleto)],
-    [''],
+    // Espaçamento vazio (tupla de 2 strings exigida pela tipagem de tabelaGrid)
+    ['', ''],
     ['Nome do Pai', fmt.str(perfil.dadosCivil?.nomePai)],
     ['Nome da Mae', fmt.str(perfil.dadosCivil?.nomeMae)],
     ['Data de Nascimento', fmt.data(perfil.dadosCivil?.dataNascimento)],
