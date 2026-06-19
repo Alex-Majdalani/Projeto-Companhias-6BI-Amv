@@ -73,6 +73,15 @@ export class TafController {
         return res.status(400).json({ error: 'Para registrar uma menção, é necessário preencher todos os campos de atividade (Corrida, Flexão, Barra e Abdominal).' });
       }
 
+      // Validar se o militar já possui teste para a atividade
+      const existingRecords = await TafService.getTafRecords();
+      const isDuplicate = existingRecords.some(
+        (r: any) => r.militarId === Number(militarId) && r.atividade.toLowerCase() === atividade.toLowerCase()
+      );
+      if (isDuplicate) {
+        return res.status(400).json({ error: 'Este militar já possui um teste registrado para esta atividade.' });
+      }
+
       const record = await TafService.createTafRecord({
         militarId,
         atividade,
@@ -101,6 +110,20 @@ export class TafController {
                      barra === undefined || barra === null || barra === '' ||
                      abdominal === undefined || abdominal === null || abdominal === '')) {
         return res.status(400).json({ error: 'Para registrar uma menção, é necessário preencher todos os campos de atividade (Corrida, Flexão, Barra e Abdominal).' });
+      }
+
+      // Se a atividade mudou, validar se o militar já possui teste para a nova atividade
+      if (atividade) {
+        const existingRecords = await TafService.getTafRecords();
+        const currentRecord = existingRecords.find((r: any) => r.id === id);
+        if (currentRecord && currentRecord.atividade.toLowerCase() !== atividade.toLowerCase()) {
+          const isDuplicate = existingRecords.some(
+            (r: any) => r.id !== id && r.militarId === currentRecord.militarId && r.atividade.toLowerCase() === atividade.toLowerCase()
+          );
+          if (isDuplicate) {
+            return res.status(400).json({ error: 'Este militar já possui um teste registrado para esta atividade.' });
+          }
+        }
       }
 
       await TafService.updateTafRecord(id, {

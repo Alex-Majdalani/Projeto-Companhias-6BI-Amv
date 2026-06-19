@@ -244,6 +244,14 @@ export function Taf() {
       return;
     }
 
+    const isDuplicate = records.some(
+      r => r.id !== editingTestId && r.militarId === militarId && r.atividade.toLowerCase() === selectedAtividade.toLowerCase()
+    );
+    if (isDuplicate) {
+      alert('Este militar já possui um teste registrado para esta atividade.');
+      return;
+    }
+
     setIsSavingTest(true);
     try {
       const payload = {
