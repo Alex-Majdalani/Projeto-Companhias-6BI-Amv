@@ -475,7 +475,7 @@ export class MilitarController {
 
       // Busca o militar com todos os relacionamentos expandidos
       const militar = await nocoRequest(
-        `/tables/${TBL_MILITAR}/records/${id}`
+        `/tables/${TBL_MILITAR}/records/${id}?nested[punicoes][fields]=Id&nested[fatds1][fields]=Id&nested[funcao_efetivo_cia][fields]=Id&nested[funcao_substituto_cia][fields]=Id`
       );
 
       if (!militar || !militar.Id) {
@@ -537,6 +537,16 @@ export class MilitarController {
       let fatdParticipados: any[] = [];
 
       try {
+        const punicoesIds = (militar.punicoes || []).map((p: any) => p.Id);
+        const fatds1Ids = (militar.fatds1 || []).map((f: any) => f.Id);
+        const funcEfetivoIds = (militar.funcao_efetivo_cia || []).map((f: any) => f.Id);
+        const funcSubstIds = (militar.funcao_substituto_cia || []).map((f: any) => f.Id);
+
+        const punicoesQuery = punicoesIds.length > 0 ? `/tables/mxdic5ej7eigds1/records?where=(Id,in,${punicoesIds.join(',')})&nested[fatd][fields]=fato_relatado,data_processo_fato,numero_processo` : null;
+        const fatdPartQuery = fatds1Ids.length > 0 ? `/tables/mhdr8z1rnvysh6u/records?where=(Id,in,${fatds1Ids.join(',')})` : null;
+        const funcEfetivoQuery = funcEfetivoIds.length > 0 ? `/tables/m53uey4mkuimti7/records?where=(Id,in,${funcEfetivoIds.join(',')})` : null;
+        const funcSubstQuery = funcSubstIds.length > 0 ? `/tables/m53uey4mkuimti7/records?where=(Id,in,${funcSubstIds.join(',')})` : null;
+
         const [
           visitasRes, baixadosRes, feriasRes,
           funcoesEfetivoRes, funcoesSubstitutoRes,
@@ -545,10 +555,10 @@ export class MilitarController {
           nocoRequest(`/tables/m0ya166asp9wk5b/records?where=(militar,eq,${id})`),
           nocoRequest(`/tables/mjaepbsec6qieim/records?where=(militar,eq,${id})`),
           nocoRequest(`/tables/merte6jebbddnb1/records?where=(militar,eq,${id})&nested[periodos_ferias][fields]=nome_periodo,data_inicio,data_fim`),
-          nocoRequest(`/tables/m53uey4mkuimti7/records?where=(efetivo,eq,${id})`),
-          nocoRequest(`/tables/m53uey4mkuimti7/records?where=(substituto,eq,${id})`),
-          nocoRequest(`/tables/mxdic5ej7eigds1/records?where=(militar_punido,eq,${id})&nested[fatd][fields]=fato_relatado,data_processo_fato,numero_processo`),
-          nocoRequest(`/tables/mhdr8z1rnvysh6u/records?where=(militar_participante,anyof,${id})~or(militar_participante,eq,${id})`)
+          funcEfetivoQuery ? nocoRequest(funcEfetivoQuery) : Promise.resolve({ list: [] }),
+          funcSubstQuery ? nocoRequest(funcSubstQuery) : Promise.resolve({ list: [] }),
+          punicoesQuery ? nocoRequest(punicoesQuery) : Promise.resolve({ list: [] }),
+          fatdPartQuery ? nocoRequest(fatdPartQuery) : Promise.resolve({ list: [] })
         ]);
 
         if (visitasRes.status === 'fulfilled' && visitasRes.value?.list) {
@@ -766,12 +776,14 @@ export class MilitarController {
 
       // Comentário de organização: Registra log de exclusão no historico_logs
       const nomeGuerraExcluido = militar.nome_guerra || `ID ${militarId}`;
+      const usuarioLogado = (req as any).user?.email || (req as any).user?.id || req.headers['x-usuario'] as string || 'Sistema';
+
       await registrarLog({
         tipo_alteracao: 'Exclusão',
         campo_alteracao: 'Cadastro completo',
         valor_anterior: `Militar ${nomeGuerraExcluido} (${militar.posto_graduacao || ''})`,
         valor_novo: '',
-        usuario_responsavel: req.headers['x-usuario'] as string || 'Sistema',
+        usuario_responsavel: usuarioLogado,
         militar_envolvido: militarId,
       });
 

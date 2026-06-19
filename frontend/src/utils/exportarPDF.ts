@@ -801,8 +801,9 @@ export async function exportarPerfilPDF(perfil: any): Promise<void> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   await renderPerfil(doc, perfil);
   addFooters(doc);
-  const nome = (perfil.nomeGuerra || 'militar').toLowerCase().replace(/\s+/g, '_');
-  doc.save(`${nome}.pdf`);
+  const nomeValido = perfil.nomeGuerra || perfil.dadosCivil?.nomeCompleto || 'Militar';
+  const nomeArquivo = nomeValido.replace(/\s+/g, '_');
+  doc.save(`${nomeArquivo}.pdf`);
 }
 
 export async function exportarLotePerfisPDF(perfis: any[]): Promise<void> {
@@ -813,7 +814,7 @@ export async function exportarLotePerfisPDF(perfis: any[]): Promise<void> {
     await renderPerfil(doc, perfis[i]);
   }
   addFooters(doc);
-  doc.save('militares.pdf');
+  doc.save('Militares.pdf');
 }
 
 export async function exportarListaMilitaresPDF(militares: any[]): Promise<void> {
