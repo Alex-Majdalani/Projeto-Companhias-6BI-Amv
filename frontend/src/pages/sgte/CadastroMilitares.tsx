@@ -708,8 +708,6 @@ export function CadastroMilitares() {
                           ))}
                         </div>
 
-                        </div>
-
                         {/* Botões removidos do card para dar lugar ao modal */}
                       </div>
                     </div>
