@@ -106,6 +106,7 @@ export function CadastroMilitares() {
   const [dependenteSelecionado, setDependenteSelecionado] = useState<any | null>(null);
   const [modalExportacaoAberto, setModalExportacaoAberto] = useState(false);
   const [exportandoVarios, setExportandoVarios] = useState(false);
+  const [buscaExportacao, setBuscaExportacao] = useState('');
 
   // Paginação centralizada
   const [currentPage, setCurrentPage] = useState(1);
@@ -1120,7 +1121,11 @@ export function CadastroMilitares() {
       >
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
-            Você está prestes a exportar <strong className="text-militar-main text-base bg-militar-main/10 px-2 py-0.5 rounded-full">{selectedIds.length > 0 ? selectedIds.length : militaresFiltrados.length}</strong> militar(es). Como deseja exportá-los?
+            {selectedIds.length > 0 ? (
+              <>Você está prestes a exportar <strong className="text-militar-main text-base bg-militar-main/10 px-2 py-0.5 rounded-full">{selectedIds.length}</strong> militar(es). Como deseja exportá-los?</>
+            ) : (
+              <>Você está prestes a exportar <strong className="text-militar-main text-base bg-militar-main/10 px-2 py-0.5 rounded-full">todos os militares listados</strong>. Como deseja exportá-los?</>
+            )}
           </p>
 
           {selectedIds.length > 0 && (
@@ -1143,25 +1148,41 @@ export function CadastroMilitares() {
                 ))}
               </ul>
 
-              {/* Comentário de organização: Input dropdown para selecionar outros militares no próprio modal */}
+              {/* Comentário de organização: Input de busca para selecionar outros militares no próprio modal */}
               <div className="mt-2 pt-2 border-t border-gray-200">
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Adicionar mais militares à exportação:</label>
-                <select 
-                  className="w-full text-sm border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:border-militar-main bg-white"
-                  onChange={(e) => {
-                    const id = Number(e.target.value);
-                    if (id && !selectedIds.includes(id)) {
-                      toggleSelectMilitar(id);
+                <label className="block text-xs font-semibold text-gray-600 mb-2">Buscar mais militares para adicionar:</label>
+                <div className="relative">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input 
+                    type="text"
+                    placeholder="Digite o nome de guerra ou nome completo..."
+                    className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-militar-main bg-white"
+                    value={buscaExportacao}
+                    onChange={(e) => setBuscaExportacao(e.target.value)}
+                  />
+                </div>
+                {buscaExportacao.trim().length > 0 && (
+                  <ul className="mt-2 space-y-1 max-h-32 overflow-y-auto border border-gray-100 rounded-lg bg-gray-50 p-1">
+                    {militares
+                      .filter(m => !selectedIds.includes(m.id) && (m.nome.toLowerCase().includes(buscaExportacao.toLowerCase()) || (m.nomeGuerra && m.nomeGuerra.toLowerCase().includes(buscaExportacao.toLowerCase()))))
+                      .slice(0, 10)
+                      .map(m => (
+                        <li key={m.id} className="flex justify-between items-center text-sm text-gray-700 bg-white p-1.5 rounded shadow-sm border border-gray-100 hover:border-militar-main/30 transition-colors">
+                          <span className="truncate pr-2">{m.posto} {m.nomeGuerra || m.nome}</span>
+                          <button 
+                            onClick={() => { toggleSelectMilitar(m.id); setBuscaExportacao(''); }}
+                            className="text-militar-main font-bold text-xs hover:bg-militar-main/10 px-2 py-1 rounded transition-colors"
+                          >
+                            Adicionar
+                          </button>
+                        </li>
+                      ))
                     }
-                    e.target.value = "";
-                  }}
-                  defaultValue=""
-                >
-                  <option value="" disabled>Selecione um militar para adicionar...</option>
-                  {militares.filter(m => !selectedIds.includes(m.id)).map(m => (
-                    <option key={m.id} value={m.id}>{m.posto} {m.nomeGuerra || m.nome}</option>
-                  ))}
-                </select>
+                    {militares.filter(m => !selectedIds.includes(m.id) && (m.nome.toLowerCase().includes(buscaExportacao.toLowerCase()) || (m.nomeGuerra && m.nomeGuerra.toLowerCase().includes(buscaExportacao.toLowerCase())))).length === 0 && (
+                      <li className="p-2 text-xs text-gray-500 text-center">Nenhum militar encontrado</li>
+                    )}
+                  </ul>
+                )}
               </div>
             </div>
           )}
