@@ -6,7 +6,7 @@ import { DataTable } from '../../components/ui/DataTable';
 import type { Column } from '../../components/ui/DataTable';
 import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
-import { Plus, Settings, Edit2, Trash2, Search, AlertCircle, XCircle, Filter, Award, Users, CheckCircle2, Dumbbell, Activity } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, AlertCircle, XCircle, Filter, Award, Users, Dumbbell, Activity } from 'lucide-react';
 import { api } from '../../services/api';
 
 function normalizeText(text: string): string {
@@ -62,6 +62,7 @@ interface TafRecord {
   barra: number | null;
   abdominal: number | null;
   mencao: string;
+  segundaChamada?: boolean;
 }
 
 function capitalizeFirstLetter(str: string): string {
@@ -74,9 +75,45 @@ function capitalizeFirstLetter(str: string): string {
   return str;
 }
 
+function calculateAge(birthDateStr: string): number {
+  if (!birthDateStr) return 0;
+  const cleanDateStr = typeof birthDateStr === 'string' ? birthDateStr.split('T')[0] : '';
+  const parts = cleanDateStr.split(/[-/]/);
+  if (parts.length < 3) return 0;
+
+  const year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10) - 1;
+  const day = parseInt(parts[2], 10);
+
+  const birthDate = new Date(year, month, day);
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const m = today.getMonth() - birthDate.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return age;
+}
+
+function getCycleInfo(activityName: string) {
+  if (!activityName) return { cycle: 0, isSecondCall: false };
+  const norm = activityName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  let cycle = 0;
+  if (norm.includes('1º') || norm.includes('1o') || norm.includes('1a') || norm.includes('1ª') || norm.includes('1 taf') || norm.includes('1taf')) {
+    cycle = 1;
+  } else if (norm.includes('2º') || norm.includes('2o') || norm.includes('2a') || norm.includes('2ª') || norm.includes('2 taf') || norm.includes('2taf')) {
+    cycle = 2;
+  } else if (norm.includes('3º') || norm.includes('3o') || norm.includes('3a') || norm.includes('3ª') || norm.includes('3 taf') || norm.includes('3taf')) {
+    cycle = 3;
+  }
+  const isSecondCall = norm.includes('2ª chamada') || norm.includes('2a chamada') || norm.includes('segunda chamada') || norm.includes('2 chamada') || norm.includes('2ªch') || norm.includes('2ach');
+  return { cycle, isSecondCall };
+}
+
 export function Taf() {
   const [records, setRecords] = useState<TafRecord[]>([]);
   const [activeTab, setActiveTab] = useState<string>('1º TAF');
+  const [subTab, setSubTab] = useState<'realizaram' | 'nao_realizaram'>('realizaram');
 
   // Controle de Atividades
   const [isAtividadesModalOpen, setIsAtividadesModalOpen] = useState(false);
@@ -202,6 +239,10 @@ export function Taf() {
       alert('Selecione um militar válido.');
       return;
     }
+    if (mencao && (corrida === '' || flexao === '' || barra === '' || abdominal === '')) {
+      alert('Para registrar uma menção, é necessário preencher todos os campos de atividade (Corrida, Flexão, Barra e Abdominal).');
+      return;
+    }
 
     setIsSavingTest(true);
     try {
@@ -291,6 +332,10 @@ export function Taf() {
     }
   }, [atividadesList]);
 
+  useEffect(() => {
+    setSubTab('realizaram');
+  }, [activeTab]);
+
   // Obter pelotões existentes
   const pelotaoOptions = Array.from(new Set(militares.map(m => m.pelotao).filter(Boolean))).sort() as string[];
 
@@ -325,8 +370,19 @@ export function Taf() {
   };
 
   // Filtrar registros pela aba ativa e filtros aplicados
+  const activeInfo = getCycleInfo(activeTab);
+
   const filteredRecords = records.filter(r => {
-    if (r.atividade.toLowerCase() !== activeTab.toLowerCase()) return false;
+    const recordInfo = getCycleInfo(r.atividade);
+    
+    if (activeInfo.cycle !== 0) {
+      if (recordInfo.cycle !== activeInfo.cycle) return false;
+      if (activeInfo.isSecondCall) {
+        if (!recordInfo.isSecondCall && !r.segundaChamada) return false;
+      }
+    } else {
+      if (r.atividade.toLowerCase() !== activeTab.toLowerCase()) return false;
+    }
 
     // Pesquisar militar
     if (filterSearch.trim()) {
@@ -370,6 +426,59 @@ export function Taf() {
         if (r.mencao !== filterMencao) return false;
       }
     }
+
+    return true;
+  });
+
+  // Filtrar militares que NÃO possuem nenhum registro cadastrado na atividade atual
+  const filteredNaoRealizaram = militares.filter(m => {
+    if (activeInfo.cycle !== 0) {
+      const temQualquerRegistroNoCiclo = records.some(r => {
+        const recordInfo = getCycleInfo(r.atividade);
+        return recordInfo.cycle === activeInfo.cycle && r.militarId === m.id;
+      });
+      if (temQualquerRegistroNoCiclo) return false;
+    } else {
+      const jaTemRegistro = records.some(
+        r => r.atividade.toLowerCase() === activeTab.toLowerCase() && r.militarId === m.id
+      );
+      if (jaTemRegistro) return false;
+    }
+
+    // Filtro por Nome ou P/G
+    if (filterSearch.trim()) {
+      const term = normalizeText(filterSearch);
+      const matchesSearch = 
+        normalizeText(m.nome || '').includes(term) ||
+        normalizeText(m.nome_guerra || '').includes(term) ||
+        normalizeText(m.posto || '').includes(term) ||
+        normalizeText(m.pelotao || '').includes(term);
+      if (!matchesSearch) return false;
+    }
+
+    // Filtro por P/G
+    if (filterPg !== 'Todos' && m.posto !== filterPg) return false;
+
+    // Filtro por Sexo
+    if (filterSexo !== 'Todos' && normalizeText(m.sexo || '') !== normalizeText(filterSexo)) return false;
+
+    // Filtro por Pelotão
+    if (filterPelotao !== 'Todos' && m.pelotao !== filterPelotao) return false;
+
+    // Filtro por Idade ou Faixa Etária
+    const age = m.data_nascimento ? calculateAge(m.data_nascimento) : 0;
+    if (filterAgeType === 'idade') {
+      if (filterAge !== '' && age !== Number(filterAge)) return false;
+    } else {
+      if (filterAgeMin !== '' && age < Number(filterAgeMin)) return false;
+      if (filterAgeMax !== '' && age > Number(filterAgeMax)) return false;
+    }
+
+    // Filtro por Status: Militares sem registro de teste são sempre considerados "Pendentes"
+    if (filterStatus === 'Concluido') return false;
+
+    // Filtro por Menção: Militares sem registro são considerados "Pendente"
+    if (filterMencao !== 'Todos' && filterMencao !== 'Pendente') return false;
 
     return true;
   });
@@ -506,6 +615,7 @@ export function Taf() {
       header: 'P/G NOME DE GUERRA',
       accessor: (row: TafRecord) => {
         const temVazio = row.corrida === null || row.flexao === null || row.barra === null || row.abdominal === null || !row.mencao || row.mencao === 'N/A';
+        const isSecond = row.segundaChamada || getCycleInfo(row.atividade).isSecondCall;
         return (
           <span className="font-semibold text-gray-900 flex items-center gap-2">
             {row.pgMilitar} {row.nomeGuerraMilitar}
@@ -513,6 +623,11 @@ export function Taf() {
               <Badge variant="warning" className="flex items-center gap-1 text-[10px] py-0 px-1.5 font-bold">
                 <AlertCircle size={10} /> Pendente
               </Badge>
+            )}
+            {isSecond && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700 border border-purple-200">
+                Feito na 2ª Chamada
+              </span>
             )}
           </span>
         );
@@ -548,6 +663,57 @@ export function Taf() {
           >
             <Trash2 size={15} />
           </button>
+        </div>
+      )
+    }
+  ];
+
+  const handleStartNewTestForMilitar = (mil: any) => {
+    resetTestForm();
+    setMilitarId(mil.id);
+    setSearchMilitar(`${mil.posto} ${mil.nome_guerra || mil.nome}`);
+    setSelectedPG(mil.posto);
+    setIsTestModalOpen(true);
+  };
+
+  const naoRealizaramColumns: Column<any>[] = [
+    {
+      header: 'P/G NOME DE GUERRA',
+      accessor: (row: any) => (
+        <span className="font-semibold text-gray-900 flex items-center gap-2">
+          {row.posto} {row.nome_guerra || row.nome}
+          <Badge variant="danger" className="flex items-center gap-1 text-[10px] py-0 px-1.5 font-bold">
+            <XCircle size={10} /> Não Realizou
+          </Badge>
+        </span>
+      )
+    },
+    {
+      header: 'Idade',
+      accessor: (row: any) => {
+        const age = row.data_nascimento ? calculateAge(row.data_nascimento) : 0;
+        return age > 0 ? `${age} anos` : 'Não informada';
+      }
+    },
+    {
+      header: 'Sexo',
+      accessor: (row: any) => row.sexo || 'Não informado'
+    },
+    {
+      header: 'Pelotão',
+      accessor: (row: any) => row.pelotao || 'Não informado'
+    },
+    {
+      header: 'Ações',
+      accessor: (row: any) => (
+        <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+          <Button 
+            onClick={() => handleStartNewTestForMilitar(row)}
+            className="flex items-center gap-1.5 py-1 px-3 text-xs bg-militar-main hover:bg-militar-dark text-white rounded font-bold shadow-sm"
+          >
+            <Plus size={13} />
+            Iniciar Teste
+          </Button>
         </div>
       )
     }
@@ -633,10 +799,7 @@ export function Taf() {
             <Filter size={16} />
             {showFiltersCard ? 'Ocultar Filtros' : 'Filtrar'}
           </Button>
-          <Button onClick={() => setIsAtividadesModalOpen(true)} variant="outline" className="flex items-center gap-2">
-            <Settings size={16} />
-            Cadastrar Atividades
-          </Button>
+
           <Button onClick={() => { resetTestForm(); setIsTestModalOpen(true); }} className="flex items-center gap-2">
             <Plus size={16} />
             Novo Teste
@@ -882,12 +1045,54 @@ export function Taf() {
         </div>
 
         <div className="p-6">
-          <DataTable
-            columns={columns}
-            data={filteredRecords}
-            keyExtractor={(row) => row.id}
-            renderExpandedRow={renderExpandedRow}
-          />
+          {/* Sub-abas de Realizados vs Não Realizados */}
+          <div className="flex border-b border-gray-100 mb-6 gap-6">
+            <button
+              onClick={() => setSubTab('realizaram')}
+              className={`pb-3 text-sm font-semibold border-b-2 transition-all relative ${
+                subTab === 'realizaram'
+                  ? 'border-militar-main text-militar-main'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Realizaram o TAF
+              <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-bold ${
+                subTab === 'realizaram' ? 'bg-militar-main text-white' : 'bg-gray-100 text-gray-600'
+              }`}>
+                {filteredRecords.length}
+              </span>
+            </button>
+            <button
+              onClick={() => setSubTab('nao_realizaram')}
+              className={`pb-3 text-sm font-semibold border-b-2 transition-all relative ${
+                subTab === 'nao_realizaram'
+                  ? 'border-militar-main text-militar-main'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Não Realizaram (Sem Registro)
+              <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-bold ${
+                subTab === 'nao_realizaram' ? 'bg-red-600 text-white' : 'bg-red-50 text-red-600'
+              }`}>
+                {filteredNaoRealizaram.length}
+              </span>
+            </button>
+          </div>
+
+          {subTab === 'realizaram' ? (
+            <DataTable
+              columns={columns}
+              data={filteredRecords}
+              keyExtractor={(row) => row.id}
+              renderExpandedRow={renderExpandedRow}
+            />
+          ) : (
+            <DataTable
+              columns={naoRealizaramColumns}
+              data={filteredNaoRealizaram}
+              keyExtractor={(row) => row.id}
+            />
+          )}
         </div>
       </div>
 

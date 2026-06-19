@@ -32,12 +32,17 @@ function calculateAge(birthDateStr: string): number {
   if (!birthDateStr) return 0;
   // Evitar problemas de timezone cortando a string de data no caractere 'T'
   const cleanDateStr = typeof birthDateStr === 'string' ? birthDateStr.split('T')[0] : '';
+  if (!cleanDateStr) return 0;
   const parts = cleanDateStr.split(/[-/]/);
   if (parts.length < 3) return 0;
 
-  const year = parseInt(parts[0], 10);
-  const month = parseInt(parts[1], 10) - 1;
-  const day = parseInt(parts[2], 10);
+  const p0 = parts[0] || '0';
+  const p1 = parts[1] || '0';
+  const p2 = parts[2] || '0';
+
+  const year = parseInt(p0, 10);
+  const month = parseInt(p1, 10) - 1;
+  const day = parseInt(p2, 10);
 
   const birthDate = new Date(year, month, day);
   const today = new Date();
@@ -118,7 +123,8 @@ export class TafService {
             flexao: t.flexao !== null && t.flexao !== undefined ? Number(t.flexao) : null,
             barra: t.barra !== null && t.barra !== undefined ? Number(t.barra) : null,
             abdominal: t.abdominal !== null && t.abdominal !== undefined ? Number(t.abdominal) : null,
-            mencao: t.mencao || 'N/A'
+            mencao: t.mencao || 'N/A',
+            segundaChamada: t.segunda_chamada === 'Sim' || t.segunda_chamada === true || t.segunda_chamada === 1
           };
         });
     } catch (error: any) {
@@ -164,7 +170,8 @@ export class TafService {
         flexao: null,
         barra: null,
         abdominal: null,
-        mencao: null
+        mencao: null,
+        segunda_chamada: nome.toLowerCase().includes('2ª chamada') || nome.toLowerCase().includes('2a chamada') ? 'Sim' : 'Não'
       });
       return created.data;
     } catch (error: any) {
@@ -187,12 +194,14 @@ export class TafService {
 
       // Buscar todos os registros com o nome antigo e atualizá-los
       const recordsToUpdate = list.filter((t: any) => t.atividade && t.atividade.toLowerCase() === nomeAntigo.toLowerCase());
+      const isSegunda = novoNome.toLowerCase().includes('2ª chamada') || novoNome.toLowerCase().includes('2a chamada') ? 'Sim' : 'Não';
       
       await Promise.all(
         recordsToUpdate.map((r: any) => 
           api.patch(`/api/v2/tables/${TAF_TABLE_ID}/records`, {
             Id: r.Id || r.id,
-            atividade: novoNome
+            atividade: novoNome,
+            segunda_chamada: isSegunda
           })
         )
       );
@@ -222,7 +231,7 @@ export class TafService {
     }
   }
 
-  static async createTafRecord(data: { militarId: number; atividade: string; corrida?: number | null; flexao?: number | null; barra?: number | null; abdominal?: number | null; mencao?: string | null }) {
+  static async createTafRecord(data: { militarId: number; atividade: string; corrida?: number | null; flexao?: number | null; barra?: number | null; abdominal?: number | null; mencao?: string | null; segunda_chamada?: string | null }) {
     try {
       const created = await api.post(`/api/v2/tables/${TAF_TABLE_ID}/records`, {
         militar: data.militarId,
@@ -231,7 +240,8 @@ export class TafService {
         flexao: data.flexao ?? null,
         barra: data.barra ?? null,
         abdominal: data.abdominal ?? null,
-        mencao: data.mencao || null
+        mencao: data.mencao || null,
+        segunda_chamada: data.segunda_chamada || (data.atividade.toLowerCase().includes('2ª chamada') || data.atividade.toLowerCase().includes('2a chamada') ? 'Sim' : 'Não')
       });
       return created.data;
     } catch (error: any) {
@@ -240,16 +250,23 @@ export class TafService {
     }
   }
 
-  static async updateTafRecord(id: number, data: { corrida?: number | null; flexao?: number | null; barra?: number | null; abdominal?: number | null; mencao?: string | null }) {
+  static async updateTafRecord(id: number, data: { atividade?: string; corrida?: number | null; flexao?: number | null; barra?: number | null; abdominal?: number | null; mencao?: string | null; segunda_chamada?: string | null }) {
     try {
-      await api.patch(`/api/v2/tables/${TAF_TABLE_ID}/records`, {
+      const payload: any = {
         Id: id,
         corrida: data.corrida ?? null,
         flexao: data.flexao ?? null,
         barra: data.barra ?? null,
         abdominal: data.abdominal ?? null,
         mencao: data.mencao || null
-      });
+      };
+      if (data.atividade !== undefined) {
+        payload.atividade = data.atividade;
+      }
+      if (data.segunda_chamada !== undefined) {
+        payload.segunda_chamada = data.segunda_chamada;
+      }
+      await api.patch(`/api/v2/tables/${TAF_TABLE_ID}/records`, payload);
     } catch (error: any) {
       console.error('[TafService] Erro ao atualizar registro de TAF:', error?.response?.data || error.message);
       throw new Error('Não foi possível atualizar o teste.');

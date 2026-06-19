@@ -65,6 +65,14 @@ export class TafController {
       if (!militarId || !atividade) {
         return res.status(400).json({ error: 'Militar e atividade são obrigatórios.' });
       }
+
+      if (mencao && (corrida === undefined || corrida === null || corrida === '' ||
+                     flexao === undefined || flexao === null || flexao === '' ||
+                     barra === undefined || barra === null || barra === '' ||
+                     abdominal === undefined || abdominal === null || abdominal === '')) {
+        return res.status(400).json({ error: 'Para registrar uma menção, é necessário preencher todos os campos de atividade (Corrida, Flexão, Barra e Abdominal).' });
+      }
+
       const record = await TafService.createTafRecord({
         militarId,
         atividade,
@@ -86,13 +94,23 @@ export class TafController {
       if (isNaN(id)) {
         return res.status(400).json({ error: 'ID inválido.' });
       }
-      const { corrida, flexao, barra, abdominal, mencao } = req.body;
+      const { atividade, corrida, flexao, barra, abdominal, mencao } = req.body;
+
+      if (mencao && (corrida === undefined || corrida === null || corrida === '' ||
+                     flexao === undefined || flexao === null || flexao === '' ||
+                     barra === undefined || barra === null || barra === '' ||
+                     abdominal === undefined || abdominal === null || abdominal === '')) {
+        return res.status(400).json({ error: 'Para registrar uma menção, é necessário preencher todos os campos de atividade (Corrida, Flexão, Barra e Abdominal).' });
+      }
+
       await TafService.updateTafRecord(id, {
+        atividade,
         corrida: corrida !== undefined && corrida !== null && corrida !== '' ? Number(corrida) : null,
         flexao: flexao !== undefined && flexao !== null && flexao !== '' ? Number(flexao) : null,
         barra: barra !== undefined && barra !== null && barra !== '' ? Number(barra) : null,
         abdominal: abdominal !== undefined && abdominal !== null && abdominal !== '' ? Number(abdominal) : null,
-        mencao: mencao || null
+        mencao: mencao || null,
+        segunda_chamada: atividade ? (atividade.toLowerCase().includes('2ª chamada') || atividade.toLowerCase().includes('2a chamada') ? 'Sim' : 'Não') : undefined
       });
       return res.status(200).json({ message: 'Teste de TAF atualizado com sucesso!' });
     } catch (error: any) {

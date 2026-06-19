@@ -138,25 +138,40 @@ export class MilitarController {
 
   static async list(req: Request, res: Response) {
     try {
-      // Lista de militares com relacionamentos resolvidos
-      const data = await nocoRequest(`/tables/${TBL_MILITAR}/records?limit=100`);
-      
+      // Buscar militares e dados civis em paralelo
+      const [militaresData, civisData] = await Promise.all([
+        nocoRequest(`/tables/${TBL_MILITAR}/records?limit=1000`),
+        nocoRequest(`/tables/${TBL_CIVIL}/records?limit=1000`)
+      ]);
+
+      const civilMap = new Map();
+      (civisData.list || []).forEach((c: any) => {
+        civilMap.set(c.Id || c.id, c);
+      });
+
       // Formatar dados para o frontend
-      const formatados = (data.list || []).map((m: any) => ({
-        id: m.Id,
-        posto: m.posto_graduacao || 'SD EP',
-        nome: m.dados_civil?.nome_completo || m.nome_guerra || 'Sem Nome',
-        nome_completo: m.dados_civil?.nome_completo || '',
-        nome_guerra: m.nome_guerra || '',
-        identidade: m.idt_militar || '',
-        cpf: m.dados_civil?.cpf || '',
-        quadro: m.posto_graduacao || '',
-        subunidade: m.companhia?.Companhia || '',
-        situacao: 'Ativo',
-        tipo: m.tipo_vinculo || 'Militar Temporário',
-        cursosProfissionais: m.especialidades_militar?.cursos_gerais || '',
-        pelotao: m.pelotao || ''
-      }));
+      const formatados = (militaresData.list || []).map((m: any) => {
+        const civilId = m.dados_civil?.Id || m.dados_civil?.id || m.dados_civil;
+        const civilObj = civilId ? civilMap.get(civilId) : null;
+
+        return {
+          id: m.Id || m.id,
+          posto: m.posto_graduacao || 'SD EP',
+          nome: civilObj?.nome_completo || m.nome_guerra || 'Sem Nome',
+          nome_completo: civilObj?.nome_completo || '',
+          nome_guerra: m.nome_guerra || '',
+          identidade: m.idt_militar || '',
+          cpf: civilObj?.cpf || '',
+          quadro: m.posto_graduacao || '',
+          subunidade: m.companhia?.Companhia || '',
+          situacao: 'Ativo',
+          tipo: m.tipo_vinculo || 'Militar Temporário',
+          cursosProfissionais: m.especialidades_militar?.cursos_gerais || '',
+          pelotao: m.pelotao || '',
+          data_nascimento: civilObj?.data_nascimento || null,
+          sexo: civilObj ? (civilObj.sexo || civilObj.clvz9v8k8jkivub || 'Não informado') : 'Não informado'
+        };
+      });
 
       return res.status(200).json(formatados);
     } catch (error: any) {
