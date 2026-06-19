@@ -10,8 +10,11 @@ import {
   FileText, Users, History, Loader2, AlertTriangle,
   Shield, Phone, MapPin
 } from 'lucide-react';
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
+import { exportarListaMilitaresPDF, exportarLotePerfisPDF } from '../../utils/exportarPDF';
+import toast from 'react-hot-toast';
 import { api } from '../../services/api';
-import { exportarLotePerfisPDF } from '../../utils/exportarPDF';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constantes: opções de filtro
@@ -213,8 +216,12 @@ export function CadastroMilitares() {
       await api.delete(`/militares/${deletandoId}`);
       setMilitares(prev => prev.filter(m => m.id !== deletandoId));
       setDeletandoId(null);
+      toast.success('Militar excluído com sucesso!');
     } catch (err: any) {
-      setDeleteError(err.response?.data?.error || 'Não foi possível excluir. Tente novamente.');
+      console.error(err);
+      const msg = err.response?.data?.error || 'Não foi possível excluir. Tente novamente.';
+      setDeleteError(msg);
+      toast.error(msg);
     } finally {
       setDeletando(false);
     }
@@ -312,7 +319,7 @@ export function CadastroMilitares() {
       await exportarLotePerfisPDF(perfis);
     } catch (err) {
       console.error('Erro ao exportar PDFs', err);
-      alert('Houve um erro ao exportar os PDFs.');
+      toast.error('Houve um erro ao exportar os PDFs.');
     } finally {
       setExportandoVarios(false);
       setModalExportacaoAberto(false);
@@ -330,7 +337,7 @@ export function CadastroMilitares() {
       }
     } catch (err) {
       console.error('Erro ao exportar PDFs separados', err);
-      alert('Houve um erro ao exportar os PDFs.');
+      toast.error('Houve um erro ao exportar os PDFs.');
     } finally {
       setExportandoVarios(false);
       setModalExportacaoAberto(false);

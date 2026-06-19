@@ -5,6 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Ca
 import { Input, Select } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { Save, X, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { api } from '../../services/api';
 
 // Funções Helpers de Máscara e Formatação
@@ -436,12 +437,13 @@ export function NovoMilitar() {
     };
 
     try {
-      await api.post('/militares', payload);
-      alert('Militar cadastrado com sucesso!');
+      const res = await api.post('/militares', payload);
+      console.log('Resposta da API:', res.data);
+      toast.success('Militar cadastrado com sucesso!');
       navigate('/sgte/cadastro-militares');
     } catch (err: any) {
-      console.error(err);
-      setError(err.response?.data?.error || 'Erro ao realizar o cadastro do militar.');
+      console.error('Erro detalhado:', err.response?.data || err);
+      toast.error(err.response?.data?.error || 'Erro ao salvar militar. Verifique o console.');
     } finally {
       setLoading(false);
     }

@@ -447,12 +447,14 @@ export class MilitarController {
 
       // Comentário de organização: Registra log de criação do militar no historico_logs
       const nomeGuerra = toTitleCase(body.nomeGuerra || '') || `ID ${militar.Id}`;
+      const usuarioLogado = (req as any).user?.email || (req as any).user?.id || req.headers['x-usuario'] as string || 'Sistema';
+      
       await registrarLog({
         tipo_alteracao: 'Criação',
         campo_alteracao: 'Cadastro completo',
         valor_anterior: '',
         valor_novo: `Militar cadastrado com posto ${mapPostoGraduacao(body.postoGraduacao) || body.postoGraduacao || '—'} e nome de guerra ${nomeGuerra}`,
-        usuario_responsavel: body.usuarioResponsavel || req.headers['x-usuario'] as string || 'Sistema',
+        usuario_responsavel: usuarioLogado,
         militar_envolvido: militar.Id,
       });
 
@@ -1018,6 +1020,9 @@ export class MilitarController {
         turmaFormacao: { label: 'Turma de Formação', getOld: () => militarAntes.turma_formacao, getNew: () => body.turmaFormacao ? parseInt(body.turmaFormacao) : null },
         precCP: { label: 'Prec-CP', getOld: () => militarAntes.prec_cp, getNew: () => body.precCP || null },
         idtMil: { label: 'Identidade Militar', getOld: () => militarAntes.idt_militar, getNew: () => body.idtMil || body.idtMilitar || null },
+        numeroCampoBasico: { label: 'Nº Campo Básico', getOld: () => militarAntes.numero_campo_basico, getNew: () => body.numeroCampoBasico || null },
+        numeroEbca: { label: 'Nº EBCA', getOld: () => militarAntes.numero_ebca, getNew: () => body.numeroEbca || null },
+        periodoObrigatorio: { label: 'Período Obrigatório', getOld: () => militarAntes.periodo_obrigatorio, getNew: () => body.periodoObrigatorio || null },
         nomeCompleto: { label: 'Nome Completo', getOld: () => civilAntes.nome_completo, getNew: () => toTitleCase(body.nomeCompleto || '') || null },
         nomeMae: { label: 'Nome da Mãe', getOld: () => civilAntes.nome_mae, getNew: () => toTitleCase(body.nomeMae || '') || null },
         nomePai: { label: 'Nome do Pai', getOld: () => civilAntes.nome_pai, getNew: () => toTitleCase(body.nomePai || '') || null },
@@ -1068,12 +1073,13 @@ export class MilitarController {
       });
 
       if (camposAlterados.length > 0) {
+        const usuarioLogado = (req as any).user?.email || (req as any).user?.id || req.headers['x-usuario'] as string || 'Sistema';
         await registrarLog({
           tipo_alteracao: 'Atualização',
           campo_alteracao: camposAlterados.join(', '),
           valor_anterior: valoresAnteriores.join(' | '),
           valor_novo: valoresNovos.join(' | '),
-          usuario_responsavel: body.usuarioResponsavelId || (req as any).user?.id || req.headers['x-usuario'] as string,
+          usuario_responsavel: usuarioLogado,
           militar_envolvido: militarId,
         });
       }

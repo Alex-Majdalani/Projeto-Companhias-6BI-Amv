@@ -4,7 +4,8 @@ import { Breadcrumb } from '../../components/ui/Breadcrumb';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Input, Select } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
-import { Save, X, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Save, X, Loader2, CheckCircle2, AlertCircle, ArrowLeft } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { api } from '../../services/api';
 
 // Funções Helpers de Máscara e Formatação
@@ -558,11 +559,13 @@ export function EditarMilitar() {
       console.log('ENVIANDO PATCH PARA O BACKEND. ID:', id, 'Payload:', JSON.stringify(payload));
       await api.patch(`/militares/${id}`, payload);
       console.log('PATCH CONCLUIDO COM SUCESSO');
-      alert('Militar atualizado com sucesso!');
+      toast.success('Militar atualizado com sucesso!');
       navigate('/sgte/cadastro-militares');
     } catch (err: any) {
       console.error('ERRO NO SUBMIT:', err);
-      setError(err.response?.data?.error || err.message || 'Erro ao realizar a atualização do militar.');
+      const msg = err.response?.data?.error || err.message || 'Erro ao realizar a atualização do militar.';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
