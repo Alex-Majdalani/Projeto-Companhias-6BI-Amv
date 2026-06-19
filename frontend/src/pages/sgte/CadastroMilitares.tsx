@@ -8,7 +8,7 @@ import {
   Plus, Download, Filter, Eye, Edit2, Trash2,
   Search, X, ChevronDown, ChevronUp, User,
   FileText, Users, History, Loader2, AlertTriangle,
-  Shield, Phone, MapPin
+  Shield, Phone, MapPin, Briefcase
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
@@ -100,6 +100,7 @@ export function CadastroMilitares() {
   const [deletando, setDeletando] = useState(false);
   const [deleteError, setDeleteError] = useState('');
   const [editandoMilitar, setEditandoMilitar] = useState<any | null>(null);
+  const [militarDetalheModal, setMilitarDetalheModal] = useState<any | null>(null);
   const [editForm, setEditForm] = useState<Record<string, string>>({});
   const [salvandoEdicao, setSalvandoEdicao] = useState(false);
   const [editError, setEditError] = useState('');
@@ -641,7 +642,7 @@ export function CadastroMilitares() {
               ) : (
                 <div className="grid grid-cols-1 gap-4">
                   {paginatedMilitares.map(m => (
-                    <div key={m.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow flex flex-col md:flex-row">
+                    <div key={m.id} onClick={() => setMilitarDetalheModal(m)} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-all cursor-pointer hover:border-militar-main/50 flex flex-col md:flex-row">
                       {/* Comentário de organização: Coluna da foto — exibe imagem ou silhueta */}
                       <div className="md:w-48 bg-gray-100 flex-shrink-0 relative flex flex-col">
                         {m.fotoUrl ? (
@@ -707,14 +708,9 @@ export function CadastroMilitares() {
                           ))}
                         </div>
 
-                        <div className="flex gap-2 pt-3 border-t border-gray-100 mt-auto justify-end">
-                          <button onClick={() => navigate(`/sgte/militares/${m.id}`)} className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-militar-main bg-militar-main/5 hover:bg-militar-main/10 rounded-xl transition-colors">
-                            <Eye size={14} /> Ver Perfil
-                          </button>
-                          <button onClick={() => navigate(`/sgte/cadastro-militares/editar/${m.id}`)} className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-gray-600 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors border border-gray-200">
-                            <Edit2 size={14} /> Editar
-                          </button>
                         </div>
+
+                        {/* Botões removidos do card para dar lugar ao modal */}
                       </div>
                     </div>
                   ))}
@@ -730,7 +726,7 @@ export function CadastroMilitares() {
               <div className="grid grid-cols-1 gap-4 mt-4">
                 {paginatedMilitares.map(m => {
                   return (
-                    <div key={m.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow flex flex-col md:flex-row">
+                    <div key={m.id} onClick={() => setMilitarDetalheModal(m)} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-all cursor-pointer hover:border-militar-main/50 flex flex-col md:flex-row">
                       <div className="md:w-40 bg-gray-100 flex-shrink-0 relative flex flex-col">
                         {m.fotoUrl ? (
                           <img src={m.fotoUrl} alt={m.nome} className="w-full h-full object-cover min-h-[160px] md:min-h-full" />
@@ -782,7 +778,7 @@ export function CadastroMilitares() {
               {renderFiltros()}
               <div className="grid grid-cols-1 gap-4 mt-4">
                 {paginatedMilitares.map(m => (
-                  <div key={m.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow flex flex-col md:flex-row">
+                  <div key={m.id} onClick={() => setMilitarDetalheModal(m)} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-all cursor-pointer hover:border-militar-main/50 flex flex-col md:flex-row">
                     <div className="md:w-40 bg-gray-100 flex-shrink-0 relative flex flex-col">
                       {m.fotoUrl ? (
                         <img src={m.fotoUrl} alt={m.nome} className="w-full h-full object-cover min-h-[160px] md:min-h-full" />
@@ -1387,6 +1383,61 @@ export function CadastroMilitares() {
           );
         })()}
       </Modal>
+
+      {/* ── MODAL DE DETALHES RÁPIDOS DO MILITAR ────────────────────────────── */}
+      <Modal
+        isOpen={militarDetalheModal !== null}
+        onClose={() => setMilitarDetalheModal(null)}
+        title="Resumo do Militar"
+      >
+        {militarDetalheModal && (
+          <div className="space-y-6">
+            <div className="flex items-center gap-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
+              <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0 border border-gray-300">
+                {militarDetalheModal.fotoUrl ? (
+                  <img src={militarDetalheModal.fotoUrl} alt="Foto" className="w-full h-full object-cover" />
+                ) : (
+                  <User size={32} className="text-gray-400" />
+                )}
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">{militarDetalheModal.nomeGuerra || militarDetalheModal.nome}</h3>
+                <p className="text-sm font-medium text-gray-600">{militarDetalheModal.posto} · {militarDetalheModal.companhia}</p>
+              </div>
+              <div className="ml-auto">
+                <SituacaoBadge situacao={militarDetalheModal.situacao} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
+                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-1.5"><User size={14} /> Dados Pessoais</h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between"><span className="text-gray-500">IDT Mil:</span> <span className="font-semibold text-gray-800">{militarDetalheModal.identidade || militarDetalheModal.idtMilitar || '—'}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-500">CPF:</span> <span className="font-semibold text-gray-800">{militarDetalheModal.cpf || '—'}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-500">Nº EBCA:</span> <span className="font-semibold text-gray-800">{militarDetalheModal.numeroEbca || '—'}</span></div>
+                </div>
+              </div>
+              
+              <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
+                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-1.5"><Briefcase size={14} /> Situação Funcional</h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between"><span className="text-gray-500">Vínculo:</span> <span className="font-semibold text-gray-800">{militarDetalheModal.tipoVinculo || '—'}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-500">Pelotão:</span> <span className="font-semibold text-gray-800">{militarDetalheModal.pelotao || '—'}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-500">Função:</span> <span className="font-semibold text-gray-800 truncate max-w-[100px]" title={militarDetalheModal.funcoesEfetivo?.length > 0 ? militarDetalheModal.funcoesEfetivo.map((f: any) => f.funcao).join(', ') : 'Sem função'}>{militarDetalheModal.funcoesEfetivo?.length > 0 ? militarDetalheModal.funcoesEfetivo.map((f: any) => f.funcao).join(', ') : 'Sem função'}</span></div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+              <Button variant="outline" onClick={() => setMilitarDetalheModal(null)}>Fechar</Button>
+              <Button variant="outline" icon={<Edit2 size={16} />} onClick={() => navigate(`/sgte/cadastro-militares/editar/${militarDetalheModal.id}`)}>Atualizar Campos</Button>
+              <Button icon={<Eye size={16} />} onClick={() => navigate(`/sgte/militares/${militarDetalheModal.id}`)}>Abrir Perfil</Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
     </div>
   );
 }
