@@ -77,8 +77,20 @@ export class HistoricoController {
            militarStr = h.militar_envolvido.nome_guerra || h.militar_envolvido.nome_completo || `ID ${h.militar_envolvido.Id}`;
         }
 
+        // Se a string do militar estiver vazia (comum após Exclusão devido ao registro ter sido apagado),
+        // extrair o nome do militar diretamente da string "valor_anterior", onde ele fica registrado.
+        if (h.tipo_alteracao === 'Exclusão' && (!militarStr || militarStr.startsWith('ID '))) {
+           const match = (h.valor_anterior || '').match(/^Militar\s+(.+)$/);
+           if (match) {
+             militarStr = match[1];
+           }
+        }
+
         let usuarioStr = h.usuario_responsavel || '';
-        if (typeof h.usuario_responsavel === 'object' && h.usuario_responsavel !== null) {
+        if (h._nc_m2m_historico_logs_usuarios && h._nc_m2m_historico_logs_usuarios.length > 0) {
+           // NocoDB users are not in a standard table, but we might get their email from the payload
+           usuarioStr = h._nc_m2m_historico_logs_usuarios[0].email || `ID Usuário ${h._nc_m2m_historico_logs_usuarios[0].users_id}`;
+        } else if (typeof h.usuario_responsavel === 'object' && h.usuario_responsavel !== null) {
            usuarioStr = h.usuario_responsavel.email || h.usuario_responsavel.nome_completo || `ID ${h.usuario_responsavel.Id}`;
         }
 

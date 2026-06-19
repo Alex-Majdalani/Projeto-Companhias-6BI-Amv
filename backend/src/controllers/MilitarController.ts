@@ -52,8 +52,18 @@ async function registrarLog(opts: {
       data: new Date().toISOString(),
     };
 
-    if (opts.usuario_responsavel) payload.usuario_responsavel = opts.usuario_responsavel;
-    if (opts.militar_envolvido) payload.militar_envolvido = [{ Id: opts.militar_envolvido }];
+    if (opts.usuario_responsavel) {
+      const uId = Number(opts.usuario_responsavel);
+      if (!isNaN(uId)) {
+        payload.usuario_responsavel = [{ Id: uId }];
+      }
+    }
+    if (opts.militar_envolvido) {
+      const mId = Number(opts.militar_envolvido);
+      if (!isNaN(mId)) {
+        payload.militar_envolvido = [{ Id: mId }];
+      }
+    }
 
     await nocoRequest(`/tables/${TBL_HISTORICO_LOGS}/records`, {
       method: 'POST',
@@ -447,14 +457,14 @@ export class MilitarController {
 
       // Comentário de organização: Registra log de criação do militar no historico_logs
       const nomeGuerra = toTitleCase(body.nomeGuerra || '') || `ID ${militar.Id}`;
-      const usuarioLogado = (req as any).user?.email || (req as any).user?.id || req.headers['x-usuario'] as string || 'Sistema';
+      const usuarioLogadoId = (req as any).user?.id || body.usuarioResponsavelId || null;
       
       await registrarLog({
         tipo_alteracao: 'Criação',
         campo_alteracao: 'Cadastro completo',
         valor_anterior: '',
         valor_novo: `Militar cadastrado com posto ${mapPostoGraduacao(body.postoGraduacao) || body.postoGraduacao || '—'} e nome de guerra ${nomeGuerra}`,
-        usuario_responsavel: usuarioLogado,
+        usuario_responsavel: usuarioLogadoId,
         militar_envolvido: militar.Id,
       });
 
@@ -784,14 +794,14 @@ export class MilitarController {
 
       // Comentário de organização: Registra log de exclusão no historico_logs
       const nomeGuerraExcluido = militar.nome_guerra || `ID ${militarId}`;
-      const usuarioLogado = (req as any).user?.email || (req as any).user?.id || req.headers['x-usuario'] as string || 'Sistema';
+      const usuarioLogadoId = (req as any).user?.id || null;
 
       await registrarLog({
         tipo_alteracao: 'Exclusão',
         campo_alteracao: 'Cadastro completo',
         valor_anterior: `Militar ${nomeGuerraExcluido} (${militar.posto_graduacao || ''})`,
         valor_novo: '',
-        usuario_responsavel: usuarioLogado,
+        usuario_responsavel: usuarioLogadoId,
         militar_envolvido: militarId,
       });
 
@@ -1073,13 +1083,13 @@ export class MilitarController {
       });
 
       if (camposAlterados.length > 0) {
-        const usuarioLogado = (req as any).user?.email || (req as any).user?.id || req.headers['x-usuario'] as string || 'Sistema';
+        const usuarioLogadoId = (req as any).user?.id || body.usuarioResponsavelId || null;
         await registrarLog({
           tipo_alteracao: 'Atualização',
           campo_alteracao: camposAlterados.join(', '),
           valor_anterior: valoresAnteriores.join(' | '),
           valor_novo: valoresNovos.join(' | '),
-          usuario_responsavel: usuarioLogado,
+          usuario_responsavel: usuarioLogadoId,
           militar_envolvido: militarId,
         });
       }
