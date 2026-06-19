@@ -475,7 +475,7 @@ export class MilitarController {
 
       // Busca o militar com todos os relacionamentos expandidos
       const militar = await nocoRequest(
-        `/tables/${TBL_MILITAR}/records/${id}?nested[punicoes][fields]=Id&nested[fatds1][fields]=Id&nested[funcao_efetivo_cia][fields]=Id&nested[funcao_substituto_cia][fields]=Id`
+        `/tables/${TBL_MILITAR}/records/${id}?nested[punicoes][fields]=Id&nested[fatds1][fields]=Id&nested[funcao_efetivo_cia][fields]=Id&nested[funcao_substituto_cia][fields]=Id&nested[visitas_medicas][fields]=Id&nested[baixados][fields]=Id&nested[planos_ferias][fields]=Id`
       );
 
       if (!militar || !militar.Id) {
@@ -541,20 +541,26 @@ export class MilitarController {
         const fatds1Ids = (militar.fatds1 || []).map((f: any) => f.Id);
         const funcEfetivoIds = (militar.funcao_efetivo_cia || []).map((f: any) => f.Id);
         const funcSubstIds = (militar.funcao_substituto_cia || []).map((f: any) => f.Id);
+        const visitasIds = (militar.visitas_medicas || []).map((v: any) => v.Id);
+        const baixadosIds = (militar.baixados || []).map((b: any) => b.Id);
+        const feriasIds = (militar.planos_ferias || []).map((p: any) => p.Id);
 
         const punicoesQuery = punicoesIds.length > 0 ? `/tables/mxdic5ej7eigds1/records?where=(Id,in,${punicoesIds.join(',')})&nested[fatd][fields]=fato_relatado,data_processo_fato,numero_processo` : null;
         const fatdPartQuery = fatds1Ids.length > 0 ? `/tables/mhdr8z1rnvysh6u/records?where=(Id,in,${fatds1Ids.join(',')})` : null;
         const funcEfetivoQuery = funcEfetivoIds.length > 0 ? `/tables/m53uey4mkuimti7/records?where=(Id,in,${funcEfetivoIds.join(',')})` : null;
         const funcSubstQuery = funcSubstIds.length > 0 ? `/tables/m53uey4mkuimti7/records?where=(Id,in,${funcSubstIds.join(',')})` : null;
+        const visitasQuery = visitasIds.length > 0 ? `/tables/m0ya166asp9wk5b/records?where=(Id,in,${visitasIds.join(',')})` : null;
+        const baixadosQuery = baixadosIds.length > 0 ? `/tables/mjaepbsec6qieim/records?where=(Id,in,${baixadosIds.join(',')})` : null;
+        const feriasQuery = feriasIds.length > 0 ? `/tables/merte6jebbddnb1/records?where=(Id,in,${feriasIds.join(',')})&nested[periodos_ferias][fields]=nome_periodo,data_inicio,data_fim` : null;
 
         const [
           visitasRes, baixadosRes, feriasRes,
           funcoesEfetivoRes, funcoesSubstitutoRes,
           punicoesRes, fatdPartRes
         ] = await Promise.allSettled([
-          nocoRequest(`/tables/m0ya166asp9wk5b/records?where=(militar,eq,${id})`),
-          nocoRequest(`/tables/mjaepbsec6qieim/records?where=(militar,eq,${id})`),
-          nocoRequest(`/tables/merte6jebbddnb1/records?where=(militar,eq,${id})&nested[periodos_ferias][fields]=nome_periodo,data_inicio,data_fim`),
+          visitasQuery ? nocoRequest(visitasQuery) : Promise.resolve({ list: [] }),
+          baixadosQuery ? nocoRequest(baixadosQuery) : Promise.resolve({ list: [] }),
+          feriasQuery ? nocoRequest(feriasQuery) : Promise.resolve({ list: [] }),
           funcEfetivoQuery ? nocoRequest(funcEfetivoQuery) : Promise.resolve({ list: [] }),
           funcSubstQuery ? nocoRequest(funcSubstQuery) : Promise.resolve({ list: [] }),
           punicoesQuery ? nocoRequest(punicoesQuery) : Promise.resolve({ list: [] }),
