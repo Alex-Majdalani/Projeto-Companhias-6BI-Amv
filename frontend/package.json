@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.0",
     "@types/react": "^19.2.16",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.2",
@@ -30,6 +31,7 @@
     "lucide-react": "^1.17.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
+    "react-hot-toast": "^2.6.0",
     "react-router-dom": "^7.16.0"
   }
 }

@@ -13,6 +13,12 @@ agendaRoutes.get('/tipos', authMiddleware, AgendaController.getTipos);
 // POST /api/agenda/tipos — Cria um novo tipo de atividade
 agendaRoutes.post('/tipos', authMiddleware, AgendaController.createTipo);
 
+// PUT /api/agenda/tipos/:id — Atualiza um tipo de atividade
+agendaRoutes.put('/tipos/:id', authMiddleware, AgendaController.updateTipo);
+
+// DELETE /api/agenda/tipos/:id — Remove um tipo de atividade
+agendaRoutes.delete('/tipos/:id', authMiddleware, AgendaController.deleteTipo);
+
 // GET /api/agenda/atividades — Lista todas as atividades da agenda
 agendaRoutes.get('/atividades', authMiddleware, AgendaController.getAtividades);
 

@@ -1,19 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Breadcrumb } from '../../components/ui/Breadcrumb';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Input, Select } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
-import { Save, X, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Save, X, Loader2, CheckCircle2, AlertCircle, ArrowLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '../../services/api';
 
 // Funções Helpers de Máscara e Formatação
-const toTitleCase = (str: string) => {
+const toTitleCase = (str: any) => {
   if (!str) return '';
+  if (typeof str !== 'string') str = String(str);
   return str
-    .split(/\s+/)
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .toLowerCase()
+    .split(' ')
+    .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
 };
 
@@ -84,16 +86,8 @@ const formatAtSign = (val: string) => {
 
 const calculateAge = (birthDateString: string): string => {
   if (!birthDateString) return '';
-  const cleanDateStr = typeof birthDateString === 'string' ? birthDateString.split('T')[0] : '';
-  const parts = cleanDateStr.split(/[-/]/);
-  if (parts.length < 3) return '';
-
-  const year = parseInt(parts[0], 10);
-  const month = parseInt(parts[1], 10) - 1;
-  const day = parseInt(parts[2], 10);
-
-  const birthDate = new Date(year, month, day);
   const today = new Date();
+  const birthDate = new Date(birthDateString);
   let age = today.getFullYear() - birthDate.getFullYear();
   const m = today.getMonth() - birthDate.getMonth();
   if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
@@ -102,9 +96,11 @@ const calculateAge = (birthDateString: string): string => {
   return age >= 0 ? String(age) : '';
 };
 
-export function NovoMilitar() {
+export function EditarMilitar() {
   const navigate = useNavigate();
+  const { id } = useParams();
   const [loading, setLoading] = useState(false);
+  const [fetchingData, setFetchingData] = useState(true);
   const [error, setError] = useState('');
   const [companhias, setCompanhias] = useState<{ id: number; companhia: string }[]>([]);
   const [showYearScroll, setShowYearScroll] = useState(false);
@@ -183,7 +179,7 @@ export function NovoMilitar() {
     tiktok: '',
     twitter: '',
     outrasRedes: '',
-    // Comentário de organização: Incluindo estadoCivil no estado inicial do formulário
+    // Comentário de organização: Incluindo estadoCivil no estado inicial do formulário de edição
     estadoCivil: '',
     pelotao: ''
   });
@@ -211,6 +207,119 @@ export function NovoMilitar() {
     loadCompanhias();
     loadPelotoes();
   }, []);
+
+  // Buscar dados do militar para edição
+  useEffect(() => {
+    if (!id) return;
+    async function loadMilitar() {
+      try {
+        const response = await api.get(`/militares/${id}`);
+        const data = response.data;
+
+        const mapPosto = (p: string) => {
+          const m: Record<string, string> = {
+            'CEL': 'cel', 'TC': 'tc', 'MAJ': 'maj', 'CAP': 'cap',
+            '1º TEN': '1ten', '2º TEN': '2ten', 'ASP': 'asp', 'ST': 'st',
+            '1º SGT': '1sgt', '2º SGT': '2sgt', '3º SGT': '3sgt',
+            'CB': 'cb', 'SD EP': 'sdep', 'SD EV': 'sdev'
+          };
+          return m[p] || '';
+        };
+
+        const mapEsc = (e: string) => {
+          const m: Record<string, string> = {
+            'Fundamental Incompleto': 'fundamental_inc',
+            'Fundamental Completo': 'fundamental_com',
+            'Médio Incompleto': 'medio_inc',
+            'Médio Completo': 'medio_com',
+            'Superior Incompleto': 'superior_inc',
+            'Superior Completo': 'superior_com',
+          };
+          return m[e] || '';
+        };
+
+        setFormData({
+          postoGraduacao: mapPosto(data.postoGraduacao),
+          // Comentário de organização: Popular precCP, numeroEbca e numeroCampoBasico carregados da API
+          numeroEbca: data.numeroEbca ? String(data.numeroEbca) : '',
+          numeroCampoBasico: data.numeroCampoBasico ? String(data.numeroCampoBasico) : '',
+          precCP: data.precCP || '',
+          nomeGuerra: data.nomeGuerra || '',
+          tipoMilitar: data.tipoVinculo || 'Militar Temporário',
+          situacao: data.situacao || 'Ativo',
+          periodoObrigatorio: data.periodoObrigatorio || '',
+          secaoCompanhia: '', // mapeado logo abaixo
+          dataPraca: data.dataPraca ? data.dataPraca.split('T')[0] : '',
+          turmaFormacao: data.turmaFormacao ? String(data.turmaFormacao) : '',
+          nomeCompleto: data.dadosCivil?.nomeCompleto || '',
+          dataNascimento: data.dadosCivil?.dataNascimento ? data.dadosCivil.dataNascimento.split('T')[0] : '',
+          idade: '', // preenchido via onChange
+          sexo: data.dadosCivil?.sexo || '',
+          idtMil: data.idtMilitar || '', // corrigido
+          cpf: data.dadosCivil?.cpf || '',
+          idtCivil: data.dadosCivil?.idtCivil || '',
+          altura: data.dadosCivil?.altura ? String(data.dadosCivil.altura).replace('.', ',') : '',
+          tipoSanguineo: data.dadosCivil?.tipoSanguineo || '',
+          fatorRh: data.dadosCivil?.fatorRh === 'Positivo (+)' ? '+' : (data.dadosCivil?.fatorRh === 'Negativo (-)' ? '-' : ''),
+          cutis: data.dadosCivil?.cutis || '',
+          olhos: data.dadosCivil?.olhos || '',
+          cabelos: data.dadosCivil?.cabelos || '',
+          religiao: data.dadosCivil?.religiao || '',
+          nomePai: data.dadosCivil?.nomePai || '',
+          nomeMae: data.dadosCivil?.nomeMae || '',
+          escolaridade: mapEsc(data.dadosCivil?.escolaridade || ''),
+          cnhCategoria: data.dadosCivil?.cnhCategoria || [],
+          cursosProfissionais: data.especialidades?.cursos || '',
+          cep: data.endereco?.cep || '',
+          rua: data.endereco?.rua || '',
+          numeroResidencial: data.endereco?.numero || '',
+          complemento: data.endereco?.complemento || '',
+          bairro: data.endereco?.bairro || '',
+          cidade: data.endereco?.cidade || '',
+          uf: data.endereco?.uf || '',
+          telefoneTipo: 'celular',
+          telefoneCelular: data.contato?.telefone || '',
+          resideCom: data.contato?.coabitacao ? data.contato.coabitacao.split(',').map((s: string) => s.trim()) : [],
+          telefoneEmergenciaTipo: 'celular',
+          telefoneEmergencia: data.contato?.telefoneEmergencia || '',
+          nomeEmergencia: data.contato?.nomeEmergencia || '',
+          grauParentesco: data.contato?.grauParentesco || '', // corrigido
+          instagram: data.redesSociais?.instagram || '',
+          facebook: data.redesSociais?.facebook || '',
+          tiktok: data.redesSociais?.tiktok || '',
+          twitter: data.redesSociais?.twitter || '',
+          outrasRedes: data.redesSociais?.outras || '', // corrigido
+          // Comentário de organização: Populando o estadoCivil do form com dados do backend
+          estadoCivil: data.dadosCivil?.estadoCivil || '',
+          pelotao: data.pelotao || ''
+        });
+
+        if (data.dadosCivil?.fotoUrl) {
+          setFotoUrl(data.dadosCivil.fotoUrl);
+          setFotoPreviewUrl(data.dadosCivil.fotoUrl);
+        }
+
+        // Calcula idade se dataNascimento existir
+        if (data.dadosCivil?.dataNascimento) {
+          setFormData((prev) => ({ ...prev, idade: calculateAge(data.dadosCivil.dataNascimento) }));
+        }
+
+        // Mapeia Companhia
+        if (data.companhia && companhias.length > 0) {
+          const compStr = data.companhia.toLowerCase();
+          const match = companhias.find(c => c.companhia.toLowerCase() === compStr);
+          if (match) setFormData(prev => ({ ...prev, secaoCompanhia: String(match.id) }));
+        }
+
+      } catch (err) {
+        console.error('Erro ao buscar militar:', err);
+        setError('Erro ao carregar dados do militar.');
+      } finally {
+        setFetchingData(false);
+      }
+    }
+    loadMilitar();
+  }, [id, companhias]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -428,36 +537,41 @@ export function NovoMilitar() {
       }
     }
 
-    // Preparar payload normalizando campos e incluindo a URL da foto
-    const payload = {
-      ...formData,
-      nomeCompleto: toTitleCase(formData.nomeCompleto),
-      nomeGuerra: toTitleCase(formData.nomeGuerra),
-      rua: toTitleCase(formData.rua),
-      bairro: toTitleCase(formData.bairro),
-      cidade: toTitleCase(formData.cidade),
-      uf: formData.uf.toUpperCase(),
-      nomePai: toTitleCase(formData.nomePai),
-      nomeMae: toTitleCase(formData.nomeMae),
-      nomeEmergencia: toTitleCase(formData.nomeEmergencia),
-      cutis: formData.cutis,
-      olhos: formData.olhos,
-      cabelos: formData.cabelos,
-      resideCom: formData.resideCom.join(', '),
-      // Comentário de organização: Incluindo estadoCivil no payload enviado ao backend
-      estadoCivil: formData.estadoCivil,
-      // Comentário de organização: URL da foto no S3 para salvar em dados_civil.foto_url
-      fotoUrl: uploadedFotoUrl
-    };
-
     try {
-      const res = await api.post('/militares', payload);
-      console.log('Resposta da API:', res.data);
-      toast.success('Militar cadastrado com sucesso!');
+      // Preparar payload normalizando campos e incluindo a URL da foto
+      const payload: any = {
+        ...formData,
+        nomeCompleto: toTitleCase(formData.nomeCompleto),
+        nomeGuerra: toTitleCase(formData.nomeGuerra),
+        rua: toTitleCase(formData.rua),
+        bairro: toTitleCase(formData.bairro),
+        cidade: toTitleCase(formData.cidade),
+        uf: (formData.uf || '').toUpperCase(),
+        nomePai: toTitleCase(formData.nomePai),
+        nomeMae: toTitleCase(formData.nomeMae),
+        nomeEmergencia: toTitleCase(formData.nomeEmergencia),
+        cutis: formData.cutis,
+        olhos: formData.olhos,
+        cabelos: formData.cabelos,
+        resideCom: Array.isArray(formData.resideCom) ? formData.resideCom.join(', ') : '',
+        // Comentário de organização: Incluindo estadoCivil no payload de atualização
+        estadoCivil: formData.estadoCivil,
+      };
+
+      if (uploadedFotoUrl) {
+        payload.fotoUrl = uploadedFotoUrl;
+      }
+
+      console.log('ENVIANDO PATCH PARA O BACKEND. ID:', id, 'Payload:', JSON.stringify(payload));
+      await api.patch(`/militares/${id}`, payload);
+      console.log('PATCH CONCLUIDO COM SUCESSO');
+      toast.success('Militar atualizado com sucesso!');
       navigate('/sgte/cadastro-militares');
     } catch (err: any) {
-      console.error('Erro detalhado:', err.response?.data || err);
-      toast.error(err.response?.data?.error || 'Erro ao salvar militar. Verifique o console.');
+      console.error('ERRO NO SUBMIT:', err);
+      const msg = err.response?.data?.error || err.message || 'Erro ao realizar a atualização do militar.';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -467,6 +581,15 @@ export function NovoMilitar() {
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: currentYear - 1980 + 1 }, (_, i) => 1980 + i).reverse();
 
+  if (fetchingData) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-4">
+        <Loader2 size={32} className="animate-spin text-militar-main" />
+        <span className="text-gray-500 font-medium">Carregando dados do militar...</span>
+      </div>
+    );
+  }
+
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-6 pb-12">
       <div className="flex justify-between items-end">
@@ -475,12 +598,12 @@ export function NovoMilitar() {
             items={[
               { label: 'Gestão de Pessoas' },
               { label: 'Cadastro de Militares', to: '/sgte/cadastro-militares' },
-              { label: 'Novo Militar' }
+              { label: 'Editar Militar' }
             ]}
           />
-          <h1 className="text-2xl font-bold text-gray-900 mt-2">Cadastrar Novo Militar</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mt-2">Editar Militar</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Preencha as informações para registrar um novo militar no sistema.
+            Atualize as informações do militar no sistema.
           </p>
         </div>
         <div className="flex gap-3">
@@ -915,7 +1038,7 @@ export function NovoMilitar() {
             />
           </div>
 
-          {/* Comentário de organização: Campos de Escolaridade, CNH e Estado Civil em grade */}
+          {/* Comentário de organização: Grade contendo Escolaridade, Estado Civil e CNH */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Select
               label="Escolaridade"
@@ -933,7 +1056,7 @@ export function NovoMilitar() {
               <option value="superior_com">Superior Completo</option>
             </Select>
 
-            {/* Comentário de organização: Campo Estado Civil adicionado conforme nova coluna na tabela dados_civil */}
+            {/* Comentário de organização: Campo Select de Estado Civil adicionado */}
             <Select
               label="Estado Civil"
               name="estadoCivil"
@@ -948,6 +1071,8 @@ export function NovoMilitar() {
               <option value="União Estável">União Estável</option>
               <option value="Separado(a)">Separado(a)</option>
             </Select>
+
+            {/* Grupo de Checkboxes de CNH */}
             <div className="flex flex-col gap-1.5 w-full">
               <label className="text-sm font-semibold text-gray-700">CNH Categorias</label>
               <div className="flex flex-wrap gap-3 items-center h-10">

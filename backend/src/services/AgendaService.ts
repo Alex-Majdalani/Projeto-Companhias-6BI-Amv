@@ -116,6 +116,36 @@ export class AgendaService {
   }
 
   /**
+   * Comentário de organização: Atualiza o nome de um tipo de atividade existente.
+   */
+  static async updateTipo(id: number, tipos: string): Promise<TipoRecord> {
+    try {
+      await api.patch(`/api/v2/tables/${TIPO_TABLE_ID}/records`, {
+        Id: id,
+        tipos
+      });
+      return { Id: id, tipos };
+    } catch (error: any) {
+      console.error('[AgendaService] Erro ao atualizar tipo:', error?.response?.data || error.message);
+      throw new Error('Não foi possível atualizar o tipo de atividade.');
+    }
+  }
+
+  /**
+   * Comentário de organização: Exclui um tipo de atividade pelo ID.
+   */
+  static async deleteTipo(id: number): Promise<void> {
+    try {
+      await api.delete(`/api/v2/tables/${TIPO_TABLE_ID}/records`, {
+        data: [{ Id: id }]
+      });
+    } catch (error: any) {
+      console.error('[AgendaService] Erro ao excluir tipo:', error?.response?.data || error.message);
+      throw new Error('Não foi possível excluir o tipo de atividade.');
+    }
+  }
+
+  /**
    * Cria uma nova atividade na tabela atividades_agenda e linka ao tipo informado.
    * 
    * O relacionamento é do tipo Many-to-One (mo), portanto usamos a API de links

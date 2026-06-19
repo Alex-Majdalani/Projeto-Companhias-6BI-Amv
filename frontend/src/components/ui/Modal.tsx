@@ -9,6 +9,7 @@ interface ModalProps {
   children: React.ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl';
   overflowVisible?: boolean;
+  maxWidth?: string;
 }
 
 const sizeClasses = {
@@ -18,7 +19,7 @@ const sizeClasses = {
   xl: 'max-w-4xl'
 };
 
-export function Modal({ isOpen, onClose, title, children, size = 'md', overflowVisible = false }: ModalProps) {
+export function Modal({ isOpen, onClose, title, children, size = 'md', overflowVisible = false, maxWidth }: ModalProps) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -27,6 +28,9 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', overflowV
 
   if (!isOpen || !mounted) return null;
 
+  // Comentário de organização: Prioriza o maxWidth customizado caso fornecido, caso contrário cai no tamanho pré-definido pelo size
+  const modalWidthClass = maxWidth || sizeClasses[size];
+
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div 
@@ -34,7 +38,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', overflowV
         onClick={onClose}
       />
       
-      <div className={`relative bg-white rounded-2xl shadow-2xl w-full ${sizeClasses[size]} ${overflowVisible ? 'overflow-visible' : 'overflow-hidden'} flex flex-col animate-in fade-in zoom-in-95 duration-200`}>
+      <div className={`relative bg-white rounded-2xl shadow-2xl w-full ${modalWidthClass} ${overflowVisible ? 'overflow-visible' : 'overflow-hidden'} flex flex-col animate-in fade-in zoom-in-95 duration-200`}>
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
           <h2 className="text-lg font-bold text-gray-900">{title}</h2>
           <button 

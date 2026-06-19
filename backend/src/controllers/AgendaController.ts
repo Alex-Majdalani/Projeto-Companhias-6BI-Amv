@@ -51,6 +51,47 @@ export class AgendaController {
   }
 
   /**
+   * PUT /api/agenda/tipos/:id
+   * Atualiza o nome de um tipo de atividade pelo ID.
+   */
+  static async updateTipo(req: Request, res: Response): Promise<void> {
+    try {
+      const id = Number(req.params.id);
+      const { tipos } = req.body;
+      if (isNaN(id)) {
+        res.status(400).json({ error: 'ID inválido.' });
+        return;
+      }
+      if (!tipos) {
+        res.status(400).json({ error: 'O nome do tipo é obrigatório.' });
+        return;
+      }
+      const tipoAtualizado = await AgendaService.updateTipo(id, tipos);
+      res.status(200).json(tipoAtualizado);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || 'Erro interno ao atualizar tipo.' });
+    }
+  }
+
+  /**
+   * DELETE /api/agenda/tipos/:id
+   * Remove um tipo de atividade pelo ID.
+   */
+  static async deleteTipo(req: Request, res: Response): Promise<void> {
+    try {
+      const id = Number(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: 'ID inválido.' });
+        return;
+      }
+      await AgendaService.deleteTipo(id);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || 'Erro interno ao excluir tipo.' });
+    }
+  }
+
+  /**
    * POST /api/agenda/atividades
    * Cria uma nova atividade e a vincula ao tipo informado.
    * Body esperado: { titulo_atividade, data, descricao?, tipoId }

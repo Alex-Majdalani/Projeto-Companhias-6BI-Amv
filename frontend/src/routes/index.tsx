@@ -11,6 +11,7 @@ import { SargenteacaoDashboard } from '../pages/sgte/SargenteacaoDashboard';
 import { Aditamento } from '../pages/sgte/Aditamento';
 import { CadastroMilitares } from '../pages/sgte/CadastroMilitares';
 import { NovoMilitar } from '../pages/sgte/NovoMilitar';
+import { EditarMilitar } from '../pages/sgte/EditarMilitar';
 import { QuadroOrganizacoes } from '../pages/sgte/QuadroOrganizacoes';
 import { Pernoite } from '../pages/sgte/Pernoite';
 import { ParteAcidente } from '../pages/sgte/ParteAcidente';
@@ -25,6 +26,7 @@ import { Punicoes } from '../pages/sgte/Punicoes';
 import { Atendimentos } from '../pages/sgte/Atendimentos';
 import { Baixados } from '../pages/sgte/Baixados';
 import { Taf } from '../pages/sgte/Taf';
+import { PerfilMilitar } from '../pages/sgte/PerfilMilitar'; // Comentário de organização: Página de perfil completo do militar
 
 /**
  * AppRoutes — Centraliza a configuração de rotas da aplicação.
@@ -85,6 +87,7 @@ export function AppRoutes() {
           <Route path="/sgte/aditamento" element={<Aditamento />} />
           <Route path="/sgte/cadastro-militares" element={<CadastroMilitares />} />
           <Route path="/sgte/cadastro-militares/novo" element={<NovoMilitar />} />
+          <Route path="/sgte/cadastro-militares/editar/:id" element={<EditarMilitar />} />
           <Route path="/sgte/quadro-organizacoes" element={<QuadroOrganizacoes />} />
           <Route path="/sgte/pernoite" element={<Pernoite />} />
           <Route path="/sgte/parte-acidente" element={<ParteAcidente />} />
@@ -99,6 +102,8 @@ export function AppRoutes() {
           <Route path="/sgte/atendimentos" element={<Atendimentos />} />
           <Route path="/sgte/baixados" element={<Baixados />} />
           <Route path="/sgte/taf" element={<Taf />} />
+          {/* Comentário de organização: Rota de perfil completo do militar acessada pelo ID */}
+          <Route path="/sgte/militares/:id" element={<PerfilMilitar />} />
         </Route>
       </Route>
 
