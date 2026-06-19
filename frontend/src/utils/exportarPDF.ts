@@ -801,7 +801,7 @@ export async function exportarPerfilPDF(perfil: any): Promise<void> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   await renderPerfil(doc, perfil);
   addFooters(doc);
-  const nomeValido = perfil.nomeGuerra || perfil.dadosCivil?.nomeCompleto || 'Militar';
+  const nomeValido = perfil.dadosCivil?.nomeCompleto || perfil.nomeGuerra || perfil.nome || 'Militar';
   const nomeArquivo = nomeValido.replace(/\s+/g, '_');
   doc.save(`${nomeArquivo}.pdf`);
 }
@@ -877,5 +877,5 @@ export async function exportarListaMilitaresPDF(militares: any[]): Promise<void>
     doc.text(`Pagina ${i} de ${total}`, pw - 12, ph - 4, { align: 'right' });
   }
 
-  doc.save('listagem_militares.pdf');
+  doc.save('Militares.pdf');
 }
