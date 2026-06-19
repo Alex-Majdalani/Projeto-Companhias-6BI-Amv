@@ -453,7 +453,7 @@ export class MilitarController {
         valor_anterior: '',
         valor_novo: `Militar cadastrado com posto ${mapPostoGraduacao(body.postoGraduacao) || body.postoGraduacao || '—'} e nome de guerra ${nomeGuerra}`,
         usuario_responsavel: body.usuarioResponsavel || req.headers['x-usuario'] as string || 'Sistema',
-        militar_envolvido: nomeGuerra,
+        militar_envolvido: militar.Id,
       });
 
       return res.status(201).json({

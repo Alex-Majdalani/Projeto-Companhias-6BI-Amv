@@ -8,11 +8,13 @@ import { Save, X, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { api } from '../../services/api';
 
 // Funções Helpers de Máscara e Formatação
-const toTitleCase = (str: string) => {
+const toTitleCase = (str: any) => {
   if (!str) return '';
+  if (typeof str !== 'string') str = String(str);
   return str
-    .split(/\s+/)
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .toLowerCase()
+    .split(' ')
+    .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
 };
 
@@ -528,37 +530,39 @@ export function EditarMilitar() {
       }
     }
 
-    // Preparar payload normalizando campos e incluindo a URL da foto
-    const payload: any = {
-      ...formData,
-      nomeCompleto: toTitleCase(formData.nomeCompleto),
-      nomeGuerra: toTitleCase(formData.nomeGuerra),
-      rua: toTitleCase(formData.rua),
-      bairro: toTitleCase(formData.bairro),
-      cidade: toTitleCase(formData.cidade),
-      uf: formData.uf.toUpperCase(),
-      nomePai: toTitleCase(formData.nomePai),
-      nomeMae: toTitleCase(formData.nomeMae),
-      nomeEmergencia: toTitleCase(formData.nomeEmergencia),
-      cutis: formData.cutis,
-      olhos: formData.olhos,
-      cabelos: formData.cabelos,
-      resideCom: formData.resideCom.join(', '),
-      // Comentário de organização: Incluindo estadoCivil no payload de atualização
-      estadoCivil: formData.estadoCivil,
-    };
-
-    if (uploadedFotoUrl) {
-      payload.fotoUrl = uploadedFotoUrl;
-    }
-
     try {
+      // Preparar payload normalizando campos e incluindo a URL da foto
+      const payload: any = {
+        ...formData,
+        nomeCompleto: toTitleCase(formData.nomeCompleto),
+        nomeGuerra: toTitleCase(formData.nomeGuerra),
+        rua: toTitleCase(formData.rua),
+        bairro: toTitleCase(formData.bairro),
+        cidade: toTitleCase(formData.cidade),
+        uf: (formData.uf || '').toUpperCase(),
+        nomePai: toTitleCase(formData.nomePai),
+        nomeMae: toTitleCase(formData.nomeMae),
+        nomeEmergencia: toTitleCase(formData.nomeEmergencia),
+        cutis: formData.cutis,
+        olhos: formData.olhos,
+        cabelos: formData.cabelos,
+        resideCom: Array.isArray(formData.resideCom) ? formData.resideCom.join(', ') : '',
+        // Comentário de organização: Incluindo estadoCivil no payload de atualização
+        estadoCivil: formData.estadoCivil,
+      };
+
+      if (uploadedFotoUrl) {
+        payload.fotoUrl = uploadedFotoUrl;
+      }
+
+      console.log('ENVIANDO PATCH PARA O BACKEND. ID:', id, 'Payload:', JSON.stringify(payload));
       await api.patch(`/militares/${id}`, payload);
+      console.log('PATCH CONCLUIDO COM SUCESSO');
       alert('Militar atualizado com sucesso!');
       navigate('/sgte/cadastro-militares');
     } catch (err: any) {
-      console.error(err);
-      setError(err.response?.data?.error || 'Erro ao realizar a atualização do militar.');
+      console.error('ERRO NO SUBMIT:', err);
+      setError(err.response?.data?.error || err.message || 'Erro ao realizar a atualização do militar.');
     } finally {
       setLoading(false);
     }
