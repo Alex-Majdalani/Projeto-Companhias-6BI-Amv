@@ -111,6 +111,8 @@ export function CadastroMilitares() {
   const [modalExportacaoAberto, setModalExportacaoAberto] = useState(false);
   const [exportandoVarios, setExportandoVarios] = useState(false);
   const [buscaExportacao, setBuscaExportacao] = useState('');
+  const [buscaSubstituto, setBuscaSubstituto] = useState('');
+  const [showSubstitutoResultados, setShowSubstitutoResultados] = useState(false);
 
   // Paginação centralizada
   const [currentPage, setCurrentPage] = useState(1);
@@ -275,7 +277,9 @@ export function CadastroMilitares() {
       cpf: militarDetalheModal.cpf || '',
       numeroEbca: militarDetalheModal.numeroEbca || '',
       tipoVinculo: militarDetalheModal.tipoVinculo || '',
-      pelotao: militarDetalheModal.pelotao || ''
+      pelotao: militarDetalheModal.pelotao || '',
+      substitutoId: militarDetalheModal.funcoesEfetivo?.find((f: any) => f.substituto)?.substitutoId || '',
+      substitutoNome: militarDetalheModal.funcoesEfetivo?.find((f: any) => f.substituto)?.substituto || ''
     });
     setIsEditingDetalhes(true);
   };
@@ -284,23 +288,36 @@ export function CadastroMilitares() {
     if (!militarDetalheModal) return;
     setSalvandoDetalhes(true);
     try {
-      const payload = {
-        idtMil: detalhesForm.identidade,
-        cpf: detalhesForm.cpf,
-        numeroEbca: detalhesForm.numeroEbca,
-        tipoMilitar: detalhesForm.tipoVinculo,
-        pelotao: detalhesForm.pelotao
-      };
+      const payload: any = {};
+      if (activeTab === 'dados') {
+        payload.idtMil = detalhesForm.identidade;
+        payload.cpf = detalhesForm.cpf;
+        payload.numeroEbca = detalhesForm.numeroEbca;
+      } else if (activeTab === 'situacao') {
+        payload.tipoMilitar = detalhesForm.tipoVinculo;
+        payload.pelotao = detalhesForm.pelotao;
+        if (detalhesForm.substitutoId) {
+          payload.substitutoId = detalhesForm.substitutoId;
+        }
+      }
+      
       await api.patch(`/militares/${militarDetalheModal.id}`, payload);
       toast.success('Campos atualizados com sucesso!');
       
       const novosDados = {
-        identidade: detalhesForm.identidade,
-        idtMilitar: detalhesForm.identidade,
-        cpf: detalhesForm.cpf,
-        numeroEbca: detalhesForm.numeroEbca,
-        tipoVinculo: detalhesForm.tipoVinculo,
-        pelotao: detalhesForm.pelotao
+        ...(activeTab === 'dados' ? {
+          identidade: detalhesForm.identidade,
+          idtMilitar: detalhesForm.identidade,
+          cpf: detalhesForm.cpf,
+          numeroEbca: detalhesForm.numeroEbca,
+        } : {}),
+        ...(activeTab === 'situacao' ? {
+          tipoVinculo: detalhesForm.tipoVinculo,
+          pelotao: detalhesForm.pelotao,
+          funcoesEfetivo: militarDetalheModal.funcoesEfetivo?.map((f: any) => 
+            ({ ...f, substituto: detalhesForm.substitutoNome, substitutoId: detalhesForm.substitutoId })
+          ) || []
+        } : {})
       };
 
       setMilitares(prev => prev.map(m => m.id === militarDetalheModal.id ? { ...m, ...novosDados } : m));
@@ -1459,91 +1476,167 @@ export function CadastroMilitares() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* DADOS PESSOAIS */}
-              <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
-                <h4 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-5 flex items-center gap-2"><User size={16} /> Dados Pessoais</h4>
-                <div className="space-y-4 text-sm">
-                  {isEditingDetalhes ? (
-                    <>
-                      <div>
-                        <label className="block text-xs font-semibold text-gray-600 mb-1">IDT Mil</label>
-                        <input
-                          value={detalhesForm.identidade}
-                          onChange={e => setDetalhesForm({ ...detalhesForm, identidade: e.target.value })}
-                          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-militar-main"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-gray-600 mb-1">CPF</label>
-                        <input
-                          value={detalhesForm.cpf}
-                          onChange={e => setDetalhesForm({ ...detalhesForm, cpf: e.target.value })}
-                          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-militar-main"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-gray-600 mb-1">Nº EBCA</label>
-                        <input
-                          value={detalhesForm.numeroEbca}
-                          onChange={e => setDetalhesForm({ ...detalhesForm, numeroEbca: e.target.value })}
-                          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-militar-main"
-                        />
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="flex justify-between items-center py-1 border-b border-gray-50"><span className="text-gray-500">IDT Mil:</span> <span className="font-semibold text-gray-800 text-base">{militarDetalheModal.identidade || militarDetalheModal.idtMilitar || '—'}</span></div>
-                      <div className="flex justify-between items-center py-1 border-b border-gray-50"><span className="text-gray-500">CPF:</span> <span className="font-semibold text-gray-800 text-base">{militarDetalheModal.cpf || '—'}</span></div>
-                      <div className="flex justify-between items-center py-1 border-b border-gray-50"><span className="text-gray-500">Nº EBCA:</span> <span className="font-semibold text-gray-800 text-base">{militarDetalheModal.numeroEbca || '—'}</span></div>
-                    </>
-                  )}
-                </div>
-              </div>
-              
-              {/* SITUAÇÃO FUNCIONAL */}
-              <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
-                <h4 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-5 flex items-center gap-2"><Briefcase size={16} /> Situação Funcional</h4>
-                <div className="space-y-4 text-sm">
-                  {isEditingDetalhes ? (
-                    <>
-                      <div>
-                        <label className="block text-xs font-semibold text-gray-600 mb-1">Vínculo</label>
-                        <select
-                          value={detalhesForm.tipoVinculo}
-                          onChange={e => setDetalhesForm({ ...detalhesForm, tipoVinculo: e.target.value })}
-                          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-militar-main bg-white"
-                        >
-                          {TIPOS_VINCULO.filter(t => t !== 'Todos').map(t => <option key={t}>{t}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-gray-600 mb-1">Pelotão</label>
-                        <select
-                          value={detalhesForm.pelotao}
-                          onChange={e => setDetalhesForm({ ...detalhesForm, pelotao: e.target.value })}
-                          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-militar-main bg-white"
-                        >
-                          <option value="">Selecione...</option>
-                          {['1º PEL', '2º PEL', '3º PEL', '4º PEL', 'Pct'].map(p => <option key={p}>{p}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-gray-600 mb-1">Função (Somente Leitura)</label>
-                        <div className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 text-gray-500 truncate" title={militarDetalheModal.funcoesEfetivo?.length > 0 ? militarDetalheModal.funcoesEfetivo.map((f: any) => f.funcao).join(', ') : 'Sem função'}>
-                          {militarDetalheModal.funcoesEfetivo?.length > 0 ? militarDetalheModal.funcoesEfetivo.map((f: any) => f.funcao).join(', ') : 'Sem função'}
+            <div className="grid grid-cols-1 gap-6">
+              {activeTab === 'dados' && (
+                <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+                  <h4 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-5 flex items-center gap-2"><User size={16} /> Dados Pessoais</h4>
+                  <div className="space-y-4 text-sm">
+                    {isEditingDetalhes ? (
+                      <>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-600 mb-1">IDT Mil</label>
+                          <input
+                            value={detalhesForm.identidade}
+                            onChange={e => setDetalhesForm({ ...detalhesForm, identidade: e.target.value })}
+                            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-militar-main"
+                          />
                         </div>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="flex justify-between items-center py-1 border-b border-gray-50"><span className="text-gray-500">Vínculo:</span> <span className="font-semibold text-gray-800 text-base">{militarDetalheModal.tipoVinculo || '—'}</span></div>
-                      <div className="flex justify-between items-center py-1 border-b border-gray-50"><span className="text-gray-500">Pelotão:</span> <span className="font-semibold text-gray-800 text-base">{militarDetalheModal.pelotao || '—'}</span></div>
-                      <div className="flex justify-between items-center py-1 border-b border-gray-50"><span className="text-gray-500">Função:</span> <span className="font-semibold text-gray-800 text-base truncate max-w-[150px]" title={militarDetalheModal.funcoesEfetivo?.length > 0 ? militarDetalheModal.funcoesEfetivo.map((f: any) => f.funcao).join(', ') : 'Sem função'}>{militarDetalheModal.funcoesEfetivo?.length > 0 ? militarDetalheModal.funcoesEfetivo.map((f: any) => f.funcao).join(', ') : 'Sem função'}</span></div>
-                    </>
-                  )}
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-600 mb-1">CPF</label>
+                          <input
+                            value={detalhesForm.cpf}
+                            onChange={e => setDetalhesForm({ ...detalhesForm, cpf: e.target.value })}
+                            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-militar-main"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-600 mb-1">Nº EBCA</label>
+                          <input
+                            value={detalhesForm.numeroEbca}
+                            onChange={e => setDetalhesForm({ ...detalhesForm, numeroEbca: e.target.value })}
+                            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-militar-main"
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex justify-between items-center py-1 border-b border-gray-50"><span className="text-gray-500">IDT Mil:</span> <span className="font-semibold text-gray-800 text-base">{militarDetalheModal.identidade || militarDetalheModal.idtMilitar || '—'}</span></div>
+                        <div className="flex justify-between items-center py-1 border-b border-gray-50"><span className="text-gray-500">CPF:</span> <span className="font-semibold text-gray-800 text-base">{militarDetalheModal.cpf || '—'}</span></div>
+                        <div className="flex justify-between items-center py-1 border-b border-gray-50"><span className="text-gray-500">Nº EBCA:</span> <span className="font-semibold text-gray-800 text-base">{militarDetalheModal.numeroEbca || '—'}</span></div>
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
+              
+              {activeTab === 'situacao' && (
+                <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+                  <h4 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-5 flex items-center gap-2"><Briefcase size={16} /> Situação Funcional</h4>
+                  <div className="space-y-4 text-sm">
+                    {isEditingDetalhes ? (
+                      <>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-600 mb-1">Vínculo</label>
+                          <select
+                            value={detalhesForm.tipoVinculo}
+                            onChange={e => setDetalhesForm({ ...detalhesForm, tipoVinculo: e.target.value })}
+                            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-militar-main bg-white"
+                          >
+                            {TIPOS_VINCULO.filter(t => t !== 'Todos').map(t => <option key={t}>{t}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-600 mb-1">Pelotão</label>
+                          <select
+                            value={detalhesForm.pelotao}
+                            onChange={e => setDetalhesForm({ ...detalhesForm, pelotao: e.target.value })}
+                            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-militar-main bg-white"
+                          >
+                            <option value="">Selecione...</option>
+                            {['1º PEL', '2º PEL', '3º PEL', '4º PEL', 'Pct'].map(p => <option key={p}>{p}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-600 mb-1">Função</label>
+                          <div className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 text-gray-500 truncate" title={militarDetalheModal.funcoesEfetivo?.length > 0 ? militarDetalheModal.funcoesEfetivo.map((f: any) => f.funcao).join(', ') : 'Sem função'}>
+                            {militarDetalheModal.funcoesEfetivo?.length > 0 ? militarDetalheModal.funcoesEfetivo.map((f: any) => f.funcao).join(', ') : 'Sem função'}
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-600 mb-1">Substituto</label>
+                          {detalhesForm.substitutoNome ? (
+                            <div className="flex justify-between items-center bg-militar-main/10 border border-militar-main/30 rounded-lg px-3 py-2 text-sm text-militar-dark">
+                              <span>{detalhesForm.substitutoNome}</span>
+                              <button onClick={() => setDetalhesForm({ ...detalhesForm, substitutoId: '', substitutoNome: '' })} className="text-red-500 hover:text-red-700">
+                                <X size={14} />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="relative">
+                              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                              <input 
+                                type="text"
+                                placeholder="Buscar militar substituto..."
+                                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-militar-main bg-white"
+                                value={buscaSubstituto}
+                                onChange={(e) => {
+                                  setBuscaSubstituto(e.target.value);
+                                  setShowSubstitutoResultados(true);
+                                }}
+                                onFocus={() => setShowSubstitutoResultados(true)}
+                              />
+                            </div>
+                          )}
+                          {showSubstitutoResultados && buscaSubstituto.trim().length > 0 && !detalhesForm.substitutoNome && (
+                            <ul className="mt-2 space-y-1 max-h-32 overflow-y-auto border border-gray-100 rounded-lg bg-gray-50 p-1 relative z-10 shadow-md">
+                              {militares
+                                .filter(m => m.id !== militarDetalheModal.id && (m.nome.toLowerCase().includes(buscaSubstituto.toLowerCase()) || (m.nomeGuerra && m.nomeGuerra.toLowerCase().includes(buscaSubstituto.toLowerCase()))))
+                                .slice(0, 10)
+                                .map(m => (
+                                  <li key={m.id} className="flex justify-between items-center text-sm text-gray-700 bg-white p-1.5 rounded shadow-sm border border-gray-100 hover:border-militar-main/30 transition-colors">
+                                    <span className="truncate pr-2">{m.posto} {m.nomeGuerra || m.nome}</span>
+                                    <button 
+                                      onClick={() => { 
+                                        setDetalhesForm({ ...detalhesForm, substitutoId: m.id, substitutoNome: m.nomeGuerra || m.nome });
+                                        setBuscaSubstituto('');
+                                        setShowSubstitutoResultados(false);
+                                      }}
+                                      className="text-militar-main font-bold text-xs hover:bg-militar-main/10 px-2 py-1 rounded transition-colors"
+                                    >
+                                      Selecionar
+                                    </button>
+                                  </li>
+                                ))
+                              }
+                            </ul>
+                          )}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex justify-between items-center py-1 border-b border-gray-50"><span className="text-gray-500">Vínculo:</span> <span className="font-semibold text-gray-800 text-base">{militarDetalheModal.tipoVinculo || '—'}</span></div>
+                        <div className="flex justify-between items-center py-1 border-b border-gray-50"><span className="text-gray-500">Pelotão:</span> <span className="font-semibold text-gray-800 text-base">{militarDetalheModal.pelotao || '—'}</span></div>
+                        <div className="flex justify-between items-center py-1 border-b border-gray-50"><span className="text-gray-500">Função:</span> <span className="font-semibold text-gray-800 text-base truncate max-w-[150px]" title={militarDetalheModal.funcoesEfetivo?.length > 0 ? militarDetalheModal.funcoesEfetivo.map((f: any) => f.funcao).join(', ') : 'Sem função'}>{militarDetalheModal.funcoesEfetivo?.length > 0 ? militarDetalheModal.funcoesEfetivo.map((f: any) => f.funcao).join(', ') : 'Sem função'}</span></div>
+                        <div className="flex justify-between items-center py-1 border-b border-gray-50"><span className="text-gray-500">Substituto:</span> <span className="font-semibold text-gray-800 text-base">{militarDetalheModal.funcoesEfetivo?.find((f: any) => f.substituto)?.substituto || '—'}</span></div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'documentos' && (
+                <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+                  <h4 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-5 flex items-center gap-2"><FileText size={16} /> Documentos</h4>
+                  <div className="space-y-4 text-sm">
+                    {/* Exemplo de dados de documentos, idealmente puxaria do backend */}
+                    <div className="flex justify-between items-center py-1 border-b border-gray-50">
+                      <span className="text-gray-500">Identidade (Frente):</span> 
+                      {militarDetalheModal.documentos?.find((d: any) => d.tipo === 'idt_frente') ? <span className="text-militar-main font-semibold">Anexado</span> : <span className="text-gray-400">Pendente</span>}
+                    </div>
+                    <div className="flex justify-between items-center py-1 border-b border-gray-50">
+                      <span className="text-gray-500">Identidade (Verso):</span> 
+                      {militarDetalheModal.documentos?.find((d: any) => d.tipo === 'idt_verso') ? <span className="text-militar-main font-semibold">Anexado</span> : <span className="text-gray-400">Pendente</span>}
+                    </div>
+                    <div className="flex justify-between items-center py-1 border-b border-gray-50">
+                      <span className="text-gray-500">Título de Eleitor:</span> 
+                      {militarDetalheModal.documentos?.find((d: any) => d.tipo === 'titulo_eleitor') ? <span className="text-militar-main font-semibold">Anexado</span> : <span className="text-gray-400">Pendente</span>}
+                    </div>
+                    {isEditingDetalhes && (
+                      <p className="text-xs text-amber-600 mt-2">Para enviar novos documentos, acesse o perfil completo.</p>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex justify-end gap-3 pt-6 border-t border-gray-100">
@@ -1560,7 +1653,9 @@ export function CadastroMilitares() {
                     setMilitarDetalheModal(null);
                     setIsEditingDetalhes(false);
                   }}>Fechar</Button>
-                  <Button variant="outline" icon={<Edit2 size={16} />} onClick={handleAbrirEdicaoDetalhes}>Atualizar Campos</Button>
+                  {['dados', 'situacao'].includes(activeTab) && (
+                    <Button variant="outline" icon={<Edit2 size={16} />} onClick={handleAbrirEdicaoDetalhes}>Atualizar Campos</Button>
+                  )}
                   <Button icon={<Eye size={16} />} onClick={() => navigate(`/sgte/militares/${militarDetalheModal.id}`)}>Abrir Perfil Completo</Button>
                 </>
               )}
