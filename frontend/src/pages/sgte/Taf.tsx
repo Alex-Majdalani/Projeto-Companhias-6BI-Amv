@@ -388,14 +388,14 @@ export function Taf() {
       if (activeInfo.isSecondCall) {
         if (!recordInfo.isSecondCall && !r.segundaChamada) return false;
       } else {
-        // Se for registro de 1ª chamada, mas o militar também fez a 2ª chamada, ocultamos o registro da 1ª chamada
+        // Se for registro de 2ª chamada, mas o militar também fez a 1ª chamada, ocultamos o da 2ª chamada na aba da 1ª chamada
         const isSecond = recordInfo.isSecondCall || r.segundaChamada;
-        if (!isSecond) {
-          const militarFezSegundaChamada = records.some(x => {
+        if (isSecond) {
+          const militarFezPrimeiraChamada = records.some(x => {
             const xInfo = getCycleInfo(x.atividade);
-            return x.militarId === r.militarId && xInfo.cycle === activeInfo.cycle && (xInfo.isSecondCall || x.segundaChamada);
+            return x.militarId === r.militarId && xInfo.cycle === activeInfo.cycle && !(xInfo.isSecondCall || x.segundaChamada);
           });
-          if (militarFezSegundaChamada) return false;
+          if (militarFezPrimeiraChamada) return false;
         }
       }
     } else {
@@ -633,7 +633,12 @@ export function Taf() {
       header: 'P/G NOME DE GUERRA',
       accessor: (row: TafRecord) => {
         const temVazio = row.corrida === null || row.flexao === null || row.barra === null || row.abdominal === null || !row.mencao || row.mencao === 'N/A';
-        const isSecond = row.segundaChamada || getCycleInfo(row.atividade).isSecondCall;
+        const rowInfo = getCycleInfo(row.atividade);
+        const isSecond = row.segundaChamada || rowInfo.isSecondCall;
+        const fezSegunda = !isSecond && rowInfo.cycle !== 0 && records.some(x => {
+          const xcInfo = getCycleInfo(x.atividade);
+          return x.militarId === row.militarId && xcInfo.cycle === rowInfo.cycle && (xcInfo.isSecondCall || x.segundaChamada);
+        });
         return (
           <span className="font-semibold text-gray-900 flex items-center gap-2">
             {row.pgMilitar} {row.nomeGuerraMilitar}
@@ -645,6 +650,11 @@ export function Taf() {
             {isSecond && (
               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700 border border-purple-200">
                 Feito na 2ª Chamada
+              </span>
+            )}
+            {fezSegunda && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700 border border-blue-200">
+                Realizou a 2ª Chamada
               </span>
             )}
           </span>
