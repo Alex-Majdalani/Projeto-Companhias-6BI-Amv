@@ -86,12 +86,14 @@ export class HistoricoController {
            }
         }
 
-        let usuarioStr = h.usuario_responsavel || '';
-        if (h._nc_m2m_historico_logs_usuarios && h._nc_m2m_historico_logs_usuarios.length > 0) {
-           // NocoDB users are not in a standard table, but we might get their email from the payload
-           usuarioStr = h._nc_m2m_historico_logs_usuarios[0].email || `ID Usuário ${h._nc_m2m_historico_logs_usuarios[0].users_id}`;
-        } else if (typeof h.usuario_responsavel === 'object' && h.usuario_responsavel !== null) {
+        let usuarioStr = '';
+        if (typeof h.usuario_responsavel === 'object' && h.usuario_responsavel !== null) {
            usuarioStr = h.usuario_responsavel.email || h.usuario_responsavel.nome_completo || `ID ${h.usuario_responsavel.Id}`;
+        } else if (h._nc_m2m_historico_logs_usuarios && h._nc_m2m_historico_logs_usuarios.length > 0) {
+           const uObj = h._nc_m2m_historico_logs_usuarios[0];
+           usuarioStr = uObj.usuarios?.email || uObj.usuarios?.nome_completo || `ID Usuário ${uObj.usuarios_id}`;
+        } else if (typeof h.usuario_responsavel === 'string') {
+           usuarioStr = h.usuario_responsavel;
         }
 
         return {
