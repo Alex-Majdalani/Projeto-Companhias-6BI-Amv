@@ -1,7 +1,9 @@
 import type { Request, Response } from 'express';
 
-const NOCODB_URL = process.env.NOCODB_API_URL || 'https://nocodb.alexdatawise.cloud';
-const XC_TOKEN = process.env.NOCODB_API_TOKEN || 'nc_pat_GdZStg4K7cJMNMf32gyh3FArJc3kkwGeVie1v1Hi';
+// Comentário de organização: Flexibiliza a leitura de variáveis de ambiente do NocoDB,
+// aceitando tanto o padrão NOCODB_API_URL/NOCODB_API_TOKEN quanto as configuradas no .env (NOCODB_URL/NOCODB_TOKEN)
+const NOCODB_URL = process.env.NOCODB_API_URL || process.env.NOCODB_URL || 'https://nocodb.alexdatawise.cloud';
+const XC_TOKEN = process.env.NOCODB_API_TOKEN || process.env.NOCODB_TOKEN || 'nc_pat_GdZStg4K7cJMNMf32gyh3FArJc3kkwGeVie1v1Hi';
 
 // Tabelas do NocoDB
 const TBL_CIVIL = 'mtixj1e4vmt6ktl';

@@ -404,8 +404,14 @@ export function NovoMilitar() {
           setFotoUrl(uploadedFotoUrl);
         }
       } catch (err: any) {
+        // Comentário de organização: Trata especificamente erros de rede ou conexão recusada
+        // que geralmente ocorrem quando o servidor backend (na porta 3333) está desligado.
         console.error('Erro ao fazer upload da foto:', err);
-        setUploadError(err.response?.data?.error || 'Erro ao enviar foto para o S3.');
+        if (err.message === 'Network Error' || !err.response) {
+          setUploadError('Erro de conexão: Não foi possível alcançar o servidor backend na porta 3333. Por favor, certifique-se de que o backend está em execução.');
+        } else {
+          setUploadError(err.response?.data?.error || 'Erro ao enviar foto para o S3.');
+        }
         setLoading(false);
         setUploading(false);
         return;

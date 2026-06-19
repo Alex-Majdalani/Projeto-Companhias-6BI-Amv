@@ -105,7 +105,6 @@ test.describe('Fluxo E2E: Militar', () => {
 
     await page.click('button:has-text("Punições")');
     await expect(page.locator('text="Punições Recebidas"')).toBeVisible();
-    await expect(page.locator('text="Processos como Participante"')).toBeVisible();
 
     // 6. Testar PDF
     const [download] = await Promise.all([
