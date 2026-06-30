@@ -68,16 +68,16 @@ function formatShortDate(dateStr: string): string {
 // Função utilitária para renderizar o nome completo do militar destacando em negrito e com sublinhado apenas as palavras do Nome de Guerra
 function renderMilitarName(militar: any) {
   const nomeCompleto = militar.nome_completo || militar.nome || '';
-  const nomeGuerra = militar.nome_guerra || '';
+  const nomeGuerra = militar.nomeGuerra || militar.nome_guerra || '';
 
   if (!nomeGuerra) {
-    return <span className="font-bold text-gray-900">{nomeCompleto}</span>;
+    return <span className="font-medium text-gray-900">{nomeCompleto}</span>;
   }
 
   // Divide o nome de guerra em palavras individuais e escapa caracteres especiais
   const words = nomeGuerra.split(/\s+/).filter((w: string) => w.trim().length > 0);
   if (words.length === 0) {
-    return <span className="font-bold text-gray-900">{nomeCompleto}</span>;
+    return <span className="font-medium text-gray-900">{nomeCompleto}</span>;
   }
 
   const escapedWords = words.map((w: string) => w.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'));
@@ -87,12 +87,12 @@ function renderMilitarName(militar: any) {
   return (
     <span>
       {parts.map((part: string, index: number) => 
-        regex.test(part) ? (
+        words.some(w => w.toLowerCase() === part.toLowerCase()) ? (
           <strong key={index} className="font-bold text-militar-main underline decoration-2 decoration-militar-light">
             {part}
           </strong>
         ) : (
-          <span key={index} className="font-bold text-gray-500">
+          <span key={index} className="font-medium text-gray-600">
             {part}
           </span>
         )
@@ -205,7 +205,10 @@ export function Atendimentos() {
     const normalizedVal = normalizeText(val);
     const found = militares.find(m => 
       normalizeText(`${m.posto} ${m.nome}`) === normalizedVal || 
-      normalizeText(m.nome) === normalizedVal
+      normalizeText(m.nome) === normalizedVal ||
+      normalizeText(`${m.posto} ${m.nomeGuerra || m.nome_guerra || ''}`) === normalizedVal ||
+      (m.nomeGuerra && normalizeText(m.nomeGuerra) === normalizedVal) ||
+      (m.nome_guerra && normalizeText(m.nome_guerra) === normalizedVal)
     );
     if (found) {
       setMilitarId(found.id);
@@ -364,7 +367,7 @@ export function Atendimentos() {
     
     const mil = militares.find(m => m.id === row.militarId);
     if (mil) {
-      setSearchMilitar(`${mil.posto} ${mil.nome}`);
+      setSearchMilitar(`${mil.posto} ${mil.nomeGuerra || mil.nome_guerra || mil.nome}`);
       setSelectedPG(mil.posto);
     } else {
       setSearchMilitar(row.nomeCompletoMilitar || '');
@@ -799,7 +802,7 @@ export function Atendimentos() {
                       <div
                         key={m.id}
                         onMouseDown={() => {
-                          handleMilitarSearchChange(`${m.posto} ${m.nome}`);
+                          handleMilitarSearchChange(`${m.posto} ${m.nomeGuerra || m.nome_guerra || m.nome}`);
                           setMilitarId(m.id);
                           setSelectedPG(m.posto);
                           setShowMilitarSuggestions(false);

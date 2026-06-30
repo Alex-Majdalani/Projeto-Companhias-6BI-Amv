@@ -180,15 +180,15 @@ export function Punicoes() {
   // Helper para destacar nome de guerra
   function renderMilitarName(militar: any) {
     const nomeCompleto = militar.nome_completo || militar.nome || '';
-    const nomeGuerra = militar.nome_guerra || '';
+    const nomeGuerra = militar.nomeGuerra || militar.nome_guerra || '';
 
     if (!nomeGuerra) {
-      return <span className="font-bold text-gray-900">{nomeCompleto}</span>;
+      return <span className="font-medium text-gray-900">{nomeCompleto}</span>;
     }
 
     const words = nomeGuerra.split(/\s+/).filter((w: string) => w.trim().length > 0);
     if (words.length === 0) {
-      return <span className="font-bold text-gray-900">{nomeCompleto}</span>;
+      return <span className="font-medium text-gray-900">{nomeCompleto}</span>;
     }
 
     const escapedWords = words.map((w: string) => w.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'));
@@ -198,12 +198,12 @@ export function Punicoes() {
     return (
       <span>
         {parts.map((part: string, index: number) => 
-          regex.test(part) ? (
+          words.some(w => w.toLowerCase() === part.toLowerCase()) ? (
             <strong key={index} className="font-bold text-militar-main underline decoration-2 decoration-militar-light">
               {part}
             </strong>
           ) : (
-            <span key={index} className="font-bold text-gray-500">
+            <span key={index} className="font-medium text-gray-600">
               {part}
             </span>
           )

@@ -16,15 +16,15 @@ function normalizeText(text: string): string {
 // Função utilitária para renderizar o nome completo do militar destacando em negrito e com sublinhado apenas as palavras do Nome de Guerra
 function renderMilitarName(militar: any) {
   const nomeCompleto = militar.nome_completo || militar.nome || '';
-  const nomeGuerra = militar.nome_guerra || '';
+  const nomeGuerra = militar.nomeGuerra || militar.nome_guerra || '';
 
   if (!nomeGuerra) {
-    return <span className="font-bold text-gray-900">{nomeCompleto}</span>;
+    return <span className="font-medium text-gray-900">{nomeCompleto}</span>;
   }
 
   const words = nomeGuerra.split(/\s+/).filter((w: string) => w.trim().length > 0);
   if (words.length === 0) {
-    return <span className="font-bold text-gray-900">{nomeCompleto}</span>;
+    return <span className="font-medium text-gray-900">{nomeCompleto}</span>;
   }
 
   const escapedWords = words.map((w: string) => w.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'));
@@ -34,12 +34,12 @@ function renderMilitarName(militar: any) {
   return (
     <span>
       {parts.map((part: string, index: number) => 
-        regex.test(part) ? (
+        words.some(w => w.toLowerCase() === part.toLowerCase()) ? (
           <strong key={index} className="font-bold text-militar-main underline decoration-2 decoration-militar-light">
             {part}
           </strong>
         ) : (
-          <span key={index} className="font-bold text-gray-500">
+          <span key={index} className="font-medium text-gray-600">
             {part}
           </span>
         )
@@ -274,7 +274,10 @@ export function FuncoesCia() {
     const normalizedVal = normalizeText(val);
     const found = militares.find(m => 
       normalizeText(`${m.posto} ${m.nome}`) === normalizedVal || 
-      normalizeText(m.nome) === normalizedVal
+      normalizeText(m.nome) === normalizedVal ||
+      normalizeText(`${m.posto} ${m.nomeGuerra || m.nome_guerra || ''}`) === normalizedVal ||
+      (m.nomeGuerra && normalizeText(m.nomeGuerra) === normalizedVal) ||
+      (m.nome_guerra && normalizeText(m.nome_guerra) === normalizedVal)
     );
     if (found) {
       setEffectiveId(found.id);
@@ -302,7 +305,10 @@ export function FuncoesCia() {
     const normalizedVal = normalizeText(val);
     const found = militares.find(m => 
       normalizeText(`${m.posto} ${m.nome}`) === normalizedVal || 
-      normalizeText(m.nome) === normalizedVal
+      normalizeText(m.nome) === normalizedVal ||
+      normalizeText(`${m.posto} ${m.nomeGuerra || m.nome_guerra || ''}`) === normalizedVal ||
+      (m.nomeGuerra && normalizeText(m.nomeGuerra) === normalizedVal) ||
+      (m.nome_guerra && normalizeText(m.nome_guerra) === normalizedVal)
     );
     if (found) {
       setSubstituteId(found.id);
@@ -555,7 +561,7 @@ export function FuncoesCia() {
               setSelectedFunction(row.functionName);
               const effectiveMilitar = militares.find(m => m.id === (row as any).efetivoId);
               if (effectiveMilitar) {
-                setEffective(`${effectiveMilitar.posto} ${effectiveMilitar.nome}`);
+                setEffective(`${effectiveMilitar.posto} ${effectiveMilitar.nomeGuerra || effectiveMilitar.nome_guerra || effectiveMilitar.nome}`);
                 setEffectiveId(effectiveMilitar.id);
                 setSelectedEffectivePG(effectiveMilitar.posto);
               } else {
@@ -565,7 +571,7 @@ export function FuncoesCia() {
               }
               const substituteMilitar = militares.find(m => m.id === (row as any).substitutoId);
               if (substituteMilitar) {
-                setSubstitute(`${substituteMilitar.posto} ${substituteMilitar.nome}`);
+                setSubstitute(`${substituteMilitar.posto} ${substituteMilitar.nomeGuerra || substituteMilitar.nome_guerra || substituteMilitar.nome}`);
                 setSubstituteId(substituteMilitar.id);
                 setSelectedSubstitutePG(substituteMilitar.posto);
               } else {
@@ -835,13 +841,13 @@ export function FuncoesCia() {
                   if (ass && ass.efetivoId) {
                     const effectiveMilitar = militares.find(m => m.id === (ass as any).efetivoId);
                     if (effectiveMilitar) {
-                      setEffective(`${effectiveMilitar.posto} ${effectiveMilitar.nome}`);
+                      setEffective(`${effectiveMilitar.posto} ${effectiveMilitar.nomeGuerra || effectiveMilitar.nome_guerra || effectiveMilitar.nome}`);
                       setEffectiveId(effectiveMilitar.id);
                       setSelectedEffectivePG(effectiveMilitar.posto);
                     }
                     const substituteMilitar = militares.find(m => m.id === (ass as any).substitutoId);
                     if (substituteMilitar) {
-                      setSubstitute(`${substituteMilitar.posto} ${substituteMilitar.nome}`);
+                      setSubstitute(`${substituteMilitar.posto} ${substituteMilitar.nomeGuerra || substituteMilitar.nome_guerra || substituteMilitar.nome}`);
                       setSubstituteId(substituteMilitar.id);
                       setSelectedSubstitutePG(substituteMilitar.posto);
                     } else {
@@ -974,7 +980,7 @@ export function FuncoesCia() {
                       <div
                         key={m.id}
                         onMouseDown={() => {
-                          handleEffectiveMilitarChange(`${m.posto} ${m.nome}`);
+                          handleEffectiveMilitarChange(`${m.posto} ${m.nomeGuerra || m.nome_guerra || m.nome}`);
                           setEffectiveId(m.id);
                           setSelectedEffectivePG(m.posto);
                           setShowEffectiveSuggestions(false);
@@ -1089,7 +1095,7 @@ export function FuncoesCia() {
                       <div
                         key={m.id}
                         onMouseDown={() => {
-                          handleSubstituteMilitarChange(`${m.posto} ${m.nome}`);
+                          handleSubstituteMilitarChange(`${m.posto} ${m.nomeGuerra || m.nome_guerra || m.nome}`);
                           setSubstituteId(m.id);
                           setSelectedSubstitutePG(m.posto);
                           setShowSubstituteSuggestions(false);

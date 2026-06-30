@@ -52,15 +52,15 @@ function normalizeText(text: string): string {
 
 function renderMilitarName(militar: any) {
   const nomeCompleto = militar.nome_completo || militar.nome || '';
-  const nomeGuerra = militar.nome_guerra || '';
+  const nomeGuerra = militar.nomeGuerra || militar.nome_guerra || '';
 
   if (!nomeGuerra) {
-    return <span className="font-bold text-gray-900">{nomeCompleto}</span>;
+    return <span className="font-medium text-gray-900">{nomeCompleto}</span>;
   }
 
   const words = nomeGuerra.split(/\s+/).filter((w: string) => w.trim().length > 0);
   if (words.length === 0) {
-    return <span className="font-bold text-gray-900">{nomeCompleto}</span>;
+    return <span className="font-medium text-gray-900">{nomeCompleto}</span>;
   }
 
   const escapedWords = words.map((w: string) => w.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'));
@@ -70,12 +70,12 @@ function renderMilitarName(militar: any) {
   return (
     <span>
       {parts.map((part: string, index: number) => 
-        regex.test(part) ? (
+        words.some(w => w.toLowerCase() === part.toLowerCase()) ? (
           <strong key={index} className="font-bold text-militar-main underline decoration-2 decoration-militar-light">
             {part}
           </strong>
         ) : (
-          <span key={index} className="font-bold text-gray-500">
+          <span key={index} className="font-medium text-gray-600">
             {part}
           </span>
         )
@@ -276,7 +276,10 @@ export function FATD() {
     const normalizedVal = normalizeText(val);
     const found = militares.find(m => 
       normalizeText(`${m.posto} ${m.nome}`) === normalizedVal || 
-      normalizeText(m.nome) === normalizedVal
+      normalizeText(m.nome) === normalizedVal ||
+      normalizeText(`${m.posto} ${m.nomeGuerra || m.nome_guerra || ''}`) === normalizedVal ||
+      (m.nomeGuerra && normalizeText(m.nomeGuerra) === normalizedVal) ||
+      (m.nome_guerra && normalizeText(m.nome_guerra) === normalizedVal)
     );
     if (found) {
       setForm(prev => ({
@@ -310,7 +313,10 @@ export function FATD() {
     const normalizedVal = normalizeText(val);
     const found = militares.find(m => 
       normalizeText(`${m.posto} ${m.nome}`) === normalizedVal || 
-      normalizeText(m.nome) === normalizedVal
+      normalizeText(m.nome) === normalizedVal ||
+      normalizeText(`${m.posto} ${m.nomeGuerra || m.nome_guerra || ''}`) === normalizedVal ||
+      (m.nomeGuerra && normalizeText(m.nomeGuerra) === normalizedVal) ||
+      (m.nome_guerra && normalizeText(m.nome_guerra) === normalizedVal)
     );
     if (found) {
       const funcName = getMilitarFunction(found.id);
@@ -347,7 +353,10 @@ export function FATD() {
     const normalizedVal = normalizeText(val);
     const found = militares.find(m => 
       normalizeText(`${m.posto} ${m.nome}`) === normalizedVal || 
-      normalizeText(m.nome) === normalizedVal
+      normalizeText(m.nome) === normalizedVal ||
+      normalizeText(`${m.posto} ${m.nomeGuerra || m.nome_guerra || ''}`) === normalizedVal ||
+      (m.nomeGuerra && normalizeText(m.nomeGuerra) === normalizedVal) ||
+      (m.nome_guerra && normalizeText(m.nome_guerra) === normalizedVal)
     );
     if (found) {
       const funcName = getMilitarFunction(found.id);
@@ -384,7 +393,10 @@ export function FATD() {
     const normalizedVal = normalizeText(val);
     const found = militares.find(m => 
       normalizeText(`${m.posto} ${m.nome}`) === normalizedVal || 
-      normalizeText(m.nome) === normalizedVal
+      normalizeText(m.nome) === normalizedVal ||
+      normalizeText(`${m.posto} ${m.nomeGuerra || m.nome_guerra || ''}`) === normalizedVal ||
+      (m.nomeGuerra && normalizeText(m.nomeGuerra) === normalizedVal) ||
+      (m.nome_guerra && normalizeText(m.nome_guerra) === normalizedVal)
     );
     if (found) {
       const funcName = getMilitarFunction(found.id);
@@ -951,7 +963,7 @@ export function FATD() {
                             <div
                               key={m.id}
                               onMouseDown={() => {
-                                handleArroladoNameChange(`${m.posto} ${m.nome}`);
+                                handleArroladoNameChange(`${m.posto} ${m.nomeGuerra || m.nome_guerra || m.nome}`);
                                 setShowArroladoSuggestions(false);
                               }}
                               className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm flex justify-between items-center"
@@ -1078,7 +1090,7 @@ export function FATD() {
                             <div
                               key={m.id}
                               onMouseDown={() => {
-                                handleParticipanteNameChange(`${m.posto} ${m.nome}`);
+                                handleParticipanteNameChange(`${m.posto} ${m.nomeGuerra || m.nome_guerra || m.nome}`);
                                 setShowParticipanteSuggestions(false);
                               }}
                               className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm flex justify-between items-center"
@@ -1227,7 +1239,7 @@ export function FATD() {
                               <div
                                 key={m.id}
                                 onMouseDown={() => {
-                                  handleSargenteanteNameChange(`${m.posto} ${m.nome}`);
+                                  handleSargenteanteNameChange(`${m.posto} ${m.nomeGuerra || m.nome_guerra || m.nome}`);
                                   setShowSargenteanteSuggestions(false);
                                 }}
                                 className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm flex justify-between items-center"
@@ -1361,7 +1373,7 @@ export function FATD() {
                             <div
                               key={m.id}
                               onMouseDown={() => {
-                                handleComandanteNameChange(`${m.posto} ${m.nome}`);
+                                handleComandanteNameChange(`${m.posto} ${m.nomeGuerra || m.nome_guerra || m.nome}`);
                                 setShowComandanteSuggestions(false);
                               }}
                               className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm flex justify-between items-center"

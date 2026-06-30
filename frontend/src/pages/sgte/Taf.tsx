@@ -34,7 +34,7 @@ function renderMilitarName(militar: any) {
   return (
     <span>
       {parts.map((part: string, index: number) => 
-        regex.test(part) ? (
+        words.some(w => w.toLowerCase() === part.toLowerCase()) ? (
           <strong key={index} className="font-bold text-militar-main underline decoration-2 decoration-militar-light">
             {part}
           </strong>
