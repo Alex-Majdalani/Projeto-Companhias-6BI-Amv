@@ -26,6 +26,7 @@ import { Punicoes } from '../pages/sgte/Punicoes';
 import { Atendimentos } from '../pages/sgte/Atendimentos';
 import { Baixados } from '../pages/sgte/Baixados';
 import { Taf } from '../pages/sgte/Taf';
+import { TesteTiro } from '../pages/sgte/TesteTiro';
 import { PerfilMilitar } from '../pages/sgte/PerfilMilitar'; // Comentário de organização: Página de perfil completo do militar
 
 /**
@@ -102,6 +103,7 @@ export function AppRoutes() {
           <Route path="/sgte/atendimentos" element={<Atendimentos />} />
           <Route path="/sgte/baixados" element={<Baixados />} />
           <Route path="/sgte/taf" element={<Taf />} />
+          <Route path="/sgte/teste-tiro" element={<TesteTiro />} />
           {/* Comentário de organização: Rota de perfil completo do militar acessada pelo ID */}
           <Route path="/sgte/militares/:id" element={<PerfilMilitar />} />
         </Route>

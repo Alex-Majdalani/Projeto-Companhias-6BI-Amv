@@ -6,7 +6,7 @@ import { DataTable } from '../../components/ui/DataTable';
 import type { Column } from '../../components/ui/DataTable';
 import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
-import { Plus, Edit2, Trash2, Search, AlertCircle, XCircle, Filter, Award, Users, Dumbbell, Activity } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, AlertCircle, XCircle, Filter, Award, Users, Target } from 'lucide-react';
 import { api } from '../../services/api';
 
 function normalizeText(text: string): string {
@@ -48,7 +48,7 @@ function renderMilitarName(militar: any) {
   );
 }
 
-interface TafRecord {
+interface TiroRecord {
   id: number;
   atividade: string;
   militarId: number | null;
@@ -57,10 +57,6 @@ interface TafRecord {
   pelotaoMilitar: string;
   idade: string;
   sexo: string;
-  corrida: number | null;
-  flexao: number | null;
-  barra: number | null;
-  abdominal: number | null;
   mencao: string;
   segundaChamada?: boolean;
 }
@@ -99,20 +95,20 @@ function getCycleInfo(activityName: string) {
   if (!activityName) return { cycle: 0, isSecondCall: false };
   const norm = activityName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   let cycle = 0;
-  if (norm.includes('1º') || norm.includes('1o') || norm.includes('1a') || norm.includes('1ª') || norm.includes('1 taf') || norm.includes('1taf')) {
+  if (norm.includes('1º') || norm.includes('1o') || norm.includes('1a') || norm.includes('1ª') || norm.includes('1 tiro') || norm.includes('1tiro')) {
     cycle = 1;
-  } else if (norm.includes('2º') || norm.includes('2o') || norm.includes('2a') || norm.includes('2ª') || norm.includes('2 taf') || norm.includes('2taf')) {
+  } else if (norm.includes('2º') || norm.includes('2o') || norm.includes('2a') || norm.includes('2ª') || norm.includes('2 tiro') || norm.includes('2tiro')) {
     cycle = 2;
-  } else if (norm.includes('3º') || norm.includes('3o') || norm.includes('3a') || norm.includes('3ª') || norm.includes('3 taf') || norm.includes('3taf')) {
+  } else if (norm.includes('3º') || norm.includes('3o') || norm.includes('3a') || norm.includes('3ª') || norm.includes('3 tiro') || norm.includes('3tiro')) {
     cycle = 3;
   }
   const isSecondCall = norm.includes('2ª chamada') || norm.includes('2a chamada') || norm.includes('segunda chamada') || norm.includes('2 chamada') || norm.includes('2ªch') || norm.includes('2ach');
   return { cycle, isSecondCall };
 }
 
-export function Taf() {
-  const [records, setRecords] = useState<TafRecord[]>([]);
-  const [activeTab, setActiveTab] = useState<string>('1º TAF');
+export function TesteTiro() {
+  const [records, setRecords] = useState<TiroRecord[]>([]);
+  const [activeTab, setActiveTab] = useState<string>('');
   const [subTab, setSubTab] = useState<'realizaram' | 'nao_realizaram'>('realizaram');
 
   // Controle de Atividades
@@ -121,6 +117,8 @@ export function Taf() {
   const [atividadeNome, setAtividadeNome] = useState('');
   const [isSavingAtividade, setIsSavingAtividade] = useState(false);
   const [editingAtividadeName, setEditingAtividadeName] = useState<string | null>(null);
+  const [cadastrarModo, setCadastrarModo] = useState<'nova' | 'segunda'>('nova');
+  const [segundaBaseAtividade, setSegundaBaseAtividade] = useState('');
 
   // Controle de Testes
   const [militares, setMilitares] = useState<any[]>([]);
@@ -130,10 +128,6 @@ export function Taf() {
   const [selectedPG, setSelectedPG] = useState('');
   const [showMilitarSuggestions, setShowMilitarSuggestions] = useState(false);
   const [showPGScroll, setShowPGScroll] = useState(false);
-  const [corrida, setCorrida] = useState('');
-  const [flexao, setFlexao] = useState('');
-  const [barra, setBarra] = useState('');
-  const [abdominal, setAbdominal] = useState('');
   const [mencao, setMencao] = useState('');
   const [selectedAtividade, setSelectedAtividade] = useState('');
   const [isSavingTest, setIsSavingTest] = useState(false);
@@ -166,21 +160,25 @@ export function Taf() {
 
   const loadData = async () => {
     try {
-      const [tafRes, milRes] = await Promise.all([
-        api.get('/taf'),
+      const [tiroRes, milRes] = await Promise.all([
+        api.get('/tiro'),
         api.get('/militares')
       ]);
-      setRecords(tafRes.data || []);
+      setRecords(tiroRes.data || []);
       setMilitares(milRes.data || []);
     } catch (err) {
-      console.error('Erro ao carregar registros de TAF:', err);
+      console.error('Erro ao carregar registros de Tiro:', err);
     }
   };
 
   const loadAtividades = async () => {
     try {
-      const res = await api.get('/taf/atividades');
-      setAtividadesList(res.data || []);
+      const res = await api.get('/tiro/atividades');
+      const list = res.data || [];
+      setAtividadesList(list);
+      if (list.length > 0 && !activeTab) {
+        setActiveTab(list[0]);
+      }
     } catch (err) {
       console.error('Erro ao carregar atividades:', err);
     }
@@ -241,10 +239,6 @@ export function Taf() {
       alert('Selecione um militar válido.');
       return;
     }
-    if (mencao && (corrida === '' || flexao === '' || barra === '' || abdominal === '')) {
-      alert('Para registrar uma menção, é necessário preencher todos os campos de atividade (Corrida, Flexão, Barra e Abdominal).');
-      return;
-    }
 
     const isDuplicate = records.some(
       r => r.id !== editingTestId && r.militarId === militarId && r.atividade.toLowerCase() === selectedAtividade.toLowerCase()
@@ -259,26 +253,22 @@ export function Taf() {
       const payload = {
         militarId,
         atividade: selectedAtividade,
-        corrida: corrida ? Number(corrida) : null,
-        flexao: flexao ? Number(flexao) : null,
-        barra: barra ? Number(barra) : null,
-        abdominal: abdominal ? Number(abdominal) : null,
         mencao
       };
 
       if (editingTestId) {
-        await api.patch(`/taf/${editingTestId}`, payload);
-        alert('Teste de TAF updated com sucesso!');
+        await api.patch(`/tiro/${editingTestId}`, payload);
+        alert('Teste de Tiro atualizado com sucesso!');
       } else {
-        await api.post('/taf', payload);
-        alert('Teste de TAF registrado com sucesso!');
+        await api.post('/tiro', payload);
+        alert('Teste de Tiro registrado com sucesso!');
       }
       setIsTestModalOpen(false);
       resetTestForm();
       await loadData();
     } catch (err: any) {
       console.error(err);
-      alert(err.response?.data?.error || 'Erro ao registrar teste de TAF.');
+      alert(err.response?.data?.error || 'Erro ao registrar teste de Tiro.');
     } finally {
       setIsSavingTest(false);
     }
@@ -288,16 +278,12 @@ export function Taf() {
     setMilitarId(null);
     setSearchMilitar('');
     setSelectedPG('');
-    setCorrida('');
-    setFlexao('');
-    setBarra('');
-    setAbdominal('');
     setMencao('');
-    setSelectedAtividade(activeTab);
+    setSelectedAtividade(activeTab || (atividadesList.length > 0 ? atividadesList[0] : ''));
     setEditingTestId(null);
   };
 
-  const handleStartEditTest = (row: TafRecord) => {
+  const handleStartEditTest = (row: TiroRecord) => {
     setEditingTestId(row.id);
     setMilitarId(row.militarId);
     const mil = militares.find(m => m.id === row.militarId);
@@ -308,21 +294,17 @@ export function Taf() {
       setSearchMilitar(row.nomeGuerraMilitar);
       setSelectedPG(row.pgMilitar);
     }
-    setCorrida(row.corrida !== null ? String(row.corrida) : '');
-    setFlexao(row.flexao !== null ? String(row.flexao) : '');
-    setBarra(row.barra !== null ? String(row.barra) : '');
-    setAbdominal(row.abdominal !== null ? String(row.abdominal) : '');
-    setMencao(row.mencao);
+    setMencao(row.mencao === 'N/A' ? '' : row.mencao);
     setSelectedAtividade(row.atividade);
     setIsTestModalOpen(true);
   };
 
   const handleDeleteTest = async (id: number) => {
-    if (!confirm('Deseja realmente excluir este teste de TAF?')) {
+    if (!confirm('Deseja realmente excluir este teste de Tiro?')) {
       return;
     }
     try {
-      await api.delete(`/taf/${id}`);
+      await api.delete(`/tiro/${id}`);
       alert('Teste excluído com sucesso!');
       await loadData();
     } catch (err: any) {
@@ -331,11 +313,9 @@ export function Taf() {
     }
   };
 
-  // Obter abas dinâmicas baseadas nas atividades salvas
-  const defaultTabs = ['1º TAF', '2º TAF', '3º TAF', '2ª Chamada 1º TAF'];
+  const defaultTabs = ['1º Teste de Tiro', '2º Teste de Tiro', '2ª Chamada 1º Teste de Tiro'];
   const tabs = atividadesList.length > 0 ? atividadesList : defaultTabs;
 
-  // Garantir que a aba ativa esteja em "tabs"
   useEffect(() => {
     if (tabs.length > 0 && !tabs.some(t => t.toLowerCase() === activeTab.toLowerCase())) {
       setActiveTab(tabs[0]);
@@ -346,10 +326,8 @@ export function Taf() {
     setSubTab('realizaram');
   }, [activeTab]);
 
-  // Obter pelotões existentes
   const pelotaoOptions = Array.from(new Set(militares.map(m => m.pelotao).filter(Boolean))).sort() as string[];
 
-  // Limpar Filtros
   const handleClearFilters = () => {
     setFilterSearch('');
     setFilterPg('Todos');
@@ -379,7 +357,6 @@ export function Taf() {
     return match ? Number(match[0]) : 0;
   };
 
-  // Filtrar registros pela aba ativa e filtros aplicados
   const activeInfo = getCycleInfo(activeTab);
 
   const filteredRecords = records.filter(r => {
@@ -390,7 +367,6 @@ export function Taf() {
       if (activeInfo.isSecondCall) {
         if (!recordInfo.isSecondCall && !r.segundaChamada) return false;
       } else {
-        // Se for registro de 2ª chamada, mas o militar também fez a 1ª chamada, ocultamos o da 2ª chamada na aba da 1ª chamada
         const isSecond = recordInfo.isSecondCall || r.segundaChamada;
         if (isSecond) {
           const militarFezPrimeiraChamada = records.some(x => {
@@ -404,7 +380,6 @@ export function Taf() {
       if (r.atividade.toLowerCase() !== activeTab.toLowerCase()) return false;
     }
 
-    // Pesquisar militar
     if (filterSearch.trim()) {
       const term = normalizeText(filterSearch);
       const matchesSearch = 
@@ -414,10 +389,8 @@ export function Taf() {
       if (!matchesSearch) return false;
     }
 
-    // P/G
     if (filterPg !== 'Todos' && r.pgMilitar !== filterPg) return false;
 
-    // Idade ou Faixa Etária
     const age = getAgeNumber(r.idade);
     if (filterAgeType === 'idade') {
       if (filterAge !== '' && age !== Number(filterAge)) return false;
@@ -426,18 +399,13 @@ export function Taf() {
       if (filterAgeMax !== '' && age > Number(filterAgeMax)) return false;
     }
 
-    // Sexo
     if (filterSexo !== 'Todos' && normalizeText(r.sexo) !== normalizeText(filterSexo)) return false;
-
-    // Pelotão
     if (filterPelotao !== 'Todos' && r.pelotaoMilitar !== filterPelotao) return false;
 
-    // Status (Concluído/Pendente)
-    const isPendente = r.corrida === null || r.flexao === null || r.barra === null || r.abdominal === null || !r.mencao || r.mencao === 'N/A' || r.mencao === '';
+    const isPendente = !r.mencao || r.mencao === 'N/A' || r.mencao === '';
     if (filterStatus === 'Concluido' && isPendente) return false;
     if (filterStatus === 'Pendente' && !isPendente) return false;
 
-    // Menção
     if (filterMencao !== 'Todos') {
       if (filterMencao === 'Pendente') {
         const hasMencao = r.mencao && r.mencao !== 'N/A' && r.mencao !== '';
@@ -450,7 +418,6 @@ export function Taf() {
     return true;
   });
 
-  // Filtrar militares que NÃO possuem nenhum registro cadastrado na atividade atual
   const filteredNaoRealizaram = militares.filter(m => {
     if (activeInfo.cycle !== 0) {
       const temQualquerRegistroNoCiclo = records.some(r => {
@@ -465,7 +432,6 @@ export function Taf() {
       if (jaTemRegistro) return false;
     }
 
-    // Filtro por Nome ou P/G
     if (filterSearch.trim()) {
       const term = normalizeText(filterSearch);
       const matchesSearch = 
@@ -476,16 +442,10 @@ export function Taf() {
       if (!matchesSearch) return false;
     }
 
-    // Filtro por P/G
     if (filterPg !== 'Todos' && m.posto !== filterPg) return false;
-
-    // Filtro por Sexo
     if (filterSexo !== 'Todos' && normalizeText(m.sexo || '') !== normalizeText(filterSexo)) return false;
-
-    // Filtro por Pelotão
     if (filterPelotao !== 'Todos' && m.pelotao !== filterPelotao) return false;
 
-    // Filtro por Idade ou Faixa Etária
     const age = m.data_nascimento ? calculateAge(m.data_nascimento) : 0;
     if (filterAgeType === 'idade') {
       if (filterAge !== '' && age !== Number(filterAge)) return false;
@@ -494,48 +454,21 @@ export function Taf() {
       if (filterAgeMax !== '' && age > Number(filterAgeMax)) return false;
     }
 
-    // Filtro por Status: Militares sem registro de teste são sempre considerados "Pendentes"
     if (filterStatus === 'Concluido') return false;
-
-    // Filtro por Menção: Militares sem registro são considerados "Pendente"
     if (filterMencao !== 'Todos' && filterMencao !== 'Pendente') return false;
 
     return true;
   });
 
-  // Estatísticas do Dashboard baseadas nos registros filtrados
   const stats = (() => {
     const total = filteredRecords.length;
-    
-    let corridasValidas = 0, somaCorrida = 0;
-    let flexoesValidas = 0, somaFlexao = 0;
-    let barrasValidas = 0, somaSbarra = 0;
-    let abdominaisValidos = 0, somaAbdominal = 0;
-    
     const contagemMencoes: Record<string, number> = { E: 0, MB: 0, B: 0, R: 0, I: 0 };
     let concluidos = 0;
 
     filteredRecords.forEach(r => {
-      const isTestPendente = r.corrida === null || r.flexao === null || r.barra === null || r.abdominal === null || !r.mencao || r.mencao === 'N/A' || r.mencao === '';
+      const isTestPendente = !r.mencao || r.mencao === 'N/A' || r.mencao === '';
       if (!isTestPendente) {
         concluidos++;
-      }
-      
-      if (r.corrida !== null) {
-        corridasValidas++;
-        somaCorrida += r.corrida;
-      }
-      if (r.flexao !== null) {
-        flexoesValidas++;
-        somaFlexao += r.flexao;
-      }
-      if (r.barra !== null) {
-        barrasValidas++;
-        somaSbarra += r.barra;
-      }
-      if (r.abdominal !== null) {
-        abdominaisValidos++;
-        somaAbdominal += r.abdominal;
       }
       if (r.mencao && r.mencao !== 'N/A' && r.mencao !== '') {
         const m = r.mencao.toUpperCase();
@@ -551,26 +484,35 @@ export function Taf() {
       total,
       concluidos,
       pendentes,
-      mediaCorrida: corridasValidas > 0 ? Math.round(somaCorrida / corridasValidas) : 0,
-      mediaFlexao: flexoesValidas > 0 ? Math.round((somaFlexao / flexoesValidas) * 10) / 10 : 0,
-      mediaBarra: barrasValidas > 0 ? Math.round((somaSbarra / barrasValidas) * 10) / 10 : 0,
-      mediaAbdominal: abdominaisValidos > 0 ? Math.round((somaAbdominal / abdominaisValidos) * 10) / 10 : 0,
       contagemMencoes
     };
   })();
 
   const handleSaveAtividade = async (e: React.FormEvent) => {
     e.preventDefault();
-    const formattedNome = capitalizeFirstLetter(atividadeNome.trim());
 
-    if (!formattedNome) {
+    let targetNome = '';
+    if (editingAtividadeName) {
+      targetNome = capitalizeFirstLetter(atividadeNome.trim());
+    } else {
+      if (cadastrarModo === 'nova') {
+        targetNome = capitalizeFirstLetter(atividadeNome.trim());
+      } else {
+        if (!segundaBaseAtividade) {
+          alert('Selecione uma atividade base.');
+          return;
+        }
+        targetNome = `2ª Chamada ${segundaBaseAtividade}`;
+      }
+    }
+
+    if (!targetNome) {
       alert('O nome da atividade é obrigatório.');
       return;
     }
 
-    // Validar duplicidade localmente no frontend
     const exists = atividadesList.some(
-      a => a.toLowerCase() === formattedNome.toLowerCase() && 
+      a => a.toLowerCase() === targetNome.toLowerCase() && 
       (editingAtividadeName === null || a.toLowerCase() !== editingAtividadeName.toLowerCase())
     );
     if (exists) {
@@ -581,18 +523,20 @@ export function Taf() {
     setIsSavingAtividade(true);
     try {
       if (editingAtividadeName) {
-        await api.patch('/taf/atividades', {
+        await api.patch('/tiro/atividades', {
           nomeAntigo: editingAtividadeName,
-          novoNome: formattedNome
+          novoNome: targetNome
         });
         alert('Atividade atualizada com sucesso!');
       } else {
-        await api.post('/taf/atividades', {
-          nome: formattedNome
+        await api.post('/tiro/atividades', {
+          nome: targetNome
         });
         alert('Atividade cadastrada com sucesso!');
       }
       setAtividadeNome('');
+      setSegundaBaseAtividade('');
+      setCadastrarModo('nova');
       setEditingAtividadeName(null);
       await loadAtividades();
       await loadData();
@@ -615,12 +559,12 @@ export function Taf() {
   };
 
   const handleDeleteAtividade = async (nome: string) => {
-    if (!confirm(`Deseja realmente excluir a atividade "${nome}"? Todos os testes vinculados a ela serão deletados permanentemente.`)) {
+    if (!confirm(`Deseja realmente excluir a atividade "${nome}"? Todos os testes vinculados a ela (e a sua 2ª chamada) serão deletados permanentemente.`)) {
       return;
     }
 
     try {
-      await api.delete(`/taf/atividades/${encodeURIComponent(nome)}`);
+      await api.delete(`/tiro/atividades/${encodeURIComponent(nome)}`);
       alert('Atividade excluída com sucesso!');
       await loadAtividades();
       await loadData();
@@ -630,11 +574,11 @@ export function Taf() {
     }
   };
 
-  const columns: Column<TafRecord>[] = [
+  const columns: Column<TiroRecord>[] = [
     {
       header: 'P/G NOME DE GUERRA',
-      accessor: (row: TafRecord) => {
-        const temVazio = row.corrida === null || row.flexao === null || row.barra === null || row.abdominal === null || !row.mencao || row.mencao === 'N/A';
+      accessor: (row: TiroRecord) => {
+        const temVazio = !row.mencao || row.mencao === 'N/A' || row.mencao === '';
         const rowInfo = getCycleInfo(row.atividade);
         const isSecond = row.segundaChamada || rowInfo.isSecondCall;
         
@@ -679,19 +623,36 @@ export function Taf() {
     },
     {
       header: 'Idade',
-      accessor: (row: TafRecord) => row.idade
+      accessor: (row: TiroRecord) => row.idade
     },
     {
       header: 'Sexo',
-      accessor: (row: TafRecord) => row.sexo
+      accessor: (row: TiroRecord) => row.sexo
     },
     {
       header: 'Pelotão',
-      accessor: (row: TafRecord) => row.pelotaoMilitar
+      accessor: (row: TiroRecord) => row.pelotaoMilitar
+    },
+    {
+      header: 'Menção Total',
+      accessor: (row: TiroRecord) => {
+        if (!row.mencao || row.mencao === 'N/A' || row.mencao === '') {
+          return (
+            <Badge variant="warning" className="flex items-center gap-1 text-[10px] font-bold">
+              Pendente
+            </Badge>
+          );
+        }
+        return (
+          <Badge variant={row.mencao === 'I' || row.mencao === 'R' ? 'danger' : row.mencao === 'B' ? 'info' : 'success'}>
+            {row.mencao}
+          </Badge>
+        );
+      }
     },
     {
       header: 'Ações',
-      accessor: (row: TafRecord) => (
+      accessor: (row: TiroRecord) => (
         <div className="flex gap-2 text-gray-400" onClick={(e) => e.stopPropagation()}>
           <button 
             onClick={() => handleStartEditTest(row)}
@@ -763,76 +724,12 @@ export function Taf() {
     }
   ];
 
-  const renderExpandedRow = (row: TafRecord) => {
-    return (
-      <div className="p-4 bg-gray-50/60 rounded-xl border border-gray-200 space-y-4">
-        <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Desempenho no Teste</h4>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <div className="p-3 bg-white border border-gray-200 rounded-lg shadow-sm">
-            <span className="block text-xs font-semibold text-gray-400 uppercase">Corrida</span>
-            {row.corrida !== null ? (
-              <span className="text-sm font-bold text-gray-800">{row.corrida}m</span>
-            ) : (
-              <span className="text-xs font-semibold text-amber-600 flex items-center gap-1 mt-1">
-                <AlertCircle size={12} /> Pendente
-              </span>
-            )}
-          </div>
-          <div className="p-3 bg-white border border-gray-200 rounded-lg shadow-sm">
-            <span className="block text-xs font-semibold text-gray-400 uppercase">Flexão</span>
-            {row.flexao !== null ? (
-              <span className="text-sm font-bold text-gray-800">{row.flexao} rep</span>
-            ) : (
-              <span className="text-xs font-semibold text-amber-600 flex items-center gap-1 mt-1">
-                <AlertCircle size={12} /> Pendente
-              </span>
-            )}
-          </div>
-          <div className="p-3 bg-white border border-gray-200 rounded-lg shadow-sm">
-            <span className="block text-xs font-semibold text-gray-400 uppercase">Barra</span>
-            {row.barra !== null ? (
-              <span className="text-sm font-bold text-gray-800">{row.barra} rep</span>
-            ) : (
-              <span className="text-xs font-semibold text-amber-600 flex items-center gap-1 mt-1">
-                <AlertCircle size={12} /> Pendente
-              </span>
-            )}
-          </div>
-          <div className="p-3 bg-white border border-gray-200 rounded-lg shadow-sm">
-            <span className="block text-xs font-semibold text-gray-400 uppercase">Abdominal</span>
-            {row.abdominal !== null ? (
-              <span className="text-sm font-bold text-gray-800">{row.abdominal} rep</span>
-            ) : (
-              <span className="text-xs font-semibold text-amber-600 flex items-center gap-1 mt-1">
-                <AlertCircle size={12} /> Pendente
-              </span>
-            )}
-          </div>
-          <div className="p-3 bg-white border border-gray-200 rounded-lg shadow-sm">
-            <span className="block text-xs font-semibold text-gray-400 uppercase">Menção Total</span>
-            {row.mencao && row.mencao !== 'N/A' && row.mencao !== '' ? (
-              <span className="mt-1 block">
-                <Badge variant={row.mencao === 'I' || row.mencao === 'R' ? 'danger' : row.mencao === 'B' ? 'info' : 'success'}>
-                  {row.mencao}
-                </Badge>
-              </span>
-            ) : (
-              <span className="text-xs font-semibold text-amber-600 flex items-center gap-1 mt-1">
-                <AlertCircle size={12} /> Pendente
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Teste de Aptidão Física (TAF)</h1>
-          <Breadcrumb items={[{ label: 'Saúde' }, { label: 'Teste de Aptidão Física' }]} />
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Teste de Tiro</h1>
+          <Breadcrumb items={[{ label: 'Aptidão e Capacitação' }, { label: 'Teste de Tiro' }]} />
         </div>
         <div className="flex gap-2">
           <Button 
@@ -842,6 +739,15 @@ export function Taf() {
           >
             <Filter size={16} />
             {showFiltersCard ? 'Ocultar Filtros' : 'Filtrar'}
+          </Button>
+
+          <Button 
+            onClick={() => { setIsAtividadesModalOpen(true); }} 
+            variant="outline" 
+            className="flex items-center gap-2"
+          >
+            <Target size={16} />
+            Cadastrar Atividade
           </Button>
 
           <Button onClick={() => { resetTestForm(); setIsTestModalOpen(true); }} className="flex items-center gap-2">
@@ -974,93 +880,54 @@ export function Taf() {
                 <option value="I">Insuficiente (I)</option>
                 <option value="Pendente">Pendente / Vazio</option>
               </Select>
+            </div>
           </div>
         </div>
-      </div>
-    )}
-      {/* Dashboard de Métricas de TAF */}
-      <div className="grid grid-cols-1 md:grid-cols-11 gap-4">
-        {/* Card 1: Resumo do TAF */}
-        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4 md:col-span-2">
-          <div className="p-3 rounded-lg bg-blue-50 text-blue-600">
-            <Users size={20} />
+      )}
+
+      {/* Dashboard de Métricas de Tiro */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Card 1: Resumo do Tiro */}
+        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center gap-6">
+          <div className="p-4 rounded-xl bg-blue-50 text-blue-600">
+            <Users size={24} />
           </div>
           <div>
-            <span className="block text-xs font-semibold text-gray-400 uppercase">Avaliados</span>
-            <span className="text-xl font-bold text-gray-800">{stats.total}</span>
-            <span className="block text-[10px] text-gray-500 font-medium mt-0.5">
+            <span className="block text-sm font-semibold text-gray-400 uppercase tracking-wider">Militar Atirador</span>
+            <span className="text-3xl font-extrabold text-gray-800 mt-1 block">{stats.total}</span>
+            <span className="block text-xs text-gray-500 font-medium mt-1">
               {stats.concluidos} concluídos / {stats.pendentes} pendentes
             </span>
           </div>
         </div>
 
-        {/* Card 2: Corrida Média */}
-        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4 md:col-span-2">
-          <div className="p-3 rounded-lg bg-green-50 text-green-600 flex-shrink-0">
-            <Activity size={20} />
-          </div>
-          <div>
-            <span className="block text-xs font-semibold text-gray-400 uppercase">Corrida Média</span>
-            <span className="text-xl font-bold text-gray-800">
-              {stats.mediaCorrida > 0 ? `${stats.mediaCorrida}m` : '-'}
-            </span>
-            <span className="block text-[10px] text-gray-500 font-medium mt-0.5">
-              Distância média alcançada
-            </span>
-          </div>
-        </div>
-
-        {/* Card 3: Médias Físicas */}
-        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4 md:col-span-3">
-          <div className="p-3 rounded-lg bg-amber-50 text-amber-600 flex-shrink-0">
-            <Dumbbell size={20} />
+        {/* Card 2: Distribuição de Menções */}
+        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center gap-6">
+          <div className="p-4 rounded-xl bg-purple-50 text-purple-600 flex-shrink-0">
+            <Award size={24} />
           </div>
           <div className="flex-1 min-w-0">
-            <span className="block text-xs font-semibold text-gray-400 uppercase mb-2">Médias Físicas</span>
-            <div className="grid grid-cols-3 gap-2">
-              <div className="bg-amber-50/50 rounded-lg p-2 text-center border border-amber-100/70">
-                <span className="block text-xs text-amber-600 font-bold uppercase tracking-wider">Flexão</span>
-                <span className="text-sm font-extrabold text-gray-900 mt-0.5 block">{stats.mediaFlexao}</span>
-              </div>
-              <div className="bg-amber-50/50 rounded-lg p-2 text-center border border-amber-100/70">
-                <span className="block text-xs text-amber-600 font-bold uppercase tracking-wider">Barra</span>
-                <span className="text-sm font-extrabold text-gray-900 mt-0.5 block">{stats.mediaBarra}</span>
-              </div>
-              <div className="bg-amber-50/50 rounded-lg p-2 text-center border border-amber-100/70">
-                <span className="block text-xs text-amber-600 font-bold uppercase tracking-wider">Abd</span>
-                <span className="text-sm font-extrabold text-gray-900 mt-0.5 block">{stats.mediaAbdominal}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Card 4: Distribuição de Menções */}
-        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4 md:col-span-4">
-          <div className="p-3 rounded-lg bg-purple-50 text-purple-600 flex-shrink-0">
-            <Award size={20} />
-          </div>
-          <div className="flex-1 min-w-0">
-            <span className="block text-xs font-semibold text-gray-400 uppercase mb-2">Total por Menção</span>
+            <span className="block text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Total por Menção</span>
             <div className="grid grid-cols-5 gap-2">
               <div className="bg-green-50 rounded-lg p-2 text-center border border-green-100">
                 <span className="block text-xs text-green-700 font-bold">E</span>
-                <span className="text-sm font-extrabold text-green-950 mt-0.5 block">{stats.contagemMencoes.E}</span>
+                <span className="text-lg font-extrabold text-green-950 mt-1 block">{stats.contagemMencoes.E}</span>
               </div>
               <div className="bg-emerald-50 rounded-lg p-2 text-center border border-emerald-100">
                 <span className="block text-xs text-emerald-700 font-bold">MB</span>
-                <span className="text-sm font-extrabold text-emerald-950 mt-0.5 block">{stats.contagemMencoes.MB}</span>
+                <span className="text-lg font-extrabold text-emerald-950 mt-1 block">{stats.contagemMencoes.MB}</span>
               </div>
               <div className="bg-blue-50 rounded-lg p-2 text-center border border-blue-100">
                 <span className="block text-xs text-blue-700 font-bold">B</span>
-                <span className="text-sm font-extrabold text-blue-950 mt-0.5 block">{stats.contagemMencoes.B}</span>
+                <span className="text-lg font-extrabold text-blue-950 mt-1 block">{stats.contagemMencoes.B}</span>
               </div>
               <div className="bg-amber-50 rounded-lg p-2 text-center border border-amber-100">
                 <span className="block text-xs text-amber-700 font-bold">R</span>
-                <span className="text-sm font-extrabold text-amber-950 mt-0.5 block">{stats.contagemMencoes.R}</span>
+                <span className="text-lg font-extrabold text-amber-950 mt-1 block">{stats.contagemMencoes.R}</span>
               </div>
               <div className="bg-red-50 rounded-lg p-2 text-center border border-red-100">
                 <span className="block text-xs text-red-700 font-bold">I</span>
-                <span className="text-sm font-extrabold text-red-950 mt-0.5 block">{stats.contagemMencoes.I}</span>
+                <span className="text-lg font-extrabold text-red-950 mt-1 block">{stats.contagemMencoes.I}</span>
               </div>
             </div>
           </div>
@@ -1068,7 +935,7 @@ export function Taf() {
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        {/* Abas de Atividades de TAF */}
+        {/* Abas de Atividades de Tiro */}
         <div className="flex border-b border-gray-200 bg-gray-50/50 overflow-x-auto">
           {tabs.map((tab) => {
             const isActive = activeTab.toLowerCase() === tab.toLowerCase();
@@ -1099,7 +966,7 @@ export function Taf() {
                   : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >
-              Realizaram o TAF
+              Realizaram o Tiro
               <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-bold ${
                 subTab === 'realizaram' ? 'bg-militar-main text-white' : 'bg-gray-100 text-gray-600'
               }`}>
@@ -1128,7 +995,6 @@ export function Taf() {
               columns={columns}
               data={filteredRecords}
               keyExtractor={(row) => row.id}
-              renderExpandedRow={renderExpandedRow}
             />
           ) : (
             <DataTable
@@ -1141,16 +1007,62 @@ export function Taf() {
       </div>
 
       {/* Modal: Cadastrar Atividades */}
-      <Modal isOpen={isAtividadesModalOpen} onClose={() => { setIsAtividadesModalOpen(false); handleCancelEditAtividade(); }} title={editingAtividadeName ? "Editar Atividade" : "Cadastrar Atividade de TAF"} size="md">
+      <Modal isOpen={isAtividadesModalOpen} onClose={() => { setIsAtividadesModalOpen(false); handleCancelEditAtividade(); }} title={editingAtividadeName ? "Editar Atividade" : "Cadastrar Atividade de Tiro"} size="md">
         <form onSubmit={handleSaveAtividade} className="space-y-4">
-          <Input 
-            label="Nome da Atividade" 
-            placeholder="Ex: 1º TAF, 2º TAF, 2ª Chamada..." 
-            value={atividadeNome} 
-            onChange={(e) => setAtividadeNome(e.target.value)} 
-            disabled={isSavingAtividade}
-            required
-          />
+          {!editingAtividadeName && (
+            <div className="flex gap-4 border-b border-gray-100 pb-3 mb-3">
+              <label className="flex items-center gap-2 text-sm font-semibold cursor-pointer">
+                <input
+                  type="radio"
+                  name="modoAtividade"
+                  checked={cadastrarModo === 'nova'}
+                  onChange={() => setCadastrarModo('nova')}
+                />
+                Nova Atividade
+              </label>
+              <label className="flex items-center gap-2 text-sm font-semibold cursor-pointer">
+                <input
+                  type="radio"
+                  name="modoAtividade"
+                  checked={cadastrarModo === 'segunda'}
+                  onChange={() => setCadastrarModo('segunda')}
+                />
+                Criar Segunda Chamada
+              </label>
+            </div>
+          )}
+
+          {!editingAtividadeName && cadastrarModo === 'segunda' ? (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Atividade Base
+              </label>
+              <Select
+                value={segundaBaseAtividade}
+                onChange={(e) => setSegundaBaseAtividade(e.target.value)}
+                disabled={isSavingAtividade}
+                required
+              >
+                <option value="">Selecione a atividade...</option>
+                {atividadesList.filter(act => 
+                  !act.toLowerCase().includes('2ª chamada') && 
+                  !act.toLowerCase().includes('2a chamada') && 
+                  !atividadesList.some(x => x.toLowerCase() === `2ª chamada ${act}`.toLowerCase())
+                ).map(act => (
+                  <option key={act} value={act}>{act}</option>
+                ))}
+              </Select>
+            </div>
+          ) : (
+            <Input 
+              label="Nome da Atividade" 
+              placeholder="Ex: 1º Teste de Tiro, 2º Teste de Tiro..." 
+              value={atividadeNome} 
+              onChange={(e) => setAtividadeNome(e.target.value)} 
+              disabled={isSavingAtividade}
+              required
+            />
+          )}
           <div className="flex justify-end gap-2 pt-2">
             {editingAtividadeName ? (
               <>
@@ -1162,7 +1074,7 @@ export function Taf() {
                 </Button>
               </>
             ) : (
-              <Button type="submit" disabled={isSavingAtividade || !atividadeNome.trim()}>
+              <Button type="submit" disabled={isSavingAtividade || (cadastrarModo === 'nova' ? !atividadeNome.trim() : !segundaBaseAtividade)}>
                 {isSavingAtividade ? 'Cadastrando...' : 'Cadastrar'}
               </Button>
             )}
@@ -1170,7 +1082,7 @@ export function Taf() {
           
           {/* Lista de Atividades Existentes */}
           <div className="pt-4 border-t border-gray-200 mt-6">
-            <h3 className="text-sm font-semibold text-gray-800 mb-3">Atividades de TAF Cadastradas</h3>
+            <h3 className="text-sm font-semibold text-gray-800 mb-3">Atividades de Tiro Cadastradas</h3>
             <div className="max-h-48 overflow-y-auto border border-gray-100 rounded-lg divide-y divide-gray-100">
               {atividadesList.length === 0 ? (
                 <div className="p-3 text-center text-xs text-gray-500">Nenhuma atividade cadastrada.</div>
@@ -1207,11 +1119,11 @@ export function Taf() {
       </Modal>
 
       {/* Modal: Novo Teste / Editar Teste */}
-      <Modal isOpen={isTestModalOpen} onClose={() => !isSavingTest && setIsTestModalOpen(false)} title={editingTestId ? "Editar Teste de TAF" : "Registrar Novo Teste de TAF"} size="lg">
+      <Modal isOpen={isTestModalOpen} onClose={() => !isSavingTest && setIsTestModalOpen(false)} title={editingTestId ? "Editar Teste de Tiro" : "Registrar Novo Teste de Tiro"} size="lg">
         <form onSubmit={handleSaveTest} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Atividade de TAF / Teste
+              Atividade de Tiro / Teste
             </label>
             <Select value={selectedAtividade} onChange={(e) => setSelectedAtividade(e.target.value)} disabled={isSavingTest} required>
               {tabs.map((tab) => (
@@ -1335,44 +1247,9 @@ export function Taf() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <Input 
-              label="Corrida (metros)" 
-              type="number"
-              placeholder="Ex: 2400" 
-              value={corrida} 
-              onChange={(e) => setCorrida(e.target.value)} 
-              disabled={isSavingTest}
-            />
-            <Input 
-              label="Flexão (repetições)" 
-              type="number"
-              placeholder="Ex: 30" 
-              value={flexao} 
-              onChange={(e) => setFlexao(e.target.value)} 
-              disabled={isSavingTest}
-            />
-            <Input 
-              label="Barra (repetições)" 
-              type="number"
-              placeholder="Ex: 6" 
-              value={barra} 
-              onChange={(e) => setBarra(e.target.value)} 
-              disabled={isSavingTest}
-            />
-            <Input 
-              label="Abdominal (repetições)" 
-              type="number"
-              placeholder="Ex: 40" 
-              value={abdominal} 
-              onChange={(e) => setAbdominal(e.target.value)} 
-              disabled={isSavingTest}
-            />
-          </div>
-
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Menção Total</label>
-            <Select value={mencao} onChange={(e) => setMencao(e.target.value)} disabled={isSavingTest}>
+            <Select value={mencao} onChange={(e) => setMencao(e.target.value)} disabled={isSavingTest} required>
               <option value="">Selecione a Menção</option>
               <option value="E">Excelente (E)</option>
               <option value="MB">Muito Bom (MB)</option>

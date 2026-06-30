@@ -10,6 +10,7 @@ import { funcaoRoutes } from './routes/funcao.routes';
 import { fatdRoutes } from './routes/fatd.routes';
 import { atendimentoRoutes } from './routes/atendimento.routes';
 import { tafRoutes } from './routes/taf.routes';
+import { tiroRoutes } from './routes/tiro.routes';
 import { historicoRoutes } from './routes/historico.routes';
 
 const app = express();
@@ -41,6 +42,9 @@ app.use('/api/atendimentos', atendimentoRoutes);
 
 // Define o prefixo '/api/taf' e vincula as rotas de TAF
 app.use('/api/taf', tafRoutes);
+
+// Define o prefixo '/api/tiro' e vincula as rotas de Tiro
+app.use('/api/tiro', tiroRoutes);
 
 // Comentário de organização: Define o prefixo '/api/historico' para o módulo de histórico de alterações
 app.use('/api/historico', historicoRoutes);
