@@ -55,6 +55,7 @@ interface TiroRecord {
   pgMilitar: string;
   nomeGuerraMilitar: string;
   pelotaoMilitar: string;
+  companhiaMilitar?: string;
   idade: string;
   sexo: string;
   mencao: string;
@@ -649,12 +650,8 @@ export function TesteTiro() {
       }
     },
     {
-      header: 'Idade',
-      accessor: (row: TiroRecord) => row.idade
-    },
-    {
-      header: 'Sexo',
-      accessor: (row: TiroRecord) => row.sexo
+      header: 'Companhia',
+      accessor: (row: TiroRecord) => row.companhiaMilitar || 'Não informado'
     },
     {
       header: 'Pelotão',

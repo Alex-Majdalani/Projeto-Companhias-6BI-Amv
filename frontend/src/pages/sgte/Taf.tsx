@@ -55,6 +55,7 @@ interface TafRecord {
   pgMilitar: string;
   nomeGuerraMilitar: string;
   pelotaoMilitar: string;
+  companhiaMilitar?: string;
   idade: string;
   sexo: string;
   corrida: number | null;
@@ -684,6 +685,10 @@ export function Taf() {
     {
       header: 'Sexo',
       accessor: (row: TafRecord) => row.sexo
+    },
+    {
+      header: 'Companhia',
+      accessor: (row: TafRecord) => row.companhiaMilitar || 'Não informado'
     },
     {
       header: 'Pelotão',

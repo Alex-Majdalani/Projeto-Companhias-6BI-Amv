@@ -84,6 +84,7 @@ export class TiroService {
           nomeGuerra: m.nome_guerra || '',
           posto: m.posto_graduacao || 'SD EP',
           pelotao: m.pelotao || 'Não informado',
+          companhia: m.companhia || m.subunidade || 'Não informado',
           sexo: civilObj ? (civilObj.sexo || civilObj.clvz9v8k8jkivub || 'Não informado') : 'Não informado',
           dataNascimento: civilObj ? civilObj.data_nascimento : null
         });
@@ -109,6 +110,7 @@ export class TiroService {
             pgMilitar: formattedPg || 'N/A',
             nomeGuerraMilitar: mil ? mil.nomeGuerra : 'Militar não encontrado',
             pelotaoMilitar: mil ? mil.pelotao : 'Não informado',
+            companhiaMilitar: mil ? mil.companhia : 'Não informado',
             idade: idade > 0 ? `${idade} anos` : 'Não informada',
             sexo: mil ? mil.sexo : 'Não informado',
             mencao: t.mencao || 'N/A',
