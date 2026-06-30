@@ -91,6 +91,18 @@ function calculateAge(birthDateStr: string): number {
   return age;
 }
 
+function getBaseActivityName(name: string): string {
+  if (!name) return '';
+  const norm = name.trim();
+  if (norm.toLowerCase().startsWith('2ª chamada ')) {
+    return norm.substring(11).trim();
+  }
+  if (norm.toLowerCase().startsWith('2a chamada ')) {
+    return norm.substring(11).trim();
+  }
+  return norm;
+}
+
 function getCycleInfo(activityName: string) {
   if (!activityName) return { cycle: 0, isSecondCall: false };
   const norm = activityName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
@@ -357,27 +369,26 @@ export function TesteTiro() {
     return match ? Number(match[0]) : 0;
   };
 
-  const activeInfo = getCycleInfo(activeTab);
-
   const filteredRecords = records.filter(r => {
-    const recordInfo = getCycleInfo(r.atividade);
-    
-    if (activeInfo.cycle !== 0) {
-      if (recordInfo.cycle !== activeInfo.cycle) return false;
-      if (activeInfo.isSecondCall) {
-        if (!recordInfo.isSecondCall && !r.segundaChamada) return false;
-      } else {
-        const isSecond = recordInfo.isSecondCall || r.segundaChamada;
-        if (isSecond) {
-          const militarFezPrimeiraChamada = records.some(x => {
-            const xInfo = getCycleInfo(x.atividade);
-            return x.militarId === r.militarId && xInfo.cycle === activeInfo.cycle && !(xInfo.isSecondCall || x.segundaChamada);
-          });
-          if (militarFezPrimeiraChamada) return false;
-        }
-      }
+    const rowBase = getBaseActivityName(r.atividade);
+    const activeBase = getBaseActivityName(activeTab);
+
+    if (rowBase.toLowerCase() !== activeBase.toLowerCase()) return false;
+
+    const activeIsSecond = activeTab.toLowerCase().startsWith('2ª chamada ') || activeTab.toLowerCase().startsWith('2a chamada ');
+    const rowIsSecond = r.segundaChamada || r.atividade.toLowerCase().startsWith('2ª chamada ') || r.atividade.toLowerCase().startsWith('2a chamada ');
+
+    if (activeIsSecond) {
+      if (!rowIsSecond) return false;
     } else {
-      if (r.atividade.toLowerCase() !== activeTab.toLowerCase()) return false;
+      if (rowIsSecond) {
+        const militarFezPrimeira = records.some(x => {
+          const xBase = getBaseActivityName(x.atividade);
+          const xIsSecond = x.segundaChamada || x.atividade.toLowerCase().startsWith('2ª chamada ') || x.atividade.toLowerCase().startsWith('2a chamada ');
+          return x.militarId === r.militarId && xBase.toLowerCase() === activeBase.toLowerCase() && !xIsSecond;
+        });
+        if (militarFezPrimeira) return false;
+      }
     }
 
     if (filterSearch.trim()) {
@@ -419,17 +430,22 @@ export function TesteTiro() {
   });
 
   const filteredNaoRealizaram = militares.filter(m => {
-    if (activeInfo.cycle !== 0) {
+    const activeBase = getBaseActivityName(activeTab);
+    const activeIsSecond = activeTab.toLowerCase().startsWith('2ª chamada ') || activeTab.toLowerCase().startsWith('2a chamada ');
+
+    if (activeIsSecond) {
+      const temSegunda = records.some(r => {
+        const rowBase = getBaseActivityName(r.atividade);
+        const rowIsSecond = r.segundaChamada || r.atividade.toLowerCase().startsWith('2ª chamada ') || r.atividade.toLowerCase().startsWith('2a chamada ');
+        return r.militarId === m.id && rowBase.toLowerCase() === activeBase.toLowerCase() && rowIsSecond;
+      });
+      if (temSegunda) return false;
+    } else {
       const temQualquerRegistroNoCiclo = records.some(r => {
-        const recordInfo = getCycleInfo(r.atividade);
-        return recordInfo.cycle === activeInfo.cycle && r.militarId === m.id;
+        const rowBase = getBaseActivityName(r.atividade);
+        return rowBase.toLowerCase() === activeBase.toLowerCase() && r.militarId === m.id;
       });
       if (temQualquerRegistroNoCiclo) return false;
-    } else {
-      const jaTemRegistro = records.some(
-        r => r.atividade.toLowerCase() === activeTab.toLowerCase() && r.militarId === m.id
-      );
-      if (jaTemRegistro) return false;
     }
 
     if (filterSearch.trim()) {
@@ -579,20 +595,24 @@ export function TesteTiro() {
       header: 'P/G NOME DE GUERRA',
       accessor: (row: TiroRecord) => {
         const temVazio = !row.mencao || row.mencao === 'N/A' || row.mencao === '';
-        const rowInfo = getCycleInfo(row.atividade);
-        const isSecond = row.segundaChamada || rowInfo.isSecondCall;
+        const rowBase = getBaseActivityName(row.atividade);
+        const rowIsSecond = row.segundaChamada || row.atividade.toLowerCase().startsWith('2ª chamada ') || row.atividade.toLowerCase().startsWith('2a chamada ');
         
-        const fezSegunda = !activeInfo.isSecondCall && !isSecond && rowInfo.cycle !== 0 && records.some(x => {
-          const xcInfo = getCycleInfo(x.atividade);
-          return x.militarId === row.militarId && xcInfo.cycle === rowInfo.cycle && (xcInfo.isSecondCall || x.segundaChamada);
+        const activeIsSecond = activeTab.toLowerCase().startsWith('2ª chamada ') || activeTab.toLowerCase().startsWith('2a chamada ');
+
+        const fezSegunda = !activeIsSecond && !rowIsSecond && records.some(x => {
+          const xBase = getBaseActivityName(x.atividade);
+          const xIsSecond = x.segundaChamada || x.atividade.toLowerCase().startsWith('2ª chamada ') || x.atividade.toLowerCase().startsWith('2a chamada ');
+          return x.militarId === row.militarId && xBase.toLowerCase() === rowBase.toLowerCase() && xIsSecond;
         });
 
-        const fezPrimeira = activeInfo.isSecondCall && rowInfo.cycle !== 0 && records.some(x => {
-          const xcInfo = getCycleInfo(x.atividade);
-          return x.militarId === row.militarId && xcInfo.cycle === rowInfo.cycle && !(xcInfo.isSecondCall || x.segundaChamada);
+        const fezPrimeira = activeIsSecond && rowIsSecond && records.some(x => {
+          const xBase = getBaseActivityName(x.atividade);
+          const xIsSecond = x.segundaChamada || x.atividade.toLowerCase().startsWith('2ª chamada ') || x.atividade.toLowerCase().startsWith('2a chamada ');
+          return x.militarId === row.militarId && xBase.toLowerCase() === rowBase.toLowerCase() && !xIsSecond;
         });
 
-        const mostrarFeitoSegunda = !activeInfo.isSecondCall && isSecond;
+        const mostrarFeitoSegunda = !activeIsSecond && rowIsSecond;
 
         return (
           <span className="font-semibold text-gray-900 flex items-center gap-2">
