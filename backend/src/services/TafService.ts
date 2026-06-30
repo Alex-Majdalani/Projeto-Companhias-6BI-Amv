@@ -85,12 +85,22 @@ export class TafService {
         const civilId = m.dados_civil?.Id || m.dados_civil?.id || m.dados_civil;
         const civilObj = civilId ? civilMap.get(civilId) : null;
         
+        const rawCompanhia = m.companhia || m.subunidade;
+        let companhiaNome = 'Não informado';
+        if (rawCompanhia) {
+          if (typeof rawCompanhia === 'string') {
+            companhiaNome = rawCompanhia;
+          } else if (typeof rawCompanhia === 'object') {
+            companhiaNome = rawCompanhia.Companhia || rawCompanhia.companhia || rawCompanhia.Subunidade || rawCompanhia.subunidade || rawCompanhia.nome || 'Não informado';
+          }
+        }
+
         militaresMap.set(m.Id || m.id, {
           id: m.Id || m.id,
           nomeGuerra: m.nome_guerra || '',
           posto: m.posto_graduacao || 'SD EP',
           pelotao: m.pelotao || 'Não informado',
-          companhia: m.companhia || m.subunidade || 'Não informado',
+          companhia: companhiaNome,
           sexo: civilObj ? (civilObj.sexo || civilObj.clvz9v8k8jkivub || 'Não informado') : 'Não informado',
           dataNascimento: civilObj ? civilObj.data_nascimento : null
         });
