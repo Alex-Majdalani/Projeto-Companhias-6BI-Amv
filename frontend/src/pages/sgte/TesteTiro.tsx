@@ -150,11 +150,7 @@ export function TesteTiro() {
   const [showFiltersCard, setShowFiltersCard] = useState(false);
   const [filterSearch, setFilterSearch] = useState('');
   const [filterPg, setFilterPg] = useState('Todos');
-  const [filterAgeType, setFilterAgeType] = useState('idade');
-  const [filterAge, setFilterAge] = useState('');
-  const [filterAgeMin, setFilterAgeMin] = useState('');
-  const [filterAgeMax, setFilterAgeMax] = useState('');
-  const [filterSexo, setFilterSexo] = useState('Todos');
+  const [filterCompanhia, setFilterCompanhia] = useState('Todos');
   const [filterPelotao, setFilterPelotao] = useState('Todos');
   const [filterStatus, setFilterStatus] = useState('Todos');
   const [filterMencao, setFilterMencao] = useState('Todos');
@@ -341,14 +337,21 @@ export function TesteTiro() {
 
   const pelotaoOptions = Array.from(new Set(militares.map(m => m.pelotao).filter(Boolean))).sort() as string[];
 
+  const companhiaOptions = Array.from(
+    new Set(
+      militares.map(m => {
+        const raw = m.companhia || m.subunidade;
+        if (!raw) return '';
+        if (typeof raw === 'string') return raw;
+        return raw.Companhia || raw.companhia || raw.Subunidade || raw.subunidade || raw.nome || '';
+      }).filter(Boolean)
+    )
+  ).sort() as string[];
+
   const handleClearFilters = () => {
     setFilterSearch('');
     setFilterPg('Todos');
-    setFilterAgeType('idade');
-    setFilterAge('');
-    setFilterAgeMin('');
-    setFilterAgeMax('');
-    setFilterSexo('Todos');
+    setFilterCompanhia('Todos');
     setFilterPelotao('Todos');
     setFilterStatus('Todos');
     setFilterMencao('Todos');
@@ -357,10 +360,7 @@ export function TesteTiro() {
   const hasActiveFilters = 
     filterSearch !== '' ||
     filterPg !== 'Todos' ||
-    filterAge !== '' ||
-    filterAgeMin !== '' ||
-    filterAgeMax !== '' ||
-    filterSexo !== 'Todos' ||
+    filterCompanhia !== 'Todos' ||
     filterPelotao !== 'Todos' ||
     filterStatus !== 'Todos' ||
     filterMencao !== 'Todos';
@@ -402,16 +402,7 @@ export function TesteTiro() {
     }
 
     if (filterPg !== 'Todos' && r.pgMilitar !== filterPg) return false;
-
-    const age = getAgeNumber(r.idade);
-    if (filterAgeType === 'idade') {
-      if (filterAge !== '' && age !== Number(filterAge)) return false;
-    } else {
-      if (filterAgeMin !== '' && age < Number(filterAgeMin)) return false;
-      if (filterAgeMax !== '' && age > Number(filterAgeMax)) return false;
-    }
-
-    if (filterSexo !== 'Todos' && normalizeText(r.sexo) !== normalizeText(filterSexo)) return false;
+    if (filterCompanhia !== 'Todos' && r.companhiaMilitar !== filterCompanhia) return false;
     if (filterPelotao !== 'Todos' && r.pelotaoMilitar !== filterPelotao) return false;
 
     const isPendente = !r.mencao || r.mencao === 'N/A' || r.mencao === '';
@@ -467,16 +458,11 @@ export function TesteTiro() {
     }
 
     if (filterPg !== 'Todos' && m.posto !== filterPg) return false;
-    if (filterSexo !== 'Todos' && normalizeText(m.sexo || '') !== normalizeText(filterSexo)) return false;
-    if (filterPelotao !== 'Todos' && m.pelotao !== filterPelotao) return false;
 
-    const age = m.data_nascimento ? calculateAge(m.data_nascimento) : 0;
-    if (filterAgeType === 'idade') {
-      if (filterAge !== '' && age !== Number(filterAge)) return false;
-    } else {
-      if (filterAgeMin !== '' && age < Number(filterAgeMin)) return false;
-      if (filterAgeMax !== '' && age > Number(filterAgeMax)) return false;
-    }
+    const militarCia = typeof m.companhia === 'object' ? (m.companhia.Companhia || m.companhia.companhia || m.companhia.Subunidade || m.companhia.subunidade || m.companhia.nome || '') : (m.companhia || m.subunidade || '');
+    if (filterCompanhia !== 'Todos' && militarCia !== filterCompanhia) return false;
+
+    if (filterPelotao !== 'Todos' && m.pelotao !== filterPelotao) return false;
 
     if (filterStatus === 'Concluido') return false;
     if (filterMencao !== 'Todos' && filterMencao !== 'Pendente') return false;
@@ -820,11 +806,12 @@ export function TesteTiro() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Sexo</label>
-              <Select value={filterSexo} onChange={(e) => setFilterSexo(e.target.value)}>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Companhia</label>
+              <Select value={filterCompanhia} onChange={(e) => setFilterCompanhia(e.target.value)}>
                 <option value="Todos">Todos</option>
-                <option value="Masculino">Masculino</option>
-                <option value="Feminino">Feminino</option>
+                {companhiaOptions.map(cia => (
+                  <option key={cia} value={cia}>{cia}</option>
+                ))}
               </Select>
             </div>
 
@@ -840,50 +827,6 @@ export function TesteTiro() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* Filtro de Idade / Faixa Etária */}
-            <div className="col-span-2 border border-gray-100 p-3 rounded-lg bg-gray-50/30 flex gap-4 items-end">
-              <div className="w-1/3">
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Filtro de Idade</label>
-                <Select value={filterAgeType} onChange={(e) => setFilterAgeType(e.target.value)}>
-                  <option value="idade">Idade Única</option>
-                  <option value="faixa">Faixa Etária</option>
-                </Select>
-              </div>
-              
-              {filterAgeType === 'idade' ? (
-                <div className="flex-1">
-                  <label className="block text-xs font-semibold text-gray-600 mb-1">Idade</label>
-                  <Input 
-                    type="number" 
-                    placeholder="Ex: 22" 
-                    value={filterAge} 
-                    onChange={(e) => setFilterAge(e.target.value)} 
-                  />
-                </div>
-              ) : (
-                <>
-                  <div className="flex-1">
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">Min (Anos)</label>
-                    <Input 
-                      type="number" 
-                      placeholder="Min" 
-                      value={filterAgeMin} 
-                      onChange={(e) => setFilterAgeMin(e.target.value)} 
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">Max (Anos)</label>
-                    <Input 
-                      type="number" 
-                      placeholder="Max" 
-                      value={filterAgeMax} 
-                      onChange={(e) => setFilterAgeMax(e.target.value)} 
-                    />
-                  </div>
-                </>
-              )}
-            </div>
-
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1">Status do Teste</label>
               <Select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
