@@ -3,6 +3,7 @@ import jsPDF from 'jspdf';
 import { Breadcrumb } from '../../components/ui/Breadcrumb';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { MilitarAutocomplete } from '../../components/ui/MilitarAutocomplete';
 import { 
   FileText, ChevronDown, ChevronUp, AlertCircle, 
   User, ShieldAlert, Calendar, FileCheck, RefreshCw, Scale 
@@ -932,51 +933,17 @@ export function FATD() {
                   </div>
 
                   {/* Nome do Militar */}
-                  <div className="col-span-2 relative">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Militar Arrolado</label>
-                    <Input 
-                      placeholder="Digite para buscar..."
-                      value={searchArrolado}
-                      onChange={(e) => {
-                        handleArroladoNameChange(e.target.value);
-                        setShowArroladoSuggestions(true);
-                      }}
-                      onFocus={() => {
-                        closeAllSelectsExcept('arroladoSuggestions');
-                        setShowArroladoSuggestions(true);
-                      }}
-                      onBlur={() => {
-                        setTimeout(() => setShowArroladoSuggestions(false), 250);
-                      }}
-                    />
-                    {showArroladoSuggestions && (
-                      <div className="absolute z-[1000] w-full mt-1 max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
-                        {militares
-                          .filter(m => {
-                            if (selectedArroladoPG && m.posto !== selectedArroladoPG) return false;
-                            const search = normalizeText(searchArrolado);
-                            return normalizeText(`${m.posto} ${m.nome}`).includes(search) ||
-                              (m.nome_completo && normalizeText(m.nome_completo).includes(search)) ||
-                              (m.nome_guerra && normalizeText(m.nome_guerra).includes(search));
-                          })
-                          .map(m => (
-                            <div
-                              key={m.id}
-                              onMouseDown={() => {
-                                handleArroladoNameChange(`${m.posto} ${m.nomeGuerra || m.nome_guerra || m.nome}`);
-                                setShowArroladoSuggestions(false);
-                              }}
-                              className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm flex justify-between items-center"
-                            >
-                              <span>
-                                <span className="text-gray-400 mr-2 text-xs font-semibold uppercase">{m.posto}</span>
-                                {renderMilitarName(m)}
-                              </span>
-                            </div>
-                          ))}
-                      </div>
-                    )}
-                  </div>
+                  <MilitarAutocomplete
+                    className="col-span-2"
+                    label="Militar Arrolado"
+                    value={searchArrolado}
+                    onChange={handleArroladoNameChange}
+                    onSelect={(m) => setArroladoId(m.id)}
+                    militares={militares}
+                    selectedPG={selectedArroladoPG}
+                    setSelectedPG={setSelectedArroladoPG}
+                    required
+                  />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1059,51 +1026,17 @@ export function FATD() {
                   </div>
 
                   {/* Nome do Militar */}
-                  <div className="col-span-2 relative">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Militar Participante</label>
-                    <Input 
-                      placeholder="Digite para buscar..."
-                      value={searchParticipante}
-                      onChange={(e) => {
-                        handleParticipanteNameChange(e.target.value);
-                        setShowParticipanteSuggestions(true);
-                      }}
-                      onFocus={() => {
-                        closeAllSelectsExcept('participanteSuggestions');
-                        setShowParticipanteSuggestions(true);
-                      }}
-                      onBlur={() => {
-                        setTimeout(() => setShowParticipanteSuggestions(false), 250);
-                      }}
-                    />
-                    {showParticipanteSuggestions && (
-                      <div className="absolute z-[1000] w-full mt-1 max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
-                        {militares
-                          .filter(m => {
-                            if (selectedParticipantePG && m.posto !== selectedParticipantePG) return false;
-                            const search = normalizeText(searchParticipante);
-                            return normalizeText(`${m.posto} ${m.nome}`).includes(search) ||
-                              (m.nome_completo && normalizeText(m.nome_completo).includes(search)) ||
-                              (m.nome_guerra && normalizeText(m.nome_guerra).includes(search));
-                          })
-                          .map(m => (
-                            <div
-                              key={m.id}
-                              onMouseDown={() => {
-                                handleParticipanteNameChange(`${m.posto} ${m.nomeGuerra || m.nome_guerra || m.nome}`);
-                                setShowParticipanteSuggestions(false);
-                              }}
-                              className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm flex justify-between items-center"
-                            >
-                              <span>
-                                <span className="text-gray-400 mr-2 text-xs font-semibold uppercase">{m.posto}</span>
-                                {renderMilitarName(m)}
-                              </span>
-                            </div>
-                          ))}
-                      </div>
-                    )}
-                  </div>
+                  <MilitarAutocomplete
+                    className="col-span-2"
+                    label="Militar Participante"
+                    value={searchParticipante}
+                    onChange={handleParticipanteNameChange}
+                    onSelect={(m) => setParticipanteId(m.id)}
+                    militares={militares}
+                    selectedPG={selectedParticipantePG}
+                    setSelectedPG={setSelectedParticipantePG}
+                    required
+                  />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1208,51 +1141,16 @@ export function FATD() {
                     </div>
 
                     {/* Nome do Militar */}
-                    <div className="relative">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Militar Sargenteante</label>
-                      <Input 
-                        placeholder="Digite para buscar..."
-                        value={searchSargenteante}
-                        onChange={(e) => {
-                          handleSargenteanteNameChange(e.target.value);
-                          setShowSargenteanteSuggestions(true);
-                        }}
-                        onFocus={() => {
-                          closeAllSelectsExcept('sargenteanteSuggestions');
-                          setShowSargenteanteSuggestions(true);
-                        }}
-                        onBlur={() => {
-                          setTimeout(() => setShowSargenteanteSuggestions(false), 250);
-                        }}
-                      />
-                      {showSargenteanteSuggestions && (
-                        <div className="absolute z-[1000] w-full mt-1 max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
-                          {militares
-                            .filter(m => {
-                              if (selectedSargenteantePG && m.posto !== selectedSargenteantePG) return false;
-                              const search = normalizeText(searchSargenteante);
-                              return normalizeText(`${m.posto} ${m.nome}`).includes(search) ||
-                                (m.nome_completo && normalizeText(m.nome_completo).includes(search)) ||
-                                (m.nome_guerra && normalizeText(m.nome_guerra).includes(search));
-                            })
-                            .map(m => (
-                              <div
-                                key={m.id}
-                                onMouseDown={() => {
-                                  handleSargenteanteNameChange(`${m.posto} ${m.nomeGuerra || m.nome_guerra || m.nome}`);
-                                  setShowSargenteanteSuggestions(false);
-                                }}
-                                className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm flex justify-between items-center"
-                              >
-                                <span>
-                                  <span className="text-gray-400 mr-2 text-xs font-semibold uppercase">{m.posto}</span>
-                                  {renderMilitarName(m)}
-                                </span>
-                              </div>
-                            ))}
-                        </div>
-                      )}
-                    </div>
+                    <MilitarAutocomplete
+                      label="Militar Sargenteante"
+                      value={searchSargenteante}
+                      onChange={handleSargenteanteNameChange}
+                      onSelect={(m) => setSargenteanteId(m.id)}
+                      militares={militares}
+                      selectedPG={selectedSargenteantePG}
+                      setSelectedPG={setSelectedSargenteantePG}
+                      required
+                    />
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1342,52 +1240,16 @@ export function FATD() {
                   </div>
 
                   {/* Nome do Militar */}
-                  <div className="relative">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Militar Comandante</label>
-                    <Input 
-                      placeholder="Digite para buscar..."
-                      value={searchComandante}
-                      onChange={(e) => {
-                        handleComandanteNameChange(e.target.value);
-                        setShowComandanteSuggestions(true);
-                      }}
-                      onFocus={() => {
-                        closeAllSelectsExcept('comandanteSuggestions');
-                        setShowComandanteSuggestions(true);
-                      }}
-                      onBlur={() => {
-                        setTimeout(() => setShowComandanteSuggestions(false), 250);
-                      }}
-                    />
-                    {showComandanteSuggestions && (
-                      <div className="absolute z-[1000] w-full mt-1 max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
-                        {militares
-                          .filter(m => {
-                            if (selectedComandantePG && m.posto !== selectedComandantePG) return false;
-                            const search = normalizeText(searchComandante);
-                            return normalizeText(`${m.posto} ${m.nome}`).includes(search) ||
-                              (m.nome_completo && normalizeText(m.nome_completo).includes(search)) ||
-                              (m.nome_guerra && normalizeText(m.nome_guerra).includes(search));
-                          })
-                          .map(m => (
-                            <div
-                              key={m.id}
-                              onMouseDown={() => {
-                                handleComandanteNameChange(`${m.posto} ${m.nomeGuerra || m.nome_guerra || m.nome}`);
-                                setShowComandanteSuggestions(false);
-                              }}
-                              className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm flex justify-between items-center"
-                            >
-                              <span>
-                                <span className="text-gray-400 mr-2 text-xs font-semibold uppercase">{m.posto}</span>
-                                {renderMilitarName(m)}
-                              </span>
-                            </div>
-                          ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
+                  <MilitarAutocomplete
+                    label="Militar Comandante"
+                    value={searchComandante}
+                    onChange={handleComandanteNameChange}
+                    onSelect={(m) => setComandanteId(m.id)}
+                    militares={militares}
+                    selectedPG={selectedComandantePG}
+                    setSelectedPG={setSelectedComandantePG}
+                    required
+                  />
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Input 

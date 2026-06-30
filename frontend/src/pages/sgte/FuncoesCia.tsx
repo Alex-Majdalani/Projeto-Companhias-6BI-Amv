@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Breadcrumb } from '../../components/ui/Breadcrumb';
 import { Button } from '../../components/ui/Button';
 import { Input, Select } from '../../components/ui/Input';
+import { MilitarAutocomplete } from '../../components/ui/MilitarAutocomplete';
 import { DataTable } from '../../components/ui/DataTable';
 import { Modal } from '../../components/ui/Modal';
 import { Plus, Search, Edit2, Trash2, Settings, Check, X, AlertTriangle } from 'lucide-react';
@@ -945,57 +946,17 @@ export function FuncoesCia() {
               )}
             </div>
             
-            <div className="col-span-2 relative">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Militar Efetivo
-              </label>
-              <Input 
-                required
-                placeholder="Digite para buscar..."
-                value={effective}
-                onChange={(e) => {
-                  handleEffectiveMilitarChange(e.target.value);
-                  setShowEffectiveSuggestions(true);
-                }}
-                onFocus={() => {
-                  closeAllSelectsExcept('effectiveSuggestions');
-                  setShowEffectiveSuggestions(true);
-                }}
-                onBlur={() => {
-                  setTimeout(() => setShowEffectiveSuggestions(false), 250);
-                }}
-              />
-              {showEffectiveSuggestions && (
-                <div className="absolute z-[1000] w-full mt-1 max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
-                  {militares
-                    .filter(m => {
-                      if (substituteId && m.id === substituteId) return false;
-                      if (selectedEffectivePG && m.posto !== selectedEffectivePG) return false;
-                      const search = normalizeText(effective);
-                      return normalizeText(`${m.posto} ${m.nome}`).includes(search) ||
-                        (m.nome_completo && normalizeText(m.nome_completo).includes(search)) ||
-                        (m.nome_guerra && normalizeText(m.nome_guerra).includes(search));
-                    })
-                    .map(m => (
-                      <div
-                        key={m.id}
-                        onMouseDown={() => {
-                          handleEffectiveMilitarChange(`${m.posto} ${m.nomeGuerra || m.nome_guerra || m.nome}`);
-                          setEffectiveId(m.id);
-                          setSelectedEffectivePG(m.posto);
-                          setShowEffectiveSuggestions(false);
-                        }}
-                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm flex justify-between items-center"
-                      >
-                        <span>
-                          <span className="text-gray-400 mr-2 text-xs font-semibold uppercase">{m.posto}</span>
-                          {renderMilitarName(m)}
-                        </span>
-                      </div>
-                    ))}
-                </div>
-              )}
-            </div>
+            <MilitarAutocomplete
+              className="col-span-2"
+              label="Militar Efetivo"
+              value={effective}
+              onChange={handleEffectiveMilitarChange}
+              onSelect={(m) => setEffectiveId(m.id)}
+              militares={militares.filter(m => !substituteId || m.id !== substituteId)}
+              selectedPG={selectedEffectivePG}
+              setSelectedPG={setSelectedEffectivePG}
+              required
+            />
           </div>
 
           <div className="grid grid-cols-3 gap-4">
@@ -1061,56 +1022,17 @@ export function FuncoesCia() {
               )}
             </div>
             
-            <div className="col-span-2 relative">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Militar Substituto
-              </label>
-              <Input 
-                placeholder="Digite para buscar (Opcional)..."
-                value={substitute}
-                onChange={(e) => {
-                  handleSubstituteMilitarChange(e.target.value);
-                  setShowSubstituteSuggestions(true);
-                }}
-                onFocus={() => {
-                  closeAllSelectsExcept('substituteSuggestions');
-                  setShowSubstituteSuggestions(true);
-                }}
-                onBlur={() => {
-                  setTimeout(() => setShowSubstituteSuggestions(false), 250);
-                }}
-              />
-              {showSubstituteSuggestions && (
-                <div className="absolute z-[1000] w-full mt-1 max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
-                  {militares
-                    .filter(m => {
-                      if (effectiveId && m.id === effectiveId) return false;
-                      if (selectedSubstitutePG && m.posto !== selectedSubstitutePG) return false;
-                      const search = normalizeText(substitute);
-                      return normalizeText(`${m.posto} ${m.nome}`).includes(search) ||
-                        (m.nome_completo && normalizeText(m.nome_completo).includes(search)) ||
-                        (m.nome_guerra && normalizeText(m.nome_guerra).includes(search));
-                    })
-                    .map(m => (
-                      <div
-                        key={m.id}
-                        onMouseDown={() => {
-                          handleSubstituteMilitarChange(`${m.posto} ${m.nomeGuerra || m.nome_guerra || m.nome}`);
-                          setSubstituteId(m.id);
-                          setSelectedSubstitutePG(m.posto);
-                          setShowSubstituteSuggestions(false);
-                        }}
-                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm flex justify-between items-center"
-                      >
-                        <span>
-                          <span className="text-gray-400 mr-2 text-xs font-semibold uppercase">{m.posto}</span>
-                          {renderMilitarName(m)}
-                        </span>
-                      </div>
-                    ))}
-                </div>
-              )}
-            </div>
+            <MilitarAutocomplete
+              className="col-span-2"
+              label="Militar Substituto"
+              placeholder="Digite para buscar (Opcional)..."
+              value={substitute}
+              onChange={handleSubstituteMilitarChange}
+              onSelect={(m) => setSubstituteId(m.id)}
+              militares={militares.filter(m => !effectiveId || m.id !== effectiveId)}
+              selectedPG={selectedSubstitutePG}
+              setSelectedPG={setSelectedSubstitutePG}
+            />
           </div>
 
           <div className="flex justify-end gap-2 pt-4 mt-2 border-t border-gray-100">

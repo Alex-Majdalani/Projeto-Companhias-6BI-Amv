@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Breadcrumb } from '../../components/ui/Breadcrumb';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { MilitarAutocomplete } from '../../components/ui/MilitarAutocomplete';
 import { DataTable } from '../../components/ui/DataTable';
 import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
@@ -1305,55 +1306,18 @@ export function PlanoFerias() {
               )}
             </div>
             
-            <div className="col-span-2 relative">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Nome do Militar
-              </label>
-              <Input 
-                required
-                placeholder="Digite para buscar..."
-                value={nomeMilitar}
-                onChange={(e) => {
-                  handleMilitarChange(e.target.value);
-                  setShowMilitarSuggestions(true);
-                }}
-                onFocus={() => {
-                  closeAllSelectsExcept('militar');
-                  setShowMilitarSuggestions(true);
-                }}
-                onBlur={() => {
-                  setTimeout(() => setShowMilitarSuggestions(false), 250);
-                }}
-              />
-              {showMilitarSuggestions && (
-                <div className="absolute z-[1000] w-full mt-1 max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
-                  {filteredMilitaresForSelect
-                    .filter(m => {
-                      const search = normalizeText(nomeMilitar);
-                      return normalizeText(`${m.posto} ${m.nome}`).includes(search) ||
-                        (m.nome_completo && normalizeText(m.nome_completo).includes(search)) ||
-                        (m.nome_guerra && normalizeText(m.nome_guerra).includes(search));
-                    })
-                    .map(m => (
-                      <div
-                        key={m.id}
-                        onMouseDown={() => {
-                          handleMilitarChange(`${m.posto} ${m.nomeGuerra || m.nome_guerra || m.nome}`);
-                          setMilitarId(m.id);
-                          setSelectedPG(m.posto);
-                          setShowMilitarSuggestions(false);
-                        }}
-                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm flex justify-between items-center"
-                      >
-                        <span>
-                          <span className="text-gray-400 mr-2 text-xs font-semibold uppercase">{m.posto}</span>
-                          {renderMilitarName(m)}
-                        </span>
-                      </div>
-                    ))}
-                </div>
-              )}
-            </div>
+            <MilitarAutocomplete
+              className="col-span-2"
+              label="Nome do Militar"
+              value={nomeMilitar}
+              onChange={handleMilitarChange}
+              onSelect={(m) => setMilitarId(m.id)}
+              militares={militares}
+              selectedPG={selectedPG}
+              setSelectedPG={setSelectedPG}
+              disabled={savingPlan}
+              required
+            />
           </div>
           
           <div className="relative">

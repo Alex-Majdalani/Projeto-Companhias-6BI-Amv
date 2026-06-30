@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Breadcrumb } from '../../components/ui/Breadcrumb';
 import { Button } from '../../components/ui/Button';
 import { Input, Select } from '../../components/ui/Input';
+import { MilitarAutocomplete } from '../../components/ui/MilitarAutocomplete';
 import { DataTable } from '../../components/ui/DataTable';
 import type { Column } from '../../components/ui/DataTable';
 import { Badge } from '../../components/ui/Badge';
@@ -1287,57 +1288,18 @@ export function Taf() {
             </div>
 
             {/* Autocomplete de Militar */}
-            <div className="col-span-2 relative">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Nome do Militar
-              </label>
-              <Input 
-                required
-                placeholder="Digite para buscar..."
-                value={searchMilitar}
-                onChange={(e) => {
-                  handleMilitarSearchChange(e.target.value);
-                  setShowMilitarSuggestions(true);
-                }}
-                onFocus={() => {
-                  setShowPGScroll(false);
-                  setShowMilitarSuggestions(true);
-                }}
-                onBlur={() => {
-                  setTimeout(() => setShowMilitarSuggestions(false), 250);
-                }}
-                disabled={isSavingTest}
-              />
-              {!isSavingTest && showMilitarSuggestions && (
-                <div className="absolute z-[1000] w-full mt-1 max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
-                  {militares
-                    .filter(m => {
-                      if (selectedPG && m.posto !== selectedPG) return false;
-                      const search = normalizeText(searchMilitar);
-                      return normalizeText(`${m.posto} ${m.nome}`).includes(search) ||
-                        (m.nome_completo && normalizeText(m.nome_completo).includes(search)) ||
-                        (m.nome_guerra && normalizeText(m.nome_guerra).includes(search));
-                    })
-                    .map(m => (
-                      <div
-                        key={m.id}
-                        onMouseDown={() => {
-                          setMilitarId(m.id);
-                          setSearchMilitar(`${m.posto} ${m.nome_guerra || m.nome}`);
-                          setSelectedPG(m.posto);
-                          setShowMilitarSuggestions(false);
-                        }}
-                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm flex justify-between items-center"
-                      >
-                        <span>
-                          <span className="text-gray-400 mr-2 text-xs font-semibold uppercase">{m.posto}</span>
-                          {renderMilitarName(m)}
-                        </span>
-                      </div>
-                    ))}
-                </div>
-              )}
-            </div>
+            <MilitarAutocomplete
+              className="col-span-2"
+              label="Nome do Militar"
+              value={searchMilitar}
+              onChange={handleMilitarSearchChange}
+              onSelect={(m) => setMilitarId(m.id)}
+              militares={militares}
+              selectedPG={selectedPG}
+              setSelectedPG={setSelectedPG}
+              disabled={isSavingTest}
+              required
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
