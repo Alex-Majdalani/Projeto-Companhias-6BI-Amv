@@ -128,10 +128,51 @@ export class TiroService {
         params: { limit: 1000 }
       });
       const list = res.data.list || [];
-      const activities = Array.from(
-        new Set(list.map((t: any) => t.atividade).filter(Boolean))
-      ) as string[];
-      return activities.sort((a, b) => a.localeCompare(b));
+
+      // Filtrar e garantir atividades únicas mantendo o registro correspondente
+      const uniqueMap = new Map<string, any>();
+      list.forEach((t: any) => {
+        if (t.atividade) {
+          const key = t.atividade.trim().toLowerCase();
+          if (!uniqueMap.has(key)) {
+            uniqueMap.set(key, t);
+          }
+        }
+      });
+      const uniqueList = Array.from(uniqueMap.values());
+
+      // Ordenar por ID/Ordem de Criação de forma que a segunda chamada fique à direita da atividade base
+      const mapped = uniqueList.map((item, idx) => {
+        const name = item.atividade.trim();
+        const isSecond = name.toLowerCase().startsWith('2ª chamada ') || name.toLowerCase().startsWith('2a chamada ');
+        const baseName = isSecond ? name.substring(11).trim() : name;
+        return {
+          item,
+          isSecond,
+          baseName,
+          originalIdx: idx
+        };
+      });
+
+      const baseFirstIndex = new Map<string, number>();
+      mapped.forEach(m => {
+        const key = m.baseName.toLowerCase();
+        if (!baseFirstIndex.has(key)) {
+          baseFirstIndex.set(key, m.originalIdx);
+        }
+      });
+
+      mapped.sort((a, b) => {
+        const indexA = baseFirstIndex.get(a.baseName.toLowerCase())!;
+        const indexB = baseFirstIndex.get(b.baseName.toLowerCase())!;
+        
+        if (indexA !== indexB) {
+          return indexA - indexB;
+        }
+        return (a.isSecond ? 1 : 0) - (b.isSecond ? 1 : 0);
+      });
+
+      return mapped.map(m => m.item.atividade);
     } catch (error: any) {
       console.error('[TiroService] Erro ao buscar atividades:', error?.response?.data || error.message);
       throw new Error('Não foi possível carregar as atividades.');
