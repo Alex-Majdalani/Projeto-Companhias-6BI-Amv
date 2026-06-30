@@ -1216,7 +1216,7 @@ export function TesteTiro() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Menção Total</label>
-            <Select value={mencao} onChange={(e) => setMencao(e.target.value)} disabled={isSavingTest} required>
+            <Select value={mencao} onChange={(e) => setMencao(e.target.value)} disabled={isSavingTest}>
               <option value="">Selecione a Menção</option>
               <option value="E">Excelente (E)</option>
               <option value="MB">Muito Bom (MB)</option>
