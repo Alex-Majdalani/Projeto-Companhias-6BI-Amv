@@ -440,6 +440,13 @@ export function TesteTiro() {
         return r.militarId === m.id && rowBase.toLowerCase() === activeBase.toLowerCase() && rowIsSecond;
       });
       if (temSegunda) return false;
+
+      const temPrimeira = records.some(r => {
+        const rowBase = getBaseActivityName(r.atividade);
+        const rowIsSecond = r.segundaChamada || r.atividade.toLowerCase().startsWith('2ª chamada ') || r.atividade.toLowerCase().startsWith('2a chamada ');
+        return r.militarId === m.id && rowBase.toLowerCase() === activeBase.toLowerCase() && !rowIsSecond;
+      });
+      if (temPrimeira) return false;
     } else {
       const temQualquerRegistroNoCiclo = records.some(r => {
         const rowBase = getBaseActivityName(r.atividade);
