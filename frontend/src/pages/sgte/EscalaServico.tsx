@@ -684,7 +684,6 @@ export function EscalaServico() {
                   );
                 }
 
-                const [y, monthStr, d] = drawerDay!.split('-').map(Number);
                 const isTargetWeekend = isVermelha(drawerDay!);
 
                 const militaresSorted = tab.militares.map(m => {
@@ -708,89 +707,132 @@ export function EscalaServico() {
                   return 0;
                 });
 
-                return militaresSorted.map(m => {
-                  const isSelecting = selectingTipoFor?.day === drawerDay && selectingTipoFor?.id === m.id;
-                  const entry = (tab.escala[drawerDay!] || []).find(x => x.id === m.id);
-                  const tipoAtual = entry?.tipoServico || m.tipoServico;
+                // Agrupar por Posto/Graduação
+                const pgGroups: Record<string, typeof militaresSorted> = {};
+                for (const m of militaresSorted) {
+                  if (!pgGroups[m.pg]) {
+                    pgGroups[m.pg] = [];
+                  }
+                  pgGroups[m.pg].push(m);
+                }
 
-                  return (
-                    <div key={m.id} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                      <div className={styles['status-row']}>
-                        <div className={styles['status-avatar']}>{initials(m.nome)}</div>
-                        <div className={styles['status-info']}>
-                          <div className={styles['status-name']}>
-                            {m.pg} {m.nome} {tipoAtual && m.status === 'servico' && <span style={{ fontSize: '0.7rem', color: 'var(--color-primary)', marginLeft: 4 }}>({tipoAtual})</span>}
-                          </div>
-                          <div className={styles['status-pg']}>{m.origem === 'importado' ? 'Importado da Cia' : 'Cadastro manual'}</div>
+                // Ordenar os postos ativos usando a ordem hierárquica do pgOptions
+                const orderedPgs = pgOptions.filter(pg => pgGroups[pg] && pgGroups[pg].length > 0);
+                const otherPgs = Object.keys(pgGroups).filter(pg => !pgOptions.includes(pg));
+                const allActivePgs = [...orderedPgs, ...otherPgs];
+
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    {allActivePgs.map(pgName => (
+                      <div key={pgName} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <div style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: '6px 12px',
+                          background: '#f3f4f6',
+                          borderRadius: '6px',
+                          borderLeft: '4px solid var(--color-primary)',
+                          fontWeight: 700,
+                          fontSize: '0.8rem',
+                          color: '#374151',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px'
+                        }}>
+                          <span>{pgName}</span>
+                          <span style={{ fontSize: '0.7rem', color: '#6b7280', fontWeight: 600 }}>
+                            {pgGroups[pgName].length} {pgGroups[pgName].length === 1 ? 'militar' : 'militares'}
+                          </span>
                         </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          {pgGroups[pgName].map(m => {
+                            const isSelecting = selectingTipoFor?.day === drawerDay && selectingTipoFor?.id === m.id;
+                            const entry = (tab.escala[drawerDay!] || []).find(x => x.id === m.id);
+                            const tipoAtual = entry?.tipoServico || m.tipoServico;
 
-                        {!isSelecting && m.status === 'servico' ? (
-                          <span className={`${styles['status-badge']} ${styles['status-badge--servico']}`}>
-                            ● Serviço
-                          </span>
-                        ) : !isSelecting && m.status === 'livre' ? (
-                          <span className={`${styles['status-badge']} ${styles['status-badge--livre']}`} style={{ display: 'flex', gap: '8px', padding: '4px 10px' }}>
-                            <span title="Folgas Preta (Segunda a Sexta)" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <span style={{ width: 8, height: 8, background: '#374151', borderRadius: '2px' }}></span> {m.folgaPreta}
-                            </span>
-                            <span style={{ color: '#d1d5db' }}>|</span>
-                            <span title="Folgas Vermelha (Sábado e Domingo)" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <span style={{ width: 8, height: 8, background: '#ef4444', borderRadius: '2px' }}></span> {m.folgaVermelha}
-                            </span>
-                          </span>
-                        ) : null}
+                            return (
+                              <div key={m.id} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                <div className={styles['status-row']} style={{ padding: '8px 12px', background: m.status === 'servico' ? 'rgba(58,138,62,0.06)' : '#fff', border: m.status === 'servico' ? '1px solid rgba(58,138,62,0.2)' : '1px solid #e5e7eb', borderRadius: '8px', transition: 'all 0.2s' }}>
+                                  <div className={styles['status-avatar']} style={{ width: '32px', height: '32px', fontSize: '0.75rem' }}>{initials(m.nome)}</div>
+                                  <div className={styles['status-info']} style={{ flex: 1 }}>
+                                    <div className={styles['status-name']} style={{ fontSize: '0.85rem', fontWeight: 600 }}>
+                                      {m.pg} {m.nome} {tipoAtual && m.status === 'servico' && <span style={{ fontSize: '0.7rem', color: 'var(--color-primary)', marginLeft: 4 }}>({tipoAtual})</span>}
+                                    </div>
+                                    <div className={styles['status-pg']} style={{ fontSize: '0.68rem' }}>{m.origem === 'importado' ? 'Importado da Cia' : 'Cadastro manual'}</div>
+                                  </div>
 
-                        {!isSelecting && (
-                          <button
-                            className={styles['status-toggle']}
-                            title={m.status === 'servico' ? 'Remover do serviço' : 'Colocar em serviço'}
-                            onClick={() => {
-                              if (m.status === 'servico') {
-                                toggleDayMilitar(drawerDay!, m.id);
-                              } else {
-                                if (tiposServico.length > 0) {
-                                  setSelectingTipoFor({ day: drawerDay!, id: m.id });
-                                } else {
-                                  toggleDayMilitar(drawerDay!, m.id);
-                                }
-                              }
-                            }}
-                          >
-                            {m.status === 'servico' ? <X size={14} /> : <Check size={14} />}
-                          </button>
-                        )}
+                                  {!isSelecting && m.status === 'servico' ? (
+                                    <span className={`${styles['status-badge']} ${styles['status-badge--servico']}`}>
+                                      ● Serviço
+                                    </span>
+                                  ) : !isSelecting && m.status === 'livre' ? (
+                                    <span className={`${styles['status-badge']} ${styles['status-badge--livre']}`} style={{ display: 'flex', gap: '8px', padding: '4px 10px' }}>
+                                      <span title="Folgas Preta (Segunda a Sexta)" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        <span style={{ width: 8, height: 8, background: '#374151', borderRadius: '2px' }}></span> {m.folgaPreta}
+                                      </span>
+                                      <span style={{ color: '#d1d5db' }}>|</span>
+                                      <span title="Folgas Vermelha (Sábado e Domingo)" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        <span style={{ width: 8, height: 8, background: '#ef4444', borderRadius: '2px' }}></span> {m.folgaVermelha}
+                                      </span>
+                                    </span>
+                                  ) : null}
+
+                                  {!isSelecting && (
+                                    <button
+                                      className={styles['status-toggle']}
+                                      title={m.status === 'servico' ? 'Remover do serviço' : 'Colocar em serviço'}
+                                      onClick={() => {
+                                        if (m.status === 'servico') {
+                                          toggleDayMilitar(drawerDay!, m.id);
+                                        } else {
+                                          if (tiposServico.length > 0) {
+                                            setSelectingTipoFor({ day: drawerDay!, id: m.id });
+                                          } else {
+                                            toggleDayMilitar(drawerDay!, m.id);
+                                          }
+                                        }
+                                      }}
+                                    >
+                                      {m.status === 'servico' ? <X size={14} /> : <Check size={14} />}
+                                    </button>
+                                  )}
+                                </div>
+
+                                {/* Seção de seleção de serviço */}
+                                {isSelecting && (
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb', marginLeft: '42px' }}>
+                                    <span style={{ fontSize: '0.8rem', color: '#374151', fontWeight: 600 }}>Tipo de Serviço:</span>
+                                    <select
+                                      autoFocus
+                                      className={styles['modal-select']}
+                                      style={{ padding: '4px 8px', fontSize: '0.8rem', flex: 1 }}
+                                      onChange={(e) => {
+                                        toggleDayMilitar(drawerDay!, m.id, e.target.value);
+                                        setSelectingTipoFor(null);
+                                      }}
+                                      onBlur={() => setSelectingTipoFor(null)}
+                                    >
+                                      <option value="">Selecione para escalar...</option>
+                                      {tiposServico.map(t => <option key={t} value={t}>{t}</option>)}
+                                    </select>
+                                    <button
+                                      className={`${styles.btn} ${styles['btn--ghost']}`}
+                                      onClick={() => setSelectingTipoFor(null)}
+                                      title="Cancelar"
+                                      style={{ padding: '4px' }}
+                                    >
+                                      <X size={14} />
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-
-                      {/* Seção de seleção de serviço */}
-                      {isSelecting && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb', marginLeft: '42px' }}>
-                          <span style={{ fontSize: '0.8rem', color: '#374151', fontWeight: 600 }}>Tipo de Serviço:</span>
-                          <select
-                            autoFocus
-                            className={styles['modal-select']}
-                            style={{ padding: '4px 8px', fontSize: '0.8rem', flex: 1 }}
-                            onChange={(e) => {
-                              toggleDayMilitar(drawerDay!, m.id, e.target.value);
-                              setSelectingTipoFor(null);
-                            }}
-                            onBlur={() => setSelectingTipoFor(null)}
-                          >
-                            <option value="">Selecione para escalar...</option>
-                            {tiposServico.map(t => <option key={t} value={t}>{t}</option>)}
-                          </select>
-                          <button
-                            className={`${styles.btn} ${styles['btn--ghost']}`}
-                            onClick={() => setSelectingTipoFor(null)}
-                            title="Cancelar"
-                            style={{ padding: '4px' }}
-                          >
-                            <X size={14} />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                });
+                    ))}
+                  </div>
+                );
               })()}
             </div>
           </div>
