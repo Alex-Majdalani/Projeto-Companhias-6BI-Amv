@@ -44,7 +44,13 @@ describe('MilitarController - Testes Integrados e Logs', () => {
           endereco: { Id: 10 },
           formas_contato: { Id: 10 },
           redes_sociai: { Id: 10 },
-          especialidades_militar: { Id: 10 }
+          especialidades_militar: { Id: 10 },
+          visitas_medicas: [{ Id: 1 }],
+          baixados: [{ Id: 2 }],
+          planos_ferias: [{ Id: 3 }],
+          funcao_efetivo_cia: [{ Id: 4 }],
+          punicoes: [{ Id: 5 }],
+          fatds1: [{ Id: 6 }]
         })
       };
     });
