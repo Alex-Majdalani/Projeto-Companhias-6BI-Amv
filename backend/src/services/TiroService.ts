@@ -326,11 +326,12 @@ export class TiroService {
       };
 
       if (data.atividade) {
+        const atividadeStr = data.atividade;
         const resAct = await api.get(`/api/v2/tables/${ATIVIDADES_TIRO_TABLE_ID}/records`, {
           params: { limit: 1000 }
         });
         const actList = resAct.data.list || [];
-        const matchedAct = actList.find((a: any) => a.atividade && a.atividade.toLowerCase() === data.atividade.toLowerCase());
+        const matchedAct = actList.find((a: any) => a.atividade && a.atividade.toLowerCase() === atividadeStr.toLowerCase());
         if (!matchedAct) {
           throw new Error('Atividade de tiro correspondente não encontrada.');
         }

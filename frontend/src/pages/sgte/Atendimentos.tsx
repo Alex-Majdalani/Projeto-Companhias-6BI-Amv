@@ -66,41 +66,6 @@ function formatShortDate(dateStr: string): string {
   return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : dateStr;
 }
 
-// Função utilitária para renderizar o nome completo do militar destacando em negrito e com sublinhado apenas as palavras do Nome de Guerra
-function renderMilitarName(militar: any) {
-  const nomeCompleto = militar.nome_completo || militar.nome || '';
-  const nomeGuerra = militar.nomeGuerra || militar.nome_guerra || '';
-
-  if (!nomeGuerra) {
-    return <span className="font-medium text-gray-900">{nomeCompleto}</span>;
-  }
-
-  // Divide o nome de guerra em palavras individuais e escapa caracteres especiais
-  const words = nomeGuerra.split(/\s+/).filter((w: string) => w.trim().length > 0);
-  if (words.length === 0) {
-    return <span className="font-medium text-gray-900">{nomeCompleto}</span>;
-  }
-
-  const escapedWords = words.map((w: string) => w.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'));
-  const regex = new RegExp(`(${escapedWords.join('|')})`, 'gi');
-  const parts = nomeCompleto.split(regex);
-
-  return (
-    <span>
-      {parts.map((part: string, index: number) => 
-        words.some(w => w.toLowerCase() === part.toLowerCase()) ? (
-          <strong key={index} className="font-bold text-militar-main underline decoration-2 decoration-militar-light">
-            {part}
-          </strong>
-        ) : (
-          <span key={index} className="font-medium text-gray-600">
-            {part}
-          </span>
-        )
-      )}
-    </span>
-  );
-}
 
 export function Atendimentos() {
   const [visitas, setVisitas] = useState<VisitaMedica[]>([]);
@@ -126,7 +91,6 @@ export function Atendimentos() {
   const [militarId, setMilitarId] = useState<number | null>(null);
   const [searchMilitar, setSearchMilitar] = useState('');
   const [selectedPG, setSelectedPG] = useState('');
-  const [showMilitarSuggestions, setShowMilitarSuggestions] = useState(false);
   const [motivoVisita, setMotivoVisita] = useState('');
   const [dataVisita, setDataVisita] = useState(new Date().toISOString().split('T')[0]);
   const [medicoResponsavel, setMedicoResponsavel] = useState('');

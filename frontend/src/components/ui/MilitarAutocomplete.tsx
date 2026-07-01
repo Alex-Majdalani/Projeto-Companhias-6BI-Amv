@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Input } from './Input';
-import { Search } from 'lucide-react';
 
 interface MilitarAutocompleteProps {
   label?: string;
@@ -36,7 +35,7 @@ export function renderMilitarName(militar: any) {
   return (
     <span>
       {parts.map((part: string, index: number) => 
-        words.some(w => w.toLowerCase() === part.toLowerCase()) ? (
+        words.some((w: string) => w.toLowerCase() === part.toLowerCase()) ? (
           <strong key={index} className="font-bold text-militar-main underline decoration-2 decoration-militar-light">
             {part}
           </strong>

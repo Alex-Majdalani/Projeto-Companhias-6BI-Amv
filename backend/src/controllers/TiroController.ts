@@ -109,8 +109,7 @@ export class TiroController {
 
       await TiroService.updateTiroRecord(id, {
         atividade,
-        mencao: mencao || null,
-        segunda_chamada: atividade ? (atividade.toLowerCase().includes('2ª chamada') || atividade.toLowerCase().includes('2a chamada') ? 'Sim' : 'Não') : undefined
+        mencao: mencao || null
       });
       return res.status(200).json({ message: 'Teste de Tiro atualizado com sucesso!' });
     } catch (error: any) {
