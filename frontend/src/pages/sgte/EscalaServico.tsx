@@ -43,6 +43,10 @@ interface TabState {
 
 // ─────────────── Dados mock para importação ───────────────
 const MOCK_CIA: MilitarEscala[] = [
+  { id: 'c0_1', nome: 'Oliveira', pg: 'Cap', origem: 'importado' },
+  { id: 'c0_2', nome: 'Costa', pg: '1º Ten', origem: 'importado' },
+  { id: 'c0_3', nome: 'Santos', pg: '2º Ten', origem: 'importado' },
+  { id: 'c0_4', nome: 'Silva', pg: 'Asp', origem: 'importado' },
   { id: 'c1', nome: 'Silva', pg: '1º Sgt', origem: 'importado' },
   { id: 'c2', nome: 'Souza', pg: '2º Sgt', origem: 'importado' },
   { id: 'c3', nome: 'Ferreira', pg: '3º Sgt', origem: 'importado' },
@@ -57,13 +61,22 @@ const MOCK_CIA: MilitarEscala[] = [
   { id: 'c12', nome: 'Carvalho', pg: 'Sd EP', origem: 'importado', tipoServico: 'Cite' },
 ];
 
+const OFICIAIS_PGS = ['Cap', '1º Ten', '2º Ten', 'Asp'];
 const SGT_PGS = ['Subten', '1º Sgt', '2º Sgt', '3º Sgt'];
 const SD_PGS = ['Cb', 'Sd EP'];
+const MISSOES_PGS = [...OFICIAIS_PGS, ...SGT_PGS, ...SD_PGS];
 
 // ─────────────── Mock pré-escalado para o mês atual ───────────────
-function buildMockEscala(year: number, month: number): { sgt: TabState; sd: TabState } {
+function buildMockEscala(year: number, month: number): { oficiais: TabState; sgt: TabState; sd: TabState; missoes: TabState } {
   const pad = (n: number) => String(n).padStart(2, '0');
   const key = (d: number) => `${year}-${pad(month + 1)}-${pad(d)}`;
+
+  const oficiaisMilitares: MilitarEscala[] = [
+    { id: 'c0_1', nome: 'Oliveira', pg: 'Cap', origem: 'importado' },
+    { id: 'c0_2', nome: 'Costa', pg: '1º Ten', origem: 'importado' },
+    { id: 'c0_3', nome: 'Santos', pg: '2º Ten', origem: 'importado' },
+    { id: 'c0_4', nome: 'Silva', pg: 'Asp', origem: 'importado' },
+  ];
 
   const sgtMilitares: MilitarEscala[] = [
     { id: 'c1', nome: 'Silva', pg: '1º Sgt', origem: 'importado' },
@@ -81,16 +94,30 @@ function buildMockEscala(year: number, month: number): { sgt: TabState; sd: TabS
     { id: 'c12', nome: 'Carvalho', pg: 'Sd EP', origem: 'importado', tipoServico: 'Cite' },
   ];
 
-  // Escala Sgt — rotação a cada 2 dias por par
-  const sgtEscala: EscalaDiaria = {};
+  const missoesMilitares: MilitarEscala[] = [
+    { id: 'c3', nome: 'Ferreira', pg: '3º Sgt', origem: 'importado' },
+    { id: 'c8', nome: 'Lima', pg: 'Cb', origem: 'importado' },
+    { id: 'c9', nome: 'Santos', pg: 'Sd EP', origem: 'importado' },
+  ];
+
   const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  // Escala Oficiais
+  const oficiaisEscala: EscalaDiaria = {};
+  for (let d = 1; d <= daysInMonth; d++) {
+    const idx = (d - 1) % oficiaisMilitares.length;
+    oficiaisEscala[key(d)] = [{ id: oficiaisMilitares[idx].id }];
+  }
+
+  // Escala Sgt
+  const sgtEscala: EscalaDiaria = {};
   for (let d = 1; d <= daysInMonth; d++) {
     const idx = (d - 1) % sgtMilitares.length;
     const next = (d) % sgtMilitares.length;
     sgtEscala[key(d)] = [{ id: sgtMilitares[idx].id }, { id: sgtMilitares[next].id }];
   }
 
-  // Escala Sd — rotação diferente
+  // Escala Sd
   const sdEscala: EscalaDiaria = {};
   for (let d = 1; d <= daysInMonth; d++) {
     const idx = (d - 1) % sdMilitares.length;
@@ -101,9 +128,20 @@ function buildMockEscala(year: number, month: number): { sgt: TabState; sd: TabS
     ];
   }
 
+  // Escala Missões
+  const missoesEscala: EscalaDiaria = {};
+  for (let d = 1; d <= daysInMonth; d++) {
+    if (d % 5 === 0) {
+      const idx = (d - 1) % missoesMilitares.length;
+      missoesEscala[key(d)] = [{ id: missoesMilitares[idx].id, tipoServico: 'Escolta' }];
+    }
+  }
+
   return {
+    oficiais: { militares: oficiaisMilitares, escala: oficiaisEscala },
     sgt: { militares: sgtMilitares, escala: sgtEscala },
     sd: { militares: sdMilitares, escala: sdEscala },
+    missoes: { militares: missoesMilitares, escala: missoesEscala },
   };
 }
 
@@ -126,11 +164,11 @@ function initials(nome: string) {
 // ─────────────── Componente Principal ───────────────
 export function EscalaServico() {
   const today = new Date();
-  const [activeTab, setActiveTab] = useState<'sgt' | 'sd'>('sgt');
+  const [activeTab, setActiveTab] = useState<'oficiais' | 'sgt' | 'sd' | 'missoes'>('oficiais');
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
 
-  const [tabs, setTabs] = useState<{ sgt: TabState; sd: TabState }>(
+  const [tabs, setTabs] = useState<{ oficiais: TabState; sgt: TabState; sd: TabState; missoes: TabState }>(
     () => buildMockEscala(today.getFullYear(), today.getMonth())
   );
 
@@ -151,14 +189,24 @@ export function EscalaServico() {
   const [newTipo, setNewTipo] = useState('');
 
   // Gerenciamento de Tipos de Serviço (separado por aba)
-  const [tiposServicoSgt, setTiposServicoSgt] = useState(['Cmt Gda', 'Sgt Dia', 'Sgt Nt', 'Adjunto', 'Of Dia', 'Plantão']);
+  const [tiposServicoOficiais, setTiposServicoOficiais] = useState(['Of Dia', 'Adj Gda', 'Fiscal Dia']);
+  const [tiposServicoSgt, setTiposServicoSgt] = useState(['Cmt Gda', 'Sgt Dia', 'Sgt Nt', 'Adjunto', 'Plantão']);
   const [tiposServicoSd, setTiposServicoSd] = useState(['G1', 'G2', 'Reforço', 'Plantão', 'Cite', 'Permanência', 'Pte', 'Auxiliar']);
+  const [tiposServicoMissoes, setTiposServicoMissoes] = useState(['Escolta', 'Guarda', 'Patrulha', 'Outro']);
   const [showTiposModal, setShowTiposModal] = useState(false);
   const [novoTipoInput, setNovoTipoInput] = useState('');
 
   // Alias conveniente: tipos da aba ativa
-  const tiposServico = activeTab === 'sgt' ? tiposServicoSgt : tiposServicoSd;
-  const setTiposServico = activeTab === 'sgt' ? setTiposServicoSgt : setTiposServicoSd;
+  const tiposServico = activeTab === 'oficiais' ? tiposServicoOficiais :
+                       activeTab === 'sgt' ? tiposServicoSgt :
+                       activeTab === 'sd' ? tiposServicoSd : tiposServicoMissoes;
+
+  const setTiposServico = (val: string[] | ((prev: string[]) => string[])) => {
+    if (activeTab === 'oficiais') setTiposServicoOficiais(val);
+    else if (activeTab === 'sgt') setTiposServicoSgt(val);
+    else if (activeTab === 'sd') setTiposServicoSd(val);
+    else setTiposServicoMissoes(val);
+  };
 
   // Dias com tipo de escala alterado manualmente (preta -> vermelha ou vice-versa)
   // Record<dateKey, 'preta' | 'vermelha'> — only stores overrides
@@ -248,7 +296,7 @@ export function EscalaServico() {
       nome: newNome.trim(),
       pg: newPg,
       origem: 'manual',
-      tipoServico: activeTab === 'sd' ? newTipo : undefined,
+      tipoServico: (activeTab === 'sd' || activeTab === 'missoes') ? newTipo : undefined,
     };
     setTab(prev => ({ ...prev, militares: [...prev.militares, novo] }));
     setNewNome(''); setNewPg(''); setNewTipo('');
@@ -256,7 +304,9 @@ export function EscalaServico() {
   };
 
   // ── Importar da Cia ──
-  const pgFiltro = activeTab === 'sgt' ? SGT_PGS : SD_PGS;
+  const pgFiltro = activeTab === 'oficiais' ? OFICIAIS_PGS :
+                   activeTab === 'sgt' ? SGT_PGS :
+                   activeTab === 'sd' ? SD_PGS : MISSOES_PGS;
   const mockFiltrado = MOCK_CIA.filter(m => pgFiltro.includes(m.pg));
   const jaImportadosIds = tab.militares.map(m => m.id);
 
@@ -382,9 +432,16 @@ export function EscalaServico() {
     return previsao;
   }, [year, month, tab]);
 
+  const tabNameMap = {
+    oficiais: 'Oficiais',
+    sgt: 'ST / SGT',
+    sd: 'CB / SD',
+    missoes: 'Missões'
+  };
+
   const exportarPrevisaoPDF = () => {
     const doc = new jsPDF();
-    const abaNome = activeTab === 'sgt' ? 'Sgt / Subten' : 'Sd / Cb';
+    const abaNome = tabNameMap[activeTab];
     doc.text(`Previsao de Escala de Servico - ${abaNome}`, 14, 15);
 
     const tableData = previsaoSemana.map(p => [
@@ -403,18 +460,30 @@ export function EscalaServico() {
     doc.save(`previsao_escala_${activeTab}.pdf`);
   };
 
-  const pgOptions = activeTab === 'sgt'
+  const pgOptions = activeTab === 'oficiais'
+    ? ['Cap', '1º Ten', '2º Ten', 'Asp']
+    : activeTab === 'sgt'
     ? ['Subten', '1º Sgt', '2º Sgt', '3º Sgt']
-    : ['Cb', 'Sd EP'];
+    : activeTab === 'sd'
+    ? ['Cb', 'Sd EP']
+    : ['Cap', '1º Ten', '2º Ten', 'Asp', 'Subten', '1º Sgt', '2º Sgt', '3º Sgt', 'Cb', 'Sd EP'];
 
-  // ── Escala Unificada (Sgt + Sd) para o Aditamento ──
+  // ── Escala Unificada (Oficiais + Sgt + Sd + Missões) para o Aditamento ──
   const escalaUnificada = useMemo(() => {
     const allDays = new Set([
+      ...Object.keys(tabs.oficiais.escala),
       ...Object.keys(tabs.sgt.escala),
       ...Object.keys(tabs.sd.escala),
+      ...Object.keys(tabs.missoes.escala),
     ]);
     const result: Record<string, { pg: string; nome: string; tipoServico?: string }[]> = {};
     for (const day of allDays) {
+      const oficiaisEntries = (tabs.oficiais.escala[day] || []).map(e => {
+        const m = tabs.oficiais.militares.find(x => x.id === e.id);
+        if (!m) return null;
+        return { pg: m.pg, nome: m.nome, tipoServico: e.tipoServico || m.tipoServico };
+      }).filter(Boolean) as { pg: string; nome: string; tipoServico?: string }[];
+
       const sgtEntries = (tabs.sgt.escala[day] || []).map(e => {
         const m = tabs.sgt.militares.find(x => x.id === e.id);
         if (!m) return null;
@@ -427,7 +496,13 @@ export function EscalaServico() {
         return { pg: m.pg, nome: m.nome, tipoServico: e.tipoServico || m.tipoServico };
       }).filter(Boolean) as { pg: string; nome: string; tipoServico?: string }[];
 
-      result[day] = [...sgtEntries, ...sdEntries];
+      const missoesEntries = (tabs.missoes.escala[day] || []).map(e => {
+        const m = tabs.missoes.militares.find(x => x.id === e.id);
+        if (!m) return null;
+        return { pg: m.pg, nome: m.nome, tipoServico: e.tipoServico || m.tipoServico };
+      }).filter(Boolean) as { pg: string; nome: string; tipoServico?: string }[];
+
+      result[day] = [...oficiaisEntries, ...sgtEntries, ...sdEntries, ...missoesEntries];
     }
     return result;
   }, [tabs]);
@@ -451,16 +526,28 @@ export function EscalaServico() {
       {/* ── Subabas ── */}
       <div className={styles.tabs}>
         <button
+          className={`${styles['tab-btn']} ${activeTab === 'oficiais' ? styles['tab-btn--active'] : ''}`}
+          onClick={() => setActiveTab('oficiais')}
+        >
+          OFICIAIS
+        </button>
+        <button
           className={`${styles['tab-btn']} ${activeTab === 'sgt' ? styles['tab-btn--active'] : ''}`}
           onClick={() => setActiveTab('sgt')}
         >
-          Sgt / Subten
+          ST / SGT
         </button>
         <button
           className={`${styles['tab-btn']} ${activeTab === 'sd' ? styles['tab-btn--active'] : ''}`}
           onClick={() => setActiveTab('sd')}
         >
-          Sd / Cb
+          CB / SD
+        </button>
+        <button
+          className={`${styles['tab-btn']} ${activeTab === 'missoes' ? styles['tab-btn--active'] : ''}`}
+          onClick={() => setActiveTab('missoes')}
+        >
+          MISSÕES
         </button>
       </div>
 
@@ -557,7 +644,7 @@ export function EscalaServico() {
                 <h2>
                   📅 {drawerDate && `${drawerDate.getDate()} de ${MESES[drawerDate.getMonth()]} de ${drawerDate.getFullYear()}`}
                 </h2>
-                <p>Aba: <strong>{activeTab === 'sgt' ? 'Sgt / Subten' : 'Sd / Cb'}</strong> — clique no ícone para alternar o serviço</p>
+                <p>Aba: <strong>{tabNameMap[activeTab]}</strong> — clique no ícone para alternar o serviço</p>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
                 {/* Toggle Preta / Vermelha */}
@@ -598,7 +685,6 @@ export function EscalaServico() {
                 }
 
                 const [y, monthStr, d] = drawerDay!.split('-').map(Number);
-                const targetDate = new Date(y, monthStr - 1, d);
                 const isTargetWeekend = isVermelha(drawerDay!);
 
                 const militaresSorted = tab.militares.map(m => {
@@ -740,7 +826,7 @@ export function EscalaServico() {
               </select>
             </div>
 
-            {activeTab === 'sd' && (
+            {(activeTab === 'sd' || activeTab === 'missoes') && (
               <div className={styles['modal-field']}>
                 <label>Tipo de Serviço (Opcional)</label>
                 <select
@@ -771,7 +857,7 @@ export function EscalaServico() {
         <div className={styles['modal-overlay']} onClick={() => setShowImportModal(false)}>
           <div className={styles.modal} onClick={e => e.stopPropagation()}>
             <h3><Download size={18} style={{ display: 'inline', marginRight: 8, verticalAlign: 'middle' }} />
-              Importar da Cia — {activeTab === 'sgt' ? 'Sgt / Subten' : 'Sd / Cb'}
+              Importar da Cia — {tabNameMap[activeTab]}
             </h3>
             {mockFiltrado.length === 0
               ? <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>Nenhum militar cadastrado com esse perfil.</p>
@@ -815,7 +901,7 @@ export function EscalaServico() {
         <div className={styles['modal-overlay']} onClick={() => setShowTiposModal(false)}>
           <div className={styles.modal} onClick={e => e.stopPropagation()}>
             <h3><Settings size={18} style={{ display: 'inline', marginRight: 8, verticalAlign: 'middle' }} />
-              Tipos de Serviço — {activeTab === 'sgt' ? 'Sgt / Subten' : 'Sd / Cb'}
+              Tipos de Serviço — {tabNameMap[activeTab]}
             </h3>
 
             <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
@@ -860,7 +946,7 @@ export function EscalaServico() {
         <div className={styles['modal-overlay']} onClick={() => setShowEfetivoModal(false)}>
           <div className={styles.modal} onClick={e => e.stopPropagation()}>
             <h3><ClipboardList size={18} style={{ display: 'inline', marginRight: 8, verticalAlign: 'middle' }} />
-              Efetivo — {activeTab === 'sgt' ? 'Sgt / Subten' : 'Sd / Cb'}
+              Efetivo — {tabNameMap[activeTab]}
             </h3>
 
             <div style={{ maxHeight: '400px', overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px', marginTop: '16px' }}>
@@ -939,7 +1025,7 @@ export function EscalaServico() {
           <div className={styles.modal} onClick={e => e.stopPropagation()} style={{ maxWidth: '600px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <h3><Calendar size={18} style={{ display: 'inline', marginRight: 8, verticalAlign: 'middle' }} />
-                Previsão da Semana — {activeTab === 'sgt' ? 'Sgt / Subten' : 'Sd / Cb'}
+                Previsão da Semana — {tabNameMap[activeTab]}
               </h3>
               <button className={`${styles.btn} ${styles['btn--outline']}`} onClick={exportarPrevisaoPDF} title="Exportar para PDF" style={{ color: '#dc2626', borderColor: '#fca5a5' }}>
                 <FileText size={15} /> Exportar PDF
